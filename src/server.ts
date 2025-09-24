@@ -192,20 +192,19 @@ app.get("/api/machines", async (c) => {
   // Check If-None-Match header
   const ifNoneMatch = c.req.header("If-None-Match");
 
-  // Temporarily disable ETag to test
-  // if (ifNoneMatch === currentETag) {
-  //   // Data hasn't changed, return 304 with headers
-  //   const stale = isDataStale();
-  //   const lastSuccess = lastSuccessTime
-  //     ? new Date(lastSuccessTime).toISOString()
-  //     : null;
+  if (ifNoneMatch === currentETag) {
+    // Data hasn't changed, return 304 with headers
+    const stale = isDataStale();
+    const lastSuccess = lastSuccessTime
+      ? new Date(lastSuccessTime).toISOString()
+      : null;
 
-  //   c.header("ETag", currentETag);
-  //   c.header("X-Data-Stale", stale.toString());
-  //   c.header("X-Last-Success", lastSuccess || "");
+    c.header("ETag", currentETag);
+    c.header("X-Data-Stale", stale.toString());
+    c.header("X-Last-Success", lastSuccess || "");
 
-  //   return new Response(null, { status: 304 });
-  // }
+    return new Response(null, { status: 304 });
+  }
 
   // Data has changed or no If-None-Match, return 200 with full data
   const lastSuccess = lastSuccessTime
