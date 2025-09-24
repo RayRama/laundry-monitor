@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laundry Monitor - TV Display</title>
+    <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <h1>Laundry Monitor</h1>
+        <span id="last-updated" aria-live="polite"
+          >Terakhir diperbarui • --:--</span
+        >
+      </header>
+
+      <!-- Status Legend Row -->
+      <div class="status-legend-row">
+        <div class="legend-item">
+          <div class="legend-icon ready"></div>
+          <span>Tersedia</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon running"></div>
+          <span>Sedang Digunakan</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon offline"></div>
+          <span>Offline</span>
+        </div>
+      </div>
+
+      <!-- Machine Grid -->
+      <div class="machines-section">
+        <div class="machines-wrap">
+          <div class="parent" id="machineGrid">
+            <!-- Mesin Dryer (D1-D12) dan Washer (W1-W12) akan di-render di sini -->
+            <!-- Grid positions akan diatur via CSS grid-area -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards Section -->
+      <div class="cards" id="cards">
+        <!-- ETA Card -->
+        <div class="card eta-card">
+          <h2>Sisa Waktu</h2>
+          <div class="eta-table">
+            <div class="eta-header">
+              <div class="eta-col-header">Mesin</div>
+              <div class="eta-col-header">Sisa Waktu</div>
+            </div>
+            <div class="eta-body" id="etaBody">
+              <!-- Daftar ETA akan di-render di sini -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Card -->
+        <div class="card summary-card">
+          <h2>Ringkasan</h2>
+          <div class="donut-charts">
+            <div class="donut-container">
+              <div class="donut-chart" id="dryerDonut">
+                <div class="donut-center">
+                  <span class="donut-number" id="dryerNumber">0/0</span>
+                </div>
+              </div>
+              <div class="donut-label">Dryer</div>
+            </div>
+            <div class="donut-container">
+              <div class="donut-chart" id="washerDonut">
+                <div class="donut-center">
+                  <span class="donut-number" id="washerNumber">0/0</span>
+                </div>
+              </div>
+              <div class="donut-label">Washer</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../scripts/app.js"></script>
+  </body>
+</html>

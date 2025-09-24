@@ -1,0 +1,164 @@
+export type Up = any;
+export type Out = {
+  id: string;
+  type: "washer" | "dryer";
+  label: string; // W01..W12 / D01..D12
+  slot: string; // div*
+  status: "READY" | "RUNNING" | "OFFLINE";
+  updated_at: string | null;
+};
+
+const HYST_MS = Number(process.env.HYST_MS || 3000);
+const lastStatus: Map<string, { status: Out["status"]; ts: number }> =
+  new Map();
+
+/** Zero-pad helper: 7 -> "07" */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Normalisasi label ke zero-padded */
+function normalizeLabel(raw: string): string {
+  // terima variasi "W7"/"W07"/"Washer 7", "D10"/"Dryer 10" -> jadi W07/D10
+  const m = (raw || "").match(/(w|washer|d|dryer)\s*0?(\d{1,2})/i);
+  if (!m) return raw; // biarkan; nanti jatuh ke div0
+  const isDryer = m[1].toLowerCase().startsWith("d");
+  const num = pad2(Number(m[2]));
+  return (isDryer ? "D" : "W") + num;
+}
+
+/** Ambil label dari controllers.json (jika ada), kalau tidak dari nama, kalau tidak fallback index */
+function resolveLabel(
+  ctrlId: string,
+  name: string,
+  jenis: number,
+  idxD: number,
+  idxW: number,
+  ctrlMap: Record<string, string> | null
+) {
+  let raw = "";
+  if (ctrlMap && ctrlMap[ctrlId]) raw = ctrlMap[ctrlId]; // bisa "W7" atau "W07"
+  if (!raw) {
+    const m = (name || "").match(/(washer|dryer)\s*(\d{1,2})/i);
+    if (m) raw = (m[1].toLowerCase().startsWith("dryer") ? "D" : "W") + m[2];
+  }
+  if (!raw) {
+    // fallback index per tipe
+    const n = jenis === 2 ? idxD : idxW;
+    raw = (jenis === 2 ? "D" : "W") + n;
+  }
+  return normalizeLabel(raw);
+}
+
+/** RULE STATUS (baru, ketat) */
+function classifyNew(device: any): Out["status"] {
+  const ol = !!device?.ol;
+  const tl = Number(device?.tl ?? 0); // ms
+  const dur = Number(device?.dur ?? 0); // ms
+  const door = !!device?.door;
+  const sw = !!device?.sw;
+  const st = !!device?.st;
+
+  if (!ol) return "OFFLINE";
+  const running = tl > 0 && dur > 0 && !door && sw && st;
+  return running ? "RUNNING" : "READY";
+}
+
+function applyHysteresis(key: string, next: Out["status"]) {
+  const now = Date.now();
+  const rec = lastStatus.get(key);
+  if (!rec) {
+    lastStatus.set(key, { status: next, ts: now });
+    return next;
+  }
+  if (rec.status !== next && now - rec.ts < HYST_MS) return rec.status;
+  lastStatus.set(key, { status: next, ts: now });
+  return next;
+}
+
+/** SLOT MAP (pakem, zero-padded) */
+const SLOT_BY_LABEL: Record<string, string> = {
+  // TOP row (Dryer)
+  D12: "div12",
+  D11: "div11",
+  D10: "div10",
+  D09: "div9",
+  D08: "div8",
+  D07: "div7",
+  D06: "div6",
+  D05: "div5",
+  D04: "div4",
+  D03: "div3",
+  D02: "div2",
+  D01: "div1",
+  // BOTTOM row (Washer)
+  W01: "div14",
+  W02: "div15",
+  W03: "div16",
+  W04: "div17",
+  W05: "div18",
+  W06: "div19",
+  W07: "div20",
+  W08: "div21",
+  W09: "div22",
+  W10: "div23",
+  W11: "div24",
+  W12: "div25",
+};
+
+function pickSlot(label: string): string {
+  return SLOT_BY_LABEL[label] || "div0";
+}
+
+export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
+  const dryers = rows.filter((x) => x.jenis === 2);
+  const washers = rows.filter((x) => x.jenis === 1);
+
+  let idxD = 0,
+    idxW = 0;
+
+  const mapOne = (x: any) => {
+    const ctrlId = String(
+      x?.snap_report_device?.id || x?.snap_report_device?.aid || x?.id || ""
+    );
+    const jenis = Number(x?.jenis || 0);
+    const type: "washer" | "dryer" = jenis === 2 ? "dryer" : "washer";
+    const name = String(x?.nama || "");
+    const device = x?.snap_report_device || {};
+
+    if (type === "dryer") idxD += 1;
+    else idxW += 1;
+
+    const label = resolveLabel(ctrlId, name, jenis, idxD, idxW, ctrlMap); // -> W07/D10 (zero-padded)
+    const slot = pickSlot(label);
+
+    const rawStatus = classifyNew(device);
+    const status = applyHysteresis(ctrlId, rawStatus);
+
+    return {
+      id: ctrlId,
+      type,
+      label,
+      slot,
+      status,
+      updated_at: x?.updated_at || null,
+    };
+  };
+
+  const list = [
+    ...dryers.map(mapOne).sort((a, b) => a.label.localeCompare(b.label, "id")),
+    ...washers.map(mapOne).sort((a, b) => a.label.localeCompare(b.label, "id")),
+  ];
+
+  const sumType = (t: "dryer" | "washer") => {
+    const arr = list.filter((x) => x.type === t);
+    const total = arr.length,
+      ready = arr.filter((x) => x.status === "READY").length,
+      running = arr.filter((x) => x.status === "RUNNING").length,
+      offline = arr.filter((x) => x.status === "OFFLINE").length;
+    return { total, ready, running, offline };
+  };
+
+  return {
+    list,
+    summary: { dryer: sumType("dryer"), washer: sumType("washer") },
+  };
+}

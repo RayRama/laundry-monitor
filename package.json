@@ -1,0 +1,17 @@
+{
+  "name": "machines-local-fixed-slots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "hono": "^4.5.0",
+    "dotenv": "^16.4.5",
+    "@hono/node-server": "^1.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

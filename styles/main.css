@@ -1,0 +1,405 @@
+/* CSS Variables */
+:root {
+  --bg: #ffffff;
+  --ink: #0f172a;
+  --muted: #6b7280;
+  --panel: #f8fafc;
+  --line: #e2e8f0;
+  --tile: 7rem;
+  --gap: 1rem;
+  --ready: #a8e6cf; /* TERSEDIA → hijau muda */
+  --running: #ffc785; /* SEDANG DIGUNAKAN → oranye */
+  --offline: #d9d9d9; /* OFFLINE → abu-abu */
+}
+
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden; /* No scroll untuk TV display */
+  width: 100vw;
+  height: 100vh;
+}
+
+/* styles/main.css (tambahkan) */
+#last-updated.is-stale {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.container {
+  width: 1920px;
+  height: 1080px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Header */
+.header {
+  position: relative;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+#last-updated {
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+#last-updated.warn {
+  color: #d97706;
+}
+
+#last-updated.danger {
+  color: #dc2626;
+}
+
+/* Status Legend Row */
+.status-legend-row {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 0;
+}
+
+.status-legend-row .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.status-legend-row .legend-icon {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+}
+
+.status-legend-row .legend-icon.ready {
+  background: var(--ready);
+}
+
+.status-legend-row .legend-icon.running {
+  background: var(--running);
+}
+
+.status-legend-row .legend-icon.offline {
+  background: var(--offline);
+}
+
+/* Machine Grid */
+.machines-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 420px;
+}
+
+.machines-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.parent {
+  display: grid;
+  grid-template-columns: repeat(14, var(--tile));
+  grid-template-rows: repeat(2, var(--tile));
+  grid-column-gap: var(--gap);
+  grid-row-gap: var(--gap);
+  width: calc(14 * var(--tile) + 13 * var(--gap));
+  margin-inline: auto;
+}
+
+/* Machine tiles - base styling */
+.machine {
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.3rem;
+  line-height: 1.1;
+  transition: all 150ms ease-in-out;
+  cursor: default;
+  position: relative;
+}
+
+.machine-status {
+  position: absolute;
+  bottom: -2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* Machine status colors */
+.machine.is-ready {
+  background: var(--ready);
+  border: 2px solid var(--ready);
+  color: #0f172a;
+}
+
+.machine.is-running {
+  background: var(--running);
+  border: 2px solid var(--running);
+  color: #0f172a;
+}
+
+.machine.is-offline {
+  background: var(--offline);
+  border: 2px solid var(--offline);
+  color: #111;
+}
+
+/* Grid positions - sesuai mapping yang diminta */
+.div1 {
+  grid-area: 2 / 14 / 3 / 15;
+} /* D1 paling kanan bawah */
+.div2 {
+  grid-area: 1 / 14 / 2 / 15;
+} /* D2 */
+.div3 {
+  grid-area: 1 / 11 / 2 / 12;
+} /* D3 */
+.div4 {
+  grid-area: 1 / 10 / 2 / 11;
+} /* D4 */
+.div5 {
+  grid-area: 1 / 9 / 2 / 10;
+} /* D5 */
+.div6 {
+  grid-area: 1 / 8 / 2 / 9;
+} /* D6 */
+.div7 {
+  grid-area: 1 / 7 / 2 / 8;
+} /* D7 */
+.div8 {
+  grid-area: 1 / 6 / 2 / 7;
+} /* D8 */
+.div9 {
+  grid-area: 1 / 5 / 2 / 6;
+} /* D9 */
+.div10 {
+  grid-area: 1 / 4 / 2 / 5;
+} /* D10 */
+.div11 {
+  grid-area: 1 / 3 / 2 / 4;
+} /* D11 */
+.div12 {
+  grid-area: 1 / 2 / 2 / 3;
+} /* D12 */
+.div13 {
+  grid-area: 1 / 1 / 2 / 2;
+} /* D13 paling kiri atas */
+.div14 {
+  grid-area: 2 / 13 / 3 / 14;
+} /* W1 */
+.div15 {
+  grid-area: 2 / 12 / 3 / 13;
+} /* W2 */
+.div16 {
+  grid-area: 2 / 11 / 3 / 12;
+} /* W3 */
+.div17 {
+  grid-area: 2 / 10 / 3 / 11;
+} /* W4 */
+.div18 {
+  grid-area: 2 / 9 / 3 / 10;
+} /* W5 */
+.div19 {
+  grid-area: 2 / 8 / 3 / 9;
+} /* W6 */
+.div20 {
+  grid-area: 2 / 7 / 3 / 8;
+} /* W7 */
+.div21 {
+  grid-area: 2 / 6 / 3 / 7;
+} /* W8 */
+.div22 {
+  grid-area: 2 / 5 / 3 / 6;
+} /* W9 */
+.div23 {
+  grid-area: 2 / 4 / 3 / 5;
+} /* W10 */
+.div24 {
+  grid-area: 2 / 3 / 3 / 4;
+} /* W11 */
+.div25 {
+  grid-area: 2 / 2 / 3 / 3;
+} /* W12 */
+.div26 {
+  grid-area: 2 / 1 / 3 / 2;
+} /* W13 paling kiri bawah */
+
+/* Cards Section */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* ETA | Summary */
+  gap: 2rem;
+  align-items: stretch;
+  margin-top: 2rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px 24px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.card h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--ink);
+}
+
+/* ETA Card */
+.eta-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eta-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 2px solid var(--line);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+
+.eta-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+
+.eta-row:last-child {
+  border-bottom: none;
+}
+
+.eta-placeholder {
+  text-align: center;
+  padding: 2rem 0;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+/* Donut Charts */
+.donut-charts {
+  display: flex;
+  gap: 3rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.donut-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.donut-chart {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(
+    var(--ready) 0deg 0deg,
+    var(--running) 0deg 0deg,
+    var(--offline) 0deg 0deg,
+    var(--line) 0deg 360deg
+  );
+}
+
+.donut-center {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.donut-number {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.donut-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+
+/* Responsive adjustments untuk TV display */
+@media (max-width: 1920px) {
+  .container {
+    transform: scale(calc(100vw / 1920));
+    transform-origin: top left;
+  }
+}
+
+@media (max-height: 1080px) {
+  .container {
+    transform: scale(calc(100vh / 1080));
+    transform-origin: top left;
+  }
+}
+

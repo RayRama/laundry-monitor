@@ -1,0 +1,18 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer circle -->
+  <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2"/>
+  
+  <!-- Inner circle (drum) -->
+  <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+  
+  <!-- Heat lines (wavy) -->
+  <path d="M7 9C8 10 9 9 10 10C11 11 12 10 13 11C14 12 15 11 16 12C17 13 18 12 17 11" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6"/>
+  <path d="M7 15C8 16 9 15 10 16C11 17 12 16 13 17C14 18 15 17 16 18C17 19 18 18 17 17" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6"/>
+  
+  <!-- Center dot -->
+  <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.4"/>
+  
+  <!-- Heat indicator -->
+  <circle cx="18" cy="6" r="1.5" fill="currentColor" opacity="0.8"/>
+  <path d="M18 6L19 4L20 6L19 8Z" fill="currentColor" opacity="0.6"/>
+</svg>
