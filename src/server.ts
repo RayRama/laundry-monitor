@@ -55,10 +55,16 @@ function calculateETag(machines: any[]): string {
  * Stale = true jika sudah lewat 10 menit tanpa sukses refresh
  */
 function isDataStale(): boolean {
-  if (!lastSuccessTime) return true;
+  // In serverless, use snapshot meta timestamp instead of lastSuccessTime
+  if (!snapshot?.meta?.ts) return true;
+
+  // Check if meta already marks as stale
+  if (snapshot.meta.stale) return true;
+
+  const lastUpdate = new Date(snapshot.meta.ts).getTime();
   const now = Date.now();
-  const tenMinutes = 10 * 60 * 1000; // 10 menit dalam ms
-  return now - lastSuccessTime > tenMinutes;
+  const twoMinutes = 2 * 60 * 1000; // 2 menit dalam ms (lebih agresif)
+  return now - lastUpdate > twoMinutes;
 }
 
 async function fetchWithTimeout(
@@ -149,7 +155,25 @@ async function refresh() {
   }
 }
 
-app.get("/api/machines", (c) => {
+app.get("/api/machines", async (c) => {
+  // Check if data is stale and trigger refresh if needed
+  const stale = isDataStale();
+  console.log(
+    `Data stale check: ${stale}, snapshot exists: ${!!snapshot}, meta: ${JSON.stringify(
+      snapshot?.meta
+    )}`
+  );
+
+  if (stale) {
+    console.log("Data is stale, triggering refresh...");
+    try {
+      await refresh();
+      console.log("Refresh completed successfully");
+    } catch (error) {
+      console.error("Failed to refresh data:", error);
+    }
+  }
+
   const currentSnapshot = snapshot || {
     machines: [],
     summary: { dryer: {}, washer: {} },
@@ -168,22 +192,22 @@ app.get("/api/machines", (c) => {
   // Check If-None-Match header
   const ifNoneMatch = c.req.header("If-None-Match");
 
-  if (ifNoneMatch === currentETag) {
-    // Data hasn't changed, return 304 with headers
-    const stale = isDataStale();
-    const lastSuccess = lastSuccessTime
-      ? new Date(lastSuccessTime).toISOString()
-      : null;
+  // Temporarily disable ETag to test
+  // if (ifNoneMatch === currentETag) {
+  //   // Data hasn't changed, return 304 with headers
+  //   const stale = isDataStale();
+  //   const lastSuccess = lastSuccessTime
+  //     ? new Date(lastSuccessTime).toISOString()
+  //     : null;
 
-    c.header("ETag", currentETag);
-    c.header("X-Data-Stale", stale.toString());
-    c.header("X-Last-Success", lastSuccess || "");
+  //   c.header("ETag", currentETag);
+  //   c.header("X-Data-Stale", stale.toString());
+  //   c.header("X-Last-Success", lastSuccess || "");
 
-    return new Response(null, { status: 304 });
-  }
+  //   return new Response(null, { status: 304 });
+  // }
 
   // Data has changed or no If-None-Match, return 200 with full data
-  const stale = isDataStale();
   const lastSuccess = lastSuccessTime
     ? new Date(lastSuccessTime).toISOString()
     : null;

@@ -454,6 +454,7 @@ function startPolling() {
   // Schedule first refresh
   scheduleNextRefresh(async () => {
     await fetchFromBackend();
+    renderGrid();
     renderEta();
     renderSummary();
     renderUpdatedAt();
