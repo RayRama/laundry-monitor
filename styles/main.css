@@ -3,12 +3,12 @@
   --bg: #ffffff;
   --ink: #0f172a;
   --muted: #6b7280;
-  --panel: #f8fafc;
+  --panel: #ffffff;
   --line: #e2e8f0;
   --tile: 7rem;
   --gap: 1rem;
-  --ready: #a8e6cf; /* TERSEDIA → hijau muda */
-  --running: #ffc785; /* SEDANG DIGUNAKAN → oranye */
+  --ready: #76c19e; /* TERSEDIA → hijau muda */
+  --running: #fac686; /* SEDANG DIGUNAKAN → oranye */
   --offline: #d9d9d9; /* OFFLINE → abu-abu */
 }
 
@@ -61,7 +61,8 @@ body {
   position: absolute;
   right: 0;
   top: 0;
-  font-size: 16px;
+  font-size: 20px;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -76,10 +77,11 @@ body {
 /* Status Legend Row */
 .status-legend-row {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 2rem;
   margin-bottom: 1.5rem;
   padding: 1rem 0;
+  margin-left: 2rem;
 }
 
 .status-legend-row .legend-item {
@@ -127,7 +129,7 @@ body {
   grid-template-columns: repeat(14, var(--tile));
   grid-template-rows: repeat(2, var(--tile));
   grid-column-gap: var(--gap);
-  grid-row-gap: var(--gap);
+  grid-row-gap: calc(var(--gap) + 2rem);
   width: calc(14 * var(--tile) + 13 * var(--gap));
   margin-inline: auto;
 }
@@ -162,20 +164,20 @@ body {
 
 /* Machine status colors */
 .machine.is-ready {
-  background: var(--ready);
-  border: 2px solid var(--ready);
+  background: #a8e6cfce;
+  border: 2px solid #76c19e;
   color: #0f172a;
 }
 
 .machine.is-running {
-  background: var(--running);
-  border: 2px solid var(--running);
+  background: #ffc685b7;
+  border: 2px solid #fac686;
   color: #0f172a;
 }
 
 .machine.is-offline {
-  background: var(--offline);
-  border: 2px solid var(--offline);
+  background: #d9d9d9;
+  border: 2px solid #b8b8b8;
   color: #111;
 }
 
@@ -266,23 +268,27 @@ body {
   gap: 2rem;
   align-items: stretch;
   margin-top: 2rem;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .card {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 20px 24px;
-  min-height: 260px;
+  padding: 24px 28px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
 .card h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
   color: var(--ink);
 }
 
@@ -296,11 +302,11 @@ body {
 .eta-header {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  padding: 0.75rem 0;
+  gap: 1.5rem;
+  padding: 1rem 0;
   border-bottom: 2px solid var(--line);
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1.3rem;
   color: var(--ink);
 }
 
@@ -313,10 +319,11 @@ body {
 .eta-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  padding: 0.75rem 0;
+  gap: 1.5rem;
+  padding: 1rem 0;
   border-bottom: 1px solid var(--line);
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -329,7 +336,8 @@ body {
   padding: 2rem 0;
   color: var(--muted);
   font-style: italic;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
 /* Donut Charts */
@@ -348,8 +356,8 @@ body {
 }
 
 .donut-chart {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   position: relative;
   display: flex;
@@ -364,8 +372,8 @@ body {
 }
 
 .donut-center {
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   background: var(--bg);
   display: flex;
@@ -376,17 +384,16 @@ body {
 }
 
 .donut-number {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: var(--ink);
 }
 
 .donut-label {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--ink);
 }
-
 
 /* Responsive adjustments untuk TV display */
 @media (max-width: 1920px) {
@@ -402,4 +409,3 @@ body {
     transform-origin: top left;
   }
 }
-

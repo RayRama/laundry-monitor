@@ -87,11 +87,34 @@ function renderGrid() {
     machineElement.textContent = machine.label;
     machineElement.dataset.machineId = machine.id;
 
+    // Add status text below machine
+    const statusElement = document.createElement("div");
+    statusElement.className = "machine-status";
+    statusElement.textContent = getStatusText(machine);
+    machineElement.appendChild(statusElement);
+
     // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
     grid.appendChild(machineElement);
   });
+}
+
+/**
+ * Get status text for machine
+ */
+function getStatusText(machine) {
+  switch (machine.status) {
+    case STATUS.RUNNING:
+      const eta = machine.eta ? formatETAIndonesia(machine.eta) : "0m";
+      return `${eta} 🔄`;
+    case STATUS.READY:
+      return "";
+    case STATUS.OFFLINE:
+      return "Offline";
+    default:
+      return "Offline";
+  }
 }
 
 /**
@@ -120,7 +143,7 @@ function applyStatusWithHysteresis(element, machine) {
   });
 
   // Remove old status classes
-  element.classList.remove("is-ready", "is-using", "is-offline");
+  element.classList.remove("is-ready", "is-running", "is-offline");
   // Add new status class
   element.classList.add(getStatusClass(currentStatus));
 }
@@ -132,8 +155,8 @@ function getStatusClass(status) {
   switch (status) {
     case STATUS.READY:
       return "is-ready";
-    case STATUS.USING:
-      return "is-using";
+    case STATUS.RUNNING:
+      return "is-running";
     case STATUS.OFFLINE:
       return "is-offline";
     default:
@@ -162,94 +185,137 @@ function formatETAIndonesia(eta) {
  * Render panel ETA
  */
 function renderEta() {
-  const dryerList = document.getElementById("dryerEtaList");
-  const washerList = document.getElementById("washerEtaList");
+  const etaBody = document.getElementById("etaBody");
+  if (!etaBody) return;
 
-  if (!dryerList || !washerList) return;
-
-  // Get USING machines by type and sort by ETA
-  const usingDryers = machines
-    .filter((m) => m.type === MACHINE_TYPE.DRYER && m.status === STATUS.USING)
+  // Get all running machines and sort by ETA
+  const runningMachines = machines
+    .filter((m) => m.status === STATUS.RUNNING)
     .sort((a, b) => toMinutes(a.eta) - toMinutes(b.eta))
-    .slice(0, 6); // Max 6 items
+    .slice(0, 3); // Max 3 items
 
-  const usingWashers = machines
-    .filter((m) => m.type === MACHINE_TYPE.WASHER && m.status === STATUS.USING)
-    .sort((a, b) => toMinutes(a.eta) - toMinutes(b.eta))
-    .slice(0, 6); // Max 6 items
+  etaBody.innerHTML = "";
 
-  // Render dryer ETA
-  dryerList.innerHTML = "";
-  for (let i = 0; i < 6; i++) {
-    const item = document.createElement("div");
-    item.className = "eta-item";
-
-    if (i < usingDryers.length) {
-      const machine = usingDryers[i];
-      const formattedETA = formatETAIndonesia(machine.eta);
-      item.textContent = `${machine.label} ⇒ ${formattedETA}`;
-    } else {
-      item.textContent = "—";
-      item.classList.add("placeholder");
-    }
-
-    dryerList.appendChild(item);
+  if (runningMachines.length === 0) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "eta-placeholder";
+    placeholder.textContent = "Belum ada mesin berjalan";
+    etaBody.appendChild(placeholder);
+    return;
   }
 
-  // Render washer ETA
-  washerList.innerHTML = "";
-  for (let i = 0; i < 6; i++) {
-    const item = document.createElement("div");
-    item.className = "eta-item";
+  runningMachines.forEach((machine) => {
+    const row = document.createElement("div");
+    row.className = "eta-row";
 
-    if (i < usingWashers.length) {
-      const machine = usingWashers[i];
-      const formattedETA = formatETAIndonesia(machine.eta);
-      item.textContent = `${machine.label} ⇒ ${formattedETA}`;
-    } else {
-      item.textContent = "—";
-      item.classList.add("placeholder");
-    }
+    const machineCell = document.createElement("div");
+    machineCell.textContent = machine.label;
 
-    washerList.appendChild(item);
-  }
+    const timeCell = document.createElement("div");
+    const formattedETA = formatETAIndonesia(machine.eta);
+    timeCell.textContent = formattedETA;
+
+    row.appendChild(machineCell);
+    row.appendChild(timeCell);
+    etaBody.appendChild(row);
+  });
 }
 
 /**
- * Render summary statistics
+ * Render summary statistics with donut charts
  */
 function renderSummary() {
-  const dryerReadyEl = document.getElementById("dryerReadyPercent");
-  const dryerUsingEl = document.getElementById("dryerUsingPercent");
-  const washerReadyEl = document.getElementById("washerReadyPercent");
-  const washerUsingEl = document.getElementById("washerUsingPercent");
+  const dryerNumberEl = document.getElementById("dryerNumber");
+  const washerNumberEl = document.getElementById("washerNumber");
+  const dryerDonutEl = document.getElementById("dryerDonut");
+  const washerDonutEl = document.getElementById("washerDonut");
 
-  if (!dryerReadyEl || !dryerUsingEl || !washerReadyEl || !washerUsingEl)
+  if (!dryerNumberEl || !washerNumberEl || !dryerDonutEl || !washerDonutEl)
     return;
 
   // Calculate statistics for Dryer
   const dryers = machines.filter((m) => m.type === MACHINE_TYPE.DRYER);
   const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
-  const dryerUsing = dryers.filter((m) => m.status === STATUS.USING).length;
-  // const dryerReadyPercent =
-  //   Math.round(((dryerReady / dryers.length) * 100) / 10) * 10; // Round to nearest 10
-  // const dryerUsingPercent =
-  //   Math.round(((dryerUsing / dryers.length) * 100) / 10) * 10;
+  const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
+  const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
 
   // Calculate statistics for Washer
   const washers = machines.filter((m) => m.type === MACHINE_TYPE.WASHER);
   const washerReady = washers.filter((m) => m.status === STATUS.READY).length;
-  const washerUsing = washers.filter((m) => m.status === STATUS.USING).length;
-  // const washerReadyPercent =
-  //   Math.round(((washerReady / washers.length) * 100) / 10) * 10;
-  // const washerUsingPercent =
-  //   Math.round(((washerUsing / washers.length) * 100) / 10) * 10;
+  const washerRunning = washers.filter(
+    (m) => m.status === STATUS.RUNNING
+  ).length;
+  const washerOffline = washers.filter(
+    (m) => m.status === STATUS.OFFLINE
+  ).length;
 
-  // Update DOM
-  dryerReadyEl.textContent = `${dryerReady} Mesin`;
-  dryerUsingEl.textContent = `${dryerUsing} Mesin`;
-  washerReadyEl.textContent = `${washerReady} Mesin`;
-  washerUsingEl.textContent = `${washerUsing} Mesin`;
+  // Update numbers
+  dryerNumberEl.textContent = `${dryerReady}/${dryers.length}`;
+  washerNumberEl.textContent = `${washerReady}/${washers.length}`;
+
+  // Update donut charts
+  updateDonutChart(
+    dryerDonutEl,
+    dryerReady,
+    dryerRunning,
+    dryerOffline,
+    dryers.length
+  );
+  updateDonutChart(
+    washerDonutEl,
+    washerReady,
+    washerRunning,
+    washerOffline,
+    washers.length
+  );
+}
+
+/**
+ * Update donut chart with conic gradient
+ */
+function updateDonutChart(element, ready, running, offline, total) {
+  if (total === 0) {
+    element.style.background = `conic-gradient(var(--line) 0deg 360deg)`;
+    return;
+  }
+
+  const readyAngle = (ready / total) * 360;
+  const runningAngle = (running / total) * 360;
+  const offlineAngle = (offline / total) * 360;
+
+  let gradient = "";
+  let currentAngle = 0;
+
+  if (ready > 0) {
+    gradient += `var(--ready) ${currentAngle}deg ${
+      currentAngle + readyAngle
+    }deg`;
+    currentAngle += readyAngle;
+  }
+
+  if (running > 0) {
+    if (gradient) gradient += ", ";
+    gradient += `var(--running) ${currentAngle}deg ${
+      currentAngle + runningAngle
+    }deg`;
+    currentAngle += runningAngle;
+  }
+
+  if (offline > 0) {
+    if (gradient) gradient += ", ";
+    gradient += `var(--offline) ${currentAngle}deg ${
+      currentAngle + offlineAngle
+    }deg`;
+    currentAngle += offlineAngle;
+  }
+
+  // Fill remaining with line color
+  if (currentAngle < 360) {
+    if (gradient) gradient += ", ";
+    gradient += `var(--line) ${currentAngle}deg 360deg`;
+  }
+
+  element.style.background = `conic-gradient(${gradient})`;
 }
 
 /**
@@ -347,14 +413,14 @@ async function fetchFromBackend() {
     const items = Array.isArray(data?.machines) ? data.machines : [];
     meta = data?.meta || { ts: null, stale: true };
 
-    // Map status RUNNING->USING, type dryer/washer->D/W
+    // Map status dan type
     machines = items.map((m) => ({
       id: m.id,
       type: m.type === "dryer" ? "D" : "W",
       label: m.label,
       slot: m.slot,
-      status: m.status === "RUNNING" ? "USING" : m.status,
-      eta: null,
+      status: m.status, // Keep original status (READY, RUNNING, OFFLINE)
+      eta: m.eta || null,
       updated_at: m.updated_at,
     }));
 
@@ -412,7 +478,6 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     STATUS,
     MACHINE_TYPE,
-    SLOT_TO_MACHINE,
     init,
     renderGrid,
     renderEta,
@@ -420,5 +485,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderUpdatedAt,
     toMinutes,
     formatETAIndonesia,
+    getStatusText,
+    updateDonutChart,
   };
 }
