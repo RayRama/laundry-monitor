@@ -69,20 +69,75 @@ async function init() {
 }
 
 /**
- * Render grid mesin
+ * Render grid mesin dengan responsive layout
  */
 function renderGrid() {
+  const screenWidth = window.innerWidth;
+  const isMobile = screenWidth <= 767;
+  const isTablet = screenWidth > 767 && screenWidth <= 1023;
+  const isDesktop = screenWidth > 1023 && screenWidth <= 1919;
+  const isTV = screenWidth > 1919;
+
+  if (isMobile) {
+    // Mobile: Render separate grids for dryers and washers
+    renderMobileGrids();
+  } else {
+    // Desktop/Tablet/TV: Render single grid
+    renderSingleGrid();
+  }
+}
+
+/**
+ * Render single grid for desktop/tablet/TV
+ */
+function renderSingleGrid() {
   const grid = document.getElementById("machineGrid");
   if (!grid) return;
+
+  // Hide mobile grids
+  const mobileGrids = document.getElementById("mobileGrids");
+  if (mobileGrids) mobileGrids.style.display = "none";
+
+  // Show single grid
+  grid.style.display = "grid";
 
   // Clear existing content
   grid.innerHTML = "";
 
-  machines.forEach((machine) => {
-    const divClass = machine.slot; // gunakan slot dari API
-    if (!divClass) {
-      console.warn(`No grid mapping found for machine ${machine.label}`);
-      return;
+  // Determine screen size for responsive ordering
+  const screenWidth = window.innerWidth;
+  const isTablet = screenWidth > 767 && screenWidth <= 1023;
+  const isDesktop = screenWidth > 1023 && screenWidth <= 1919;
+
+  // Sort machines based on screen size
+  let sortedMachines = [...machines];
+
+  if (isTablet) {
+    // Tablet: Sort by type and label
+    sortedMachines.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === "D" ? -1 : 1;
+      }
+      return a.label.localeCompare(b.label);
+    });
+  } else if (isDesktop) {
+    // Desktop: Sort by type and label
+    sortedMachines.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === "D" ? -1 : 1;
+      }
+      return a.label.localeCompare(b.label);
+    });
+  }
+  // TV: Keep original order (no sorting)
+
+  sortedMachines.forEach((machine, index) => {
+    let divClass = machine.slot; // Default slot from API
+
+    // Override slot for responsive layouts
+    if (isTablet || isDesktop) {
+      // Use index-based positioning for responsive layouts
+      divClass = `responsive-${index}`;
     }
 
     const machineElement = document.createElement("div");
@@ -104,13 +159,83 @@ function renderGrid() {
 }
 
 /**
+ * Render separate grids for mobile (dryers and washers)
+ */
+function renderMobileGrids() {
+  const dryerGrid = document.getElementById("dryerGrid");
+  const washerGrid = document.getElementById("washerGrid");
+  const mobileGrids = document.getElementById("mobileGrids");
+  const singleGrid = document.getElementById("machineGrid");
+
+  if (!dryerGrid || !washerGrid || !mobileGrids) return;
+
+  // Hide single grid
+  if (singleGrid) singleGrid.style.display = "none";
+
+  // Show mobile grids
+  mobileGrids.style.display = "block";
+
+  // Clear existing content
+  dryerGrid.innerHTML = "";
+  washerGrid.innerHTML = "";
+
+  // Separate machines by type
+  const dryers = machines.filter((m) => m.type === "D");
+  const washers = machines.filter((m) => m.type === "W");
+
+  // Sort each type by label
+  dryers.sort((a, b) => a.label.localeCompare(b.label));
+  washers.sort((a, b) => a.label.localeCompare(b.label));
+
+  // Render dryers
+  dryers.forEach((machine, index) => {
+    const machineElement = document.createElement("div");
+    machineElement.className = `machine responsive-${index}`;
+    machineElement.textContent = machine.label;
+    machineElement.dataset.machineId = machine.id;
+
+    // Add status text below machine
+    const statusElement = document.createElement("div");
+    statusElement.className = "machine-status";
+    statusElement.textContent = getStatusText(machine);
+    machineElement.appendChild(statusElement);
+
+    // Apply status class dengan hysteresis
+    applyStatusWithHysteresis(machineElement, machine);
+
+    dryerGrid.appendChild(machineElement);
+  });
+
+  // Render washers
+  washers.forEach((machine, index) => {
+    const machineElement = document.createElement("div");
+    machineElement.className = `machine responsive-${index}`;
+    machineElement.textContent = machine.label;
+    machineElement.dataset.machineId = machine.id;
+
+    // Add status text below machine
+    const statusElement = document.createElement("div");
+    statusElement.className = "machine-status";
+    statusElement.textContent = getStatusText(machine);
+    machineElement.appendChild(statusElement);
+
+    // Apply status class dengan hysteresis
+    applyStatusWithHysteresis(machineElement, machine);
+
+    washerGrid.appendChild(machineElement);
+  });
+}
+
+/**
  * Get status text for machine
  */
 function getStatusText(machine) {
   switch (machine.status) {
     case STATUS.RUNNING:
-      const eta = machine.eta ? formatETAIndonesia(machine.eta) : "0m";
-      return `${eta} 🔄`;
+      const elapsed = machine.elapsed_ms
+        ? formatElapsedTime(machine.elapsed_ms)
+        : "0m";
+      return `${elapsed} ⏱️`;
     case STATUS.READY:
       return "";
     case STATUS.OFFLINE:
@@ -168,20 +293,44 @@ function getStatusClass(status) {
 }
 
 /**
- * Convert HH:MM to minutes for sorting
+ * Convert elapsed milliseconds to minutes for sorting
  */
-function toMinutes(hhmm) {
-  if (!hhmm || hhmm === "—") return Infinity;
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
+function toMinutes(elapsedMs) {
+  if (!elapsedMs || elapsedMs === "—") return Infinity;
+  if (typeof elapsedMs === "string") {
+    // Legacy format HH:MM
+    const [h, m] = elapsedMs.split(":").map(Number);
+    return h * 60 + m;
+  }
+  // New format: milliseconds
+  return Math.floor(elapsedMs / (1000 * 60));
 }
 
 /**
- * Format ETA with Indonesian time format (HH.MM)
+ * Format elapsed time as minimal text
  */
-function formatETAIndonesia(eta) {
-  if (!eta || eta === "—") return "—";
-  return eta.replace(":", ".");
+function formatElapsedTime(elapsedMs) {
+  if (!elapsedMs || elapsedMs === "—") return "—";
+
+  // Handle new format: milliseconds
+  if (typeof elapsedMs === "number") {
+    const totalMinutes = Math.floor(elapsedMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  }
+
+  // Handle legacy format: HH:MM string
+  if (typeof elapsedMs === "string") {
+    return elapsedMs.replace(":", ".");
+  }
+
+  return "—";
 }
 
 /**
@@ -191,11 +340,11 @@ function renderEta() {
   const etaBody = document.getElementById("etaBody");
   if (!etaBody) return;
 
-  // Get all running machines and sort by ETA
+  // Get all running machines and sort by elapsed time (longest first)
   const runningMachines = machines
     .filter((m) => m.status === STATUS.RUNNING)
-    .sort((a, b) => toMinutes(a.eta) - toMinutes(b.eta))
-    .slice(0, 3); // Max 3 items
+    .sort((a, b) => toMinutes(b.elapsed_ms) - toMinutes(a.elapsed_ms));
+  // Remove slice(0, 3) to show all items
 
   etaBody.innerHTML = "";
 
@@ -207,16 +356,33 @@ function renderEta() {
     return;
   }
 
-  runningMachines.forEach((machine) => {
+  // Add header with note
+  // const header = document.createElement("div");
+  // header.className = "eta-header";
+  // header.innerHTML = `
+  //   <div class="eta-title">⏱️ Mesin Berjalan</div>
+  //   <div class="eta-note">Teratas = hampir selesai</div>
+  // `;
+  // etaBody.appendChild(header);
+
+  runningMachines.forEach((machine, index) => {
     const row = document.createElement("div");
-    row.className = "eta-row";
+    row.className = `eta-row ${index === 0 ? "eta-priority" : ""}`;
 
     const machineCell = document.createElement("div");
-    machineCell.textContent = machine.label;
+    machineCell.className = "eta-machine";
+    machineCell.innerHTML = `
+      <span class="eta-label">${machine.label}</span>
+      <!-- <span class="eta-status">⏱️ Berjalan</span> -->
+    `;
 
     const timeCell = document.createElement("div");
-    const formattedETA = formatETAIndonesia(machine.eta);
-    timeCell.textContent = formattedETA;
+    timeCell.className = "eta-time";
+    const formattedElapsed = formatElapsedTime(machine.elapsed_ms);
+    timeCell.innerHTML = `
+      <span class="eta-duration">${formattedElapsed}</span>
+      <span class="eta-subtitle">sudah berjalan</span>
+    `;
 
     row.appendChild(machineCell);
     row.appendChild(timeCell);
@@ -423,7 +589,7 @@ async function fetchFromBackend() {
       label: m.label,
       slot: m.slot,
       status: m.status, // Keep original status (READY, RUNNING, OFFLINE)
-      eta: m.eta || null,
+      elapsed_ms: m.elapsed_ms || null,
       updated_at: m.updated_at,
     }));
 
@@ -472,6 +638,12 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+// Re-render grid when window is resized
+window.addEventListener("resize", () => {
+  console.log("Window resized, re-rendering grid");
+  renderGrid();
+});
+
 // Error handling
 window.addEventListener("error", (event) => {
   console.error("Application error:", event.error);
@@ -488,7 +660,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderSummary,
     renderUpdatedAt,
     toMinutes,
-    formatETAIndonesia,
+    formatElapsedTime,
     getStatusText,
     updateDonutChart,
   };

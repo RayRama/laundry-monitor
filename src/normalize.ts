@@ -6,14 +6,50 @@ export type Out = {
   slot: string; // div*
   status: "READY" | "RUNNING" | "OFFLINE";
   updated_at: string | null;
+  elapsed_ms?: number; // Elapsed time in milliseconds (for RUNNING machines)
+  start_time?: number; // Start time in milliseconds (for RUNNING machines)
 };
 
 const HYST_MS = Number(process.env.HYST_MS || 3000);
 const lastStatus: Map<string, { status: Out["status"]; ts: number }> =
   new Map();
 
+// Store start times for running machines
+const startTimes: Map<string, number> = new Map();
+
 /** Zero-pad helper: 7 -> "07" */
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Calculate elapsed time since updated_at for running machines (stopwatch) */
+function calculateElapsed(
+  ctrlId: string,
+  status: Out["status"],
+  updated_at: string | null
+): { elapsed_ms?: number; start_time?: number } {
+  if (status !== "RUNNING" || !updated_at) {
+    // Clear start time when not running
+    startTimes.delete(ctrlId);
+    return {};
+  }
+
+  const now = Date.now();
+  const updatedAtMs = new Date(updated_at).getTime();
+
+  // Calculate elapsed time since updated_at (stopwatch)
+  const elapsed = now - updatedAtMs;
+
+  // Get or set start time (use updated_at as start time)
+  let startTime = startTimes.get(ctrlId);
+  if (!startTime) {
+    startTime = updatedAtMs;
+    startTimes.set(ctrlId, startTime);
+  }
+
+  return {
+    elapsed_ms: Math.round(elapsed),
+    start_time: startTime,
+  };
+}
 
 /** Normalisasi label ke zero-padded */
 function normalizeLabel(raw: string): string {
@@ -133,6 +169,9 @@ export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
     const rawStatus = classifyNew(device);
     const status = applyHysteresis(ctrlId, rawStatus);
 
+    // Calculate elapsed time for running machines (stopwatch)
+    const elapsedData = calculateElapsed(ctrlId, status, x?.updated_at || null);
+
     return {
       id: ctrlId,
       type,
@@ -140,6 +179,7 @@ export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
       slot,
       status,
       updated_at: x?.updated_at || null,
+      ...elapsedData,
     };
   };
 

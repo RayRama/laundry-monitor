@@ -116,7 +116,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 420px;
+  /* min-height: 420px; */
 }
 
 .machines-wrap {
@@ -285,6 +285,33 @@ body {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* Scrollable content for ETA card */
+#etaBody {
+  max-height: 250px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+}
+
+/* Custom scrollbar for ETA card */
+#etaBody::-webkit-scrollbar {
+  width: 6px;
+}
+
+#etaBody::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+#etaBody::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+#etaBody::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
 .card h2 {
   font-size: 1.8rem;
   font-weight: 700;
@@ -300,14 +327,15 @@ body {
 }
 
 .eta-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  padding: 1rem 0;
-  border-bottom: 2px solid var(--line);
-  font-weight: 700;
-  font-size: 1.3rem;
-  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.5rem 1.2rem;
+  background: #b1b5be; /* warna natural, biru muda lembut */
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  color: #020203;
+  text-align: center;
 }
 
 .eta-body {
@@ -320,11 +348,20 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--line);
+  padding: 1.2rem;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--ink);
+  transition: all 0.2s ease;
+}
+
+.eta-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .eta-row:last-child {
@@ -337,6 +374,77 @@ body {
   color: var(--muted);
   font-style: italic;
   font-size: 1.2rem;
+  font-weight: 500;
+}
+
+/* New ETA styling */
+.eta-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.3rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.eta-note {
+  font-size: 1rem;
+  color: #020203;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+.eta-priority {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin: 0.8rem 0;
+  border-left: 5px solid #28a745;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+/* .eta-priority::before {
+  content: "🔥";
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 1.2rem;
+} */
+
+.eta-machine {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.eta-label {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.eta-status {
+  font-size: 0.9rem;
+  /* color: var(--running); */
+  font-weight: 500;
+}
+
+.eta-time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.eta-duration {
+  font-size: 1.4rem;
+  font-weight: 700;
+  /* color: var(--running); */
+}
+
+.eta-subtitle {
+  font-size: 0.8rem;
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -395,17 +503,619 @@ body {
   color: var(--ink);
 }
 
-/* Responsive adjustments untuk TV display */
-@media (max-width: 1920px) {
+/* Responsive adjustments untuk TV display - HANYA untuk layar 1920px+ */
+@media (min-width: 1920px) and (min-height: 1080px) {
   .container {
     transform: scale(calc(100vw / 1920));
     transform-origin: top left;
   }
 }
 
-@media (max-height: 1080px) {
+/* Global responsive classes - reset untuk semua screen sizes */
+.responsive-0,
+.responsive-1,
+.responsive-2,
+.responsive-3,
+.responsive-4,
+.responsive-5,
+.responsive-6,
+.responsive-7,
+.responsive-8,
+.responsive-9,
+.responsive-10,
+.responsive-11,
+.responsive-12,
+.responsive-13,
+.responsive-14,
+.responsive-15,
+.responsive-16,
+.responsive-17,
+.responsive-18,
+.responsive-19,
+.responsive-20,
+.responsive-21,
+.responsive-22,
+.responsive-23,
+.responsive-24,
+.responsive-25 {
+  grid-area: auto;
+}
+
+/* Hide mobile grids by default (show only on mobile) */
+.mobile-grids {
+  display: none;
+}
+
+/* ===========================================
+   RESPONSIVE DESIGN UNTUK DESKTOP/LAPTOP & HP
+   =========================================== */
+
+/* Desktop/Laptop (1024px - 1919px) */
+@media (max-width: 1919px) and (min-width: 1024px) {
   .container {
-    transform: scale(calc(100vh / 1080));
-    transform-origin: top left;
+    width: 100vw;
+    height: auto;
+    min-height: 100vh;
+    padding: 1.5rem;
+    transform: none;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  #last-updated {
+    font-size: 1rem;
+  }
+
+  /* Ubah grid layout untuk desktop - lebih compact */
+  .parent {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(3, auto);
+    gap: 1rem;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  /* Reposisi grid items untuk layout desktop yang lebih compact */
+  .div1 {
+    grid-area: 3 / 8 / 4 / 9;
+  } /* D01 */
+  .div2 {
+    grid-area: 1 / 8 / 2 / 9;
+  } /* D02 */
+  .div3 {
+    grid-area: 1 / 7 / 2 / 8;
+  } /* D03 */
+  .div4 {
+    grid-area: 1 / 6 / 2 / 7;
+  } /* D04 */
+  .div5 {
+    grid-area: 1 / 5 / 2 / 6;
+  } /* D05 */
+  .div6 {
+    grid-area: 1 / 4 / 2 / 5;
+  } /* D06 */
+  .div7 {
+    grid-area: 1 / 3 / 2 / 4;
+  } /* D07 */
+  .div8 {
+    grid-area: 1 / 2 / 2 / 3;
+  } /* D08 */
+  .div9 {
+    grid-area: 1 / 1 / 2 / 2;
+  } /* D09 */
+  .div10 {
+    grid-area: 2 / 1 / 3 / 2;
+  } /* D10 */
+  .div11 {
+    grid-area: 2 / 2 / 3 / 3;
+  } /* D11 */
+  .div12 {
+    grid-area: 2 / 3 / 3 / 4;
+  } /* D12 */
+  .div13 {
+    grid-area: 2 / 4 / 3 / 5;
+  } /* D13 */
+  .div14 {
+    grid-area: 3 / 7 / 4 / 8;
+  } /* W01 */
+  .div15 {
+    grid-area: 3 / 6 / 4 / 7;
+  } /* W02 */
+  .div16 {
+    grid-area: 3 / 5 / 4 / 6;
+  } /* W03 */
+  .div17 {
+    grid-area: 3 / 4 / 4 / 5;
+  } /* W04 */
+  .div18 {
+    grid-area: 3 / 3 / 4 / 4;
+  } /* W05 */
+  .div19 {
+    grid-area: 3 / 2 / 4 / 3;
+  } /* W06 */
+  .div20 {
+    grid-area: 3 / 1 / 4 / 2;
+  } /* W07 */
+  .div21 {
+    grid-area: 2 / 5 / 3 / 6;
+  } /* W08 */
+  .div22 {
+    grid-area: 2 / 6 / 3 / 7;
+  } /* W09 */
+  .div23 {
+    grid-area: 2 / 7 / 3 / 8;
+  } /* W10 */
+  .div24 {
+    grid-area: 2 / 8 / 3 / 9;
+  } /* W11 */
+  .div25 {
+    grid-area: 1 / 9 / 2 / 10;
+  } /* W12 */
+  .div26 {
+    grid-area: 2 / 9 / 3 / 10;
+  } /* W13 */
+
+  .machine {
+    width: 100%;
+    height: 3rem;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .machine-status {
+    position: static;
+    transform: none;
+    font-size: 0.6rem;
+    margin-top: 0.2rem;
+  }
+
+  .cards {
+    max-width: 900px;
+    gap: 1.5rem;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .card {
+    padding: 1rem;
+    min-height: 160px;
+  }
+
+  .card h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .eta-row {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .eta-label {
+    font-size: 0.9rem;
+  }
+
+  .eta-duration {
+    font-size: 1rem;
+  }
+
+  .eta-subtitle {
+    font-size: 0.7rem;
+  }
+
+  .donut-charts {
+    gap: 1rem;
+  }
+
+  .donut-chart {
+    width: 80px;
+    height: 80px;
+  }
+
+  .donut-center {
+    width: 40px;
+    height: 40px;
+  }
+
+  .donut-number {
+    font-size: 0.9rem;
+  }
+
+  .donut-label {
+    font-size: 0.8rem;
+  }
+
+  /* Scrollable ETA card for desktop */
+  #etaBody {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Tablet (768px - 1023px) */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .container {
+    width: 100vw;
+    height: auto;
+    min-height: 100vh;
+    padding: 1.5rem;
+    transform: none;
+  }
+
+  .header {
+    margin-bottom: 1rem;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  #last-updated {
+    font-size: 1rem;
+    position: static;
+    margin-top: 0.5rem;
+  }
+
+  .status-legend-row {
+    margin-left: 0;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Layout tablet - 2 kolom */
+  .parent {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* Reset semua grid positions untuk tablet */
+  .div1,
+  .div2,
+  .div3,
+  .div4,
+  .div5,
+  .div6,
+  .div7,
+  .div8,
+  .div9,
+  .div10,
+  .div11,
+  .div12,
+  .div13,
+  .div14,
+  .div15,
+  .div16,
+  .div17,
+  .div18,
+  .div19,
+  .div20,
+  .div21,
+  .div22,
+  .div23,
+  .div24,
+  .div25,
+  .div26 {
+    grid-area: auto;
+  }
+
+  /* Responsive classes untuk tablet */
+  .responsive-0,
+  .responsive-1,
+  .responsive-2,
+  .responsive-3,
+  .responsive-4,
+  .responsive-5,
+  .responsive-6,
+  .responsive-7,
+  .responsive-8,
+  .responsive-9,
+  .responsive-10,
+  .responsive-11,
+  .responsive-12,
+  .responsive-13,
+  .responsive-14,
+  .responsive-15,
+  .responsive-16,
+  .responsive-17,
+  .responsive-18,
+  .responsive-19,
+  .responsive-20,
+  .responsive-21,
+  .responsive-22,
+  .responsive-23,
+  .responsive-24,
+  .responsive-25 {
+    grid-area: auto;
+  }
+
+  .machine {
+    width: 100%;
+    height: 4rem;
+    font-size: 1rem;
+  }
+
+  .machine-status {
+    position: static;
+    transform: none;
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+  }
+
+  /* Scrollable ETA card for tablet */
+  #etaBody {
+    max-height: 250px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    max-width: 600px;
+  }
+
+  .card {
+    padding: 1.2rem;
+    min-height: 180px;
+  }
+
+  .card h2 {
+    font-size: 1.3rem;
+  }
+
+  .eta-row {
+    padding: 0.8rem;
+    font-size: 0.9rem;
+  }
+
+  .eta-label {
+    font-size: 1rem;
+  }
+
+  .eta-duration {
+    font-size: 1.1rem;
+  }
+}
+
+/* Mobile (max-width: 767px) */
+@media (max-width: 767px) {
+  body {
+    overflow: auto; /* Enable scrolling on mobile */
+  }
+
+  .container {
+    width: 100vw;
+    height: auto;
+    min-height: 100vh;
+    padding: 1rem;
+    transform: none;
+  }
+
+  .header {
+    margin-bottom: 0.8rem;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  #last-updated {
+    font-size: 0.9rem;
+    position: static;
+    margin-top: 0.3rem;
+  }
+
+  .status-legend-row {
+    margin-left: 0;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .status-legend-row .legend-item {
+    font-size: 0.9rem;
+  }
+
+  .machines-section {
+    min-height: auto;
+  }
+
+  /* Layout mobile - 2 kolom untuk grid yang lebih baik */
+  .parent {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.8rem;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    grid-template-rows: repeat(1, 1fr);
+  }
+
+  /* Reset semua grid positions untuk mobile */
+  .div1,
+  .div2,
+  .div3,
+  .div4,
+  .div5,
+  .div6,
+  .div7,
+  .div8,
+  .div9,
+  .div10,
+  .div11,
+  .div12,
+  .div13,
+  .div14,
+  .div15,
+  .div16,
+  .div17,
+  .div18,
+  .div19,
+  .div20,
+  .div21,
+  .div22,
+  .div23,
+  .div24,
+  .div25,
+  .div26 {
+    grid-area: auto;
+  }
+
+  /* Responsive classes untuk mobile */
+  .responsive-0,
+  .responsive-1,
+  .responsive-2,
+  .responsive-3,
+  .responsive-4,
+  .responsive-5,
+  .responsive-6,
+  .responsive-7,
+  .responsive-8,
+  .responsive-9,
+  .responsive-10,
+  .responsive-11,
+  .responsive-12,
+  .responsive-13,
+  .responsive-14,
+  .responsive-15,
+  .responsive-16,
+  .responsive-17,
+  .responsive-18,
+  .responsive-19,
+  .responsive-20,
+  .responsive-21,
+  .responsive-22,
+  .responsive-23,
+  .responsive-24,
+  .responsive-25 {
+    grid-area: auto;
+  }
+
+  .machine {
+    width: 100%;
+    height: 3rem;
+    font-size: 0.6rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .machine-status {
+    position: static;
+    transform: none;
+    font-size: 0.4rem;
+    margin-top: 0.2rem;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+    margin-top: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+    min-height: 160px;
+  }
+
+  .card h2 {
+    font-size: 1.2rem;
+  }
+
+  .eta-row {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .eta-machine {
+    align-items: center;
+  }
+
+  .eta-time {
+    align-items: center;
+  }
+
+  .eta-label {
+    font-size: 0.9rem;
+  }
+
+  .eta-duration {
+    font-size: 1rem;
+  }
+
+  .eta-subtitle {
+    font-size: 0.7rem;
+  }
+
+  /* Scrollable ETA card for mobile */
+  #etaBody {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Mobile separate grids */
+  .mobile-grids {
+    display: block;
+  }
+
+  .mobile-grid-section {
+    margin-bottom: 2rem;
+  }
+
+  .mobile-grid-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--ink);
+    text-align: center;
+  }
+
+  .mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .donut-charts {
+    gap: 1.5rem;
+  }
+
+  .donut-chart {
+    width: 100px;
+    height: 100px;
+  }
+
+  .donut-center {
+    width: 50px;
+    height: 50px;
+  }
+
+  .donut-number {
+    font-size: 1.1rem;
+  }
+
+  .donut-label {
+    font-size: 1rem;
   }
 }

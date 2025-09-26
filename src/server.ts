@@ -215,7 +215,23 @@ app.get("/api/machines", async (c) => {
   c.header("X-Data-Stale", stale.toString());
   c.header("X-Last-Success", lastSuccess || "");
 
-  return c.json(currentSnapshot);
+  // Add screen size info to response
+  const response = {
+    ...currentSnapshot,
+    meta: {
+      ...currentSnapshot.meta,
+      screen_info: {
+        breakpoints: {
+          mobile: 767,
+          tablet: 1023,
+          desktop: 1919,
+          tv: 1920,
+        },
+      },
+    },
+  };
+
+  return c.json(response);
 });
 app.post("/api/refresh", async (c) => {
   await refresh();
