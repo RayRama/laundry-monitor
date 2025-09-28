@@ -24,7 +24,8 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 function calculateElapsed(
   ctrlId: string,
   status: Out["status"],
-  updated_at: string | null
+  updated_at: string | null,
+  device: any
 ): { elapsed_ms?: number; start_time?: number } {
   if (status !== "RUNNING" || !updated_at) {
     // Clear start time when not running
@@ -34,9 +35,21 @@ function calculateElapsed(
 
   const now = Date.now();
   const updatedAtMs = new Date(updated_at).getTime();
+  const tl = Number(device?.tl ?? 0); // waktu tersisa dalam ms
+  const dur = Number(device?.dur ?? 0); // durasi total dalam ms
 
-  // Calculate elapsed time since updated_at (stopwatch)
-  const elapsed = now - updatedAtMs;
+  // Validasi: jika tl atau dur tidak valid, jangan hitung elapsed
+  if (tl <= 0 || dur <= 0 || tl > dur) {
+    startTimes.delete(ctrlId);
+    return {};
+  }
+
+  // Hitung elapsed time berdasarkan durasi - waktu tersisa
+  // elapsed = dur - tl (waktu yang sudah berjalan)
+  const elapsed = Math.max(0, dur - tl);
+
+  // Validasi: elapsed tidak boleh lebih dari durasi total
+  const maxElapsed = Math.min(elapsed, dur);
 
   // Get or set start time (use updated_at as start time)
   let startTime = startTimes.get(ctrlId);
@@ -46,7 +59,7 @@ function calculateElapsed(
   }
 
   return {
-    elapsed_ms: Math.round(elapsed),
+    elapsed_ms: Math.round(maxElapsed),
     start_time: startTime,
   };
 }
@@ -85,16 +98,36 @@ function resolveLabel(
 }
 
 /** RULE STATUS (baru, ketat) */
-function classifyNew(device: any): Out["status"] {
+function classifyNew(device: any, updated_at: string | null): Out["status"] {
   const ol = !!device?.ol;
   const tl = Number(device?.tl ?? 0); // ms
   const dur = Number(device?.dur ?? 0); // ms
-  const door = !!device?.door;
-  const sw = !!device?.sw;
+  // const door = !!device?.door;
+  // const sw = !!device?.sw;
   const st = !!device?.st;
 
   if (!ol) return "OFFLINE";
-  const running = tl > 0 && dur > 0 && !door && sw && st;
+
+  // Validasi durasi maksimal (1 jam = 3600000ms)
+  const MAX_DURATION_MS = 1 * 60 * 60 * 1000; // 1 jam
+
+  // Validasi data tidak terlalu lama (max 1 jam sejak updated_at)
+  const MAX_DATA_AGE_MS = 1 * 60 * 60 * 1000; // 1 jam
+  if (updated_at) {
+    const dataAge = Date.now() - new Date(updated_at).getTime();
+    if (dataAge > MAX_DATA_AGE_MS) {
+      console.log(`Data too old: ${dataAge}ms, marking as READY`);
+      return "READY";
+    }
+  }
+
+  // Mesin running jika:
+  // 1. tl > 0 (waktu tersisa > 0)
+  // 2. dur > 0 (durasi total > 0)
+  // 3. dur <= MAX_DURATION_MS (durasi masuk akal)
+  // 4. tl <= dur (waktu tersisa tidak lebih dari durasi total)
+  const running = tl > 0 && dur > 0 && dur <= MAX_DURATION_MS && tl <= dur;
+
   return running ? "RUNNING" : "READY";
 }
 
@@ -105,6 +138,15 @@ function applyHysteresis(key: string, next: Out["status"]) {
     lastStatus.set(key, { status: next, ts: now });
     return next;
   }
+
+  // Hysteresis khusus untuk transisi RUNNING -> READY
+  // Jika mesin berubah dari RUNNING ke READY, langsung update (tidak ada delay)
+  if (rec.status === "RUNNING" && next === "READY") {
+    lastStatus.set(key, { status: next, ts: now });
+    return next;
+  }
+
+  // Hysteresis normal untuk transisi lain (3 detik)
   if (rec.status !== next && now - rec.ts < HYST_MS) return rec.status;
   lastStatus.set(key, { status: next, ts: now });
   return next;
@@ -166,11 +208,16 @@ export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
     const label = resolveLabel(ctrlId, name, jenis, idxD, idxW, ctrlMap); // -> W07/D10 (zero-padded)
     const slot = pickSlot(label);
 
-    const rawStatus = classifyNew(device);
+    const rawStatus = classifyNew(device, x?.updated_at || null);
     const status = applyHysteresis(ctrlId, rawStatus);
 
     // Calculate elapsed time for running machines (stopwatch)
-    const elapsedData = calculateElapsed(ctrlId, status, x?.updated_at || null);
+    const elapsedData = calculateElapsed(
+      ctrlId,
+      status,
+      x?.updated_at || null,
+      device
+    );
 
     return {
       id: ctrlId,
