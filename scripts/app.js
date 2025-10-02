@@ -22,6 +22,37 @@ let machines = [];
 let lastUpdateTime = null;
 let isDataStale = false;
 let meta = { ts: null, stale: true };
+
+// Machine brand mapping
+const machineBrands = {
+  // Dryers
+  D01: "SQ",
+  D02: "SQ",
+  D03: "FGD",
+  D04: "FGD",
+  D05: "MDG",
+  D06: "MDG",
+  D07: "MDG",
+  D08: "MDG",
+  D09: "MDG",
+  D10: "NTG",
+  D11: "NTG",
+  D12: "NTG",
+
+  // Washers
+  W01: "Titan",
+  W02: "Titan",
+  W03: "LG24",
+  W04: "LG24",
+  W05: "FGD",
+  W06: "FGD",
+  W07: "LG20",
+  W08: "LG20",
+  W09: "LG20",
+  W10: "NTG",
+  W11: "BEKO",
+  W12: "BEKO",
+};
 let lastETag = null;
 
 // Tentukan base URL API:
@@ -140,21 +171,53 @@ function renderSingleGrid() {
       divClass = `responsive-${index}`;
     }
 
+    // Create wrapper for machine + brand
+    const machineWrapper = document.createElement("div");
+    machineWrapper.className = "machine-wrapper";
+
+    // Create machine box
     const machineElement = document.createElement("div");
     machineElement.className = `machine ${divClass}`;
-    machineElement.textContent = machine.label;
     machineElement.dataset.machineId = machine.id;
 
-    // Add status text below machine
-    const statusElement = document.createElement("div");
-    statusElement.className = "machine-status";
-    statusElement.textContent = getStatusText(machine);
-    machineElement.appendChild(statusElement);
+    // Create machine content with new layout
+    const machineContent = document.createElement("div");
+    machineContent.className = "machine-content";
+
+    // Machine label (W12, D01, etc.)
+    const labelElement = document.createElement("div");
+    labelElement.className = "machine-label";
+    labelElement.textContent = machine.label;
+    machineContent.appendChild(labelElement);
+
+    // Status info (different for RUNNING vs READY/OFFLINE)
+    const statusInfo = document.createElement("div");
+    statusInfo.className = "machine-status-info";
+
+    if (machine.status === "RUNNING") {
+      // For RUNNING: Show elapsed time only
+      const timeElement = document.createElement("div");
+      timeElement.className = "machine-time";
+      timeElement.textContent = getStatusText(machine);
+      statusInfo.appendChild(timeElement);
+    }
+
+    machineContent.appendChild(statusInfo);
+    machineElement.appendChild(machineContent);
+
+    // Brand name - OUTSIDE the box
+    const brandElement = document.createElement("div");
+    brandElement.className = "machine-brand";
+    brandElement.textContent = machineBrands[machine.label] || "Unknown";
+
+    // Add machine and brand to wrapper
+    machineWrapper.appendChild(machineElement);
+    machineWrapper.appendChild(brandElement);
 
     // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
-    grid.appendChild(machineElement);
+    grid.appendChild(machineWrapper);
   });
 }
 
@@ -189,40 +252,104 @@ function renderMobileGrids() {
 
   // Render dryers
   dryers.forEach((machine, index) => {
+    // Create wrapper for machine + brand
+    const machineWrapper = document.createElement("div");
+    machineWrapper.className = "machine-wrapper";
+
+    // Create machine box
     const machineElement = document.createElement("div");
     machineElement.className = `machine responsive-${index}`;
-    machineElement.textContent = machine.label;
     machineElement.dataset.machineId = machine.id;
 
-    // Add status text below machine
-    const statusElement = document.createElement("div");
-    statusElement.className = "machine-status";
-    statusElement.textContent = getStatusText(machine);
-    machineElement.appendChild(statusElement);
+    // Create machine content with new layout
+    const machineContent = document.createElement("div");
+    machineContent.className = "machine-content";
+
+    // Machine label (D01, D02, etc.)
+    const labelElement = document.createElement("div");
+    labelElement.className = "machine-label";
+    labelElement.textContent = machine.label;
+    machineContent.appendChild(labelElement);
+
+    // Status info (different for RUNNING vs READY/OFFLINE)
+    const statusInfo = document.createElement("div");
+    statusInfo.className = "machine-status-info";
+
+    if (machine.status === "RUNNING") {
+      // For RUNNING: Show elapsed time only
+      const timeElement = document.createElement("div");
+      timeElement.className = "machine-time";
+      timeElement.textContent = getStatusText(machine);
+      statusInfo.appendChild(timeElement);
+    }
+
+    machineContent.appendChild(statusInfo);
+    machineElement.appendChild(machineContent);
+
+    // Brand name - OUTSIDE the box
+    const brandElement = document.createElement("div");
+    brandElement.className = "machine-brand";
+    brandElement.textContent = machineBrands[machine.label] || "Unknown";
+
+    // Add machine and brand to wrapper
+    machineWrapper.appendChild(machineElement);
+    machineWrapper.appendChild(brandElement);
 
     // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
-    dryerGrid.appendChild(machineElement);
+    dryerGrid.appendChild(machineWrapper);
   });
 
   // Render washers
   washers.forEach((machine, index) => {
+    // Create wrapper for machine + brand
+    const machineWrapper = document.createElement("div");
+    machineWrapper.className = "machine-wrapper";
+
+    // Create machine box
     const machineElement = document.createElement("div");
     machineElement.className = `machine responsive-${index}`;
-    machineElement.textContent = machine.label;
     machineElement.dataset.machineId = machine.id;
 
-    // Add status text below machine
-    const statusElement = document.createElement("div");
-    statusElement.className = "machine-status";
-    statusElement.textContent = getStatusText(machine);
-    machineElement.appendChild(statusElement);
+    // Create machine content with new layout
+    const machineContent = document.createElement("div");
+    machineContent.className = "machine-content";
+
+    // Machine label (W01, W02, etc.)
+    const labelElement = document.createElement("div");
+    labelElement.className = "machine-label";
+    labelElement.textContent = machine.label;
+    machineContent.appendChild(labelElement);
+
+    // Status info (different for RUNNING vs READY/OFFLINE)
+    const statusInfo = document.createElement("div");
+    statusInfo.className = "machine-status-info";
+
+    if (machine.status === "RUNNING") {
+      // For RUNNING: Show elapsed time only
+      const timeElement = document.createElement("div");
+      timeElement.className = "machine-time";
+      timeElement.textContent = getStatusText(machine);
+      statusInfo.appendChild(timeElement);
+    }
+
+    machineContent.appendChild(statusInfo);
+    machineElement.appendChild(machineContent);
+
+    // Brand name - OUTSIDE the box
+    const brandElement = document.createElement("div");
+    brandElement.className = "machine-brand";
+    brandElement.textContent = machineBrands[machine.label] || "Unknown";
+
+    // Add machine and brand to wrapper
+    machineWrapper.appendChild(machineElement);
+    machineWrapper.appendChild(brandElement);
 
     // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
-    washerGrid.appendChild(machineElement);
+    washerGrid.appendChild(machineWrapper);
   });
 }
 

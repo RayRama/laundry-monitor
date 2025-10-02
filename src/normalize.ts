@@ -108,11 +108,11 @@ function classifyNew(device: any, updated_at: string | null): Out["status"] {
 
   if (!ol) return "OFFLINE";
 
-  // Validasi durasi maksimal (1 jam = 3600000ms)
-  const MAX_DURATION_MS = 1 * 60 * 60 * 1000; // 1 jam
+  // Validasi durasi maksimal (3 jam = 10800000ms)
+  const MAX_DURATION_MS = 3 * 60 * 60 * 1000; // 3 jam
 
-  // Validasi data tidak terlalu lama (max 1 jam sejak updated_at)
-  const MAX_DATA_AGE_MS = 1 * 60 * 60 * 1000; // 1 jam
+  // Validasi data tidak terlalu lama (max 2 jam sejak updated_at)
+  const MAX_DATA_AGE_MS = 2 * 60 * 60 * 1000; // 2 jam
   if (updated_at) {
     const dataAge = Date.now() - new Date(updated_at).getTime();
     if (dataAge > MAX_DATA_AGE_MS) {

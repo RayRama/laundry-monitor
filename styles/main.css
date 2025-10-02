@@ -12,6 +12,58 @@
   --offline: #d9d9d9; /* OFFLINE → abu-abu */
 }
 
+/* New Machine Layout Styles */
+.machine-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.machine {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.machine-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  text-align: center;
+}
+
+.machine-label {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.machine-status-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.machine-time {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.machine-brand {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: center;
+}
+
 /* Reset & Base */
 * {
   margin: 0;
@@ -285,9 +337,9 @@ body {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* Scrollable content for ETA card */
+/* Scrollable content for ETA card - show 6 items by default */
 #etaBody {
-  max-height: 250px;
+  max-height: 360px; /* 6 items × 60px per item */
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 0.5rem;
@@ -678,6 +730,38 @@ body {
     margin-top: 0.2rem;
   }
 
+  /* New layout responsive styles for desktop */
+  .machine-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .machine {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .machine-content {
+    height: 100%;
+    width: 100%;
+  }
+
+  .machine-label {
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .machine-time {
+    font-size: 0.6rem;
+  }
+
+  .machine-brand {
+    font-size: 0.7rem;
+  }
+
   .cards {
     max-width: 900px;
     gap: 1.5rem;
@@ -734,9 +818,9 @@ body {
     font-size: 0.8rem;
   }
 
-  /* Scrollable ETA card for desktop */
+  /* Scrollable ETA card for desktop - show 6 items by default */
   #etaBody {
-    max-height: 200px;
+    max-height: 300px; /* 6 items × 50px per item for desktop */
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -855,9 +939,9 @@ body {
     margin-top: 0.2rem;
   }
 
-  /* Scrollable ETA card for tablet */
+  /* Scrollable ETA card for tablet - show 6 items by default */
   #etaBody {
-    max-height: 250px;
+    max-height: 330px; /* 6 items × 55px per item for tablet */
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -1021,6 +1105,38 @@ body {
     margin-top: 0.2rem;
   }
 
+  /* New layout responsive styles for mobile */
+  .machine-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .machine {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .machine-content {
+    height: 100%;
+    width: 100%;
+  }
+
+  .machine-label {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .machine-time {
+    font-size: 0.6rem;
+  }
+
+  .machine-brand {
+    font-size: 0.5rem;
+  }
+
   .cards {
     grid-template-columns: 1fr;
     gap: 0.8rem;
@@ -1064,9 +1180,9 @@ body {
     font-size: 0.7rem;
   }
 
-  /* Scrollable ETA card for mobile */
+  /* Scrollable ETA card for mobile - show 6 items by default */
   #etaBody {
-    max-height: 200px;
+    max-height: 300px; /* 6 items × 50px per item for mobile */
     overflow-y: auto;
     overflow-x: hidden;
   }
