@@ -140,16 +140,17 @@ export class SpreadsheetManager {
           const roundedStartTime = roundToMinute(startTime);
           const roundedEndTime = roundToMinute(endTime);
 
-          // Create unique key to prevent duplicates (rounded to minute)
+          // Create unique key to prevent duplicates (rounded to minute + duration)
           const recordKey = `${machineId}_${this.formatTime(
             roundedStartTime
-          )}_${this.formatTime(roundedEndTime)}`;
+          )}_${this.formatTime(roundedEndTime)}_${duration}`;
 
           // Check if record already exists
           if (this.savedRecords.has(recordKey)) {
             console.log(
               `⚠️ Duplicate record detected for ${machineId}, skipping... (Key: ${recordKey})`
             );
+            console.log(`🔍 All saved records:`, Array.from(this.savedRecords));
             return;
           }
 
@@ -157,13 +158,14 @@ export class SpreadsheetManager {
           console.log(
             `📅 Original: ${this.formatTime(startTime)} → ${this.formatTime(
               endTime
-            )}`
+            )} (${duration})`
           );
           console.log(
             `📅 Rounded:  ${this.formatTime(
               roundedStartTime
-            )} → ${this.formatTime(roundedEndTime)}`
+            )} → ${this.formatTime(roundedEndTime)} (${duration})`
           );
+          console.log(`🔍 Saved records count: ${this.savedRecords.size}`);
 
           const record: MachineRecord = {
             uniqueKey: uniqueKey,
