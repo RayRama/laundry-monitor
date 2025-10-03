@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import fs from "node:fs/promises";
+import crypto from "node:crypto";
 import { normalize } from "./normalize.js";
 import { SpreadsheetManager } from "./spreadsheet.js";
 
