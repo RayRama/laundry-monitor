@@ -93,10 +93,9 @@ export class SpreadsheetManager {
       const machineId = machine.label;
       const currentStatus = machine.status;
       const aid = machine.aid || "UNKNOWN";
-      const uniqueKey = machine.uniqueKey;
 
       console.log(
-        `📊 Machine ${machineId}: status=${currentStatus}, aid=${aid}, uniqueKey=${uniqueKey}`
+        `📊 Machine ${machineId}: status=${currentStatus}, aid=${aid}`
       );
 
       const previousState = this.machineStates.get(machineId);
@@ -128,16 +127,43 @@ export class SpreadsheetManager {
           const endTime = new Date();
           const duration = this.calculateDuration(startTime, endTime);
 
-          // Use uniqueKey from server (already generated)
-          const recordKey = uniqueKey;
+          // Generate unique UUID for this record
+          const uniqueKey = randomUUID();
+
+          // Round times to minute to handle millisecond differences
+          const roundToMinute = (date: Date) => {
+            const rounded = new Date(date);
+            rounded.setSeconds(0, 0); // Set detik dan milidetik ke 0
+            return rounded;
+          };
+
+          const roundedStartTime = roundToMinute(startTime);
+          const roundedEndTime = roundToMinute(endTime);
+
+          // Create unique key to prevent duplicates (rounded to minute)
+          const recordKey = `${machineId}_${this.formatTime(
+            roundedStartTime
+          )}_${this.formatTime(roundedEndTime)}`;
 
           // Check if record already exists
           if (this.savedRecords.has(recordKey)) {
             console.log(
-              `⚠️ Duplicate record detected for ${machineId}, skipping...`
+              `⚠️ Duplicate record detected for ${machineId}, skipping... (Key: ${recordKey})`
             );
             return;
           }
+
+          console.log(`✅ New record for ${machineId} (Key: ${recordKey})`);
+          console.log(
+            `📅 Original: ${this.formatTime(startTime)} → ${this.formatTime(
+              endTime
+            )}`
+          );
+          console.log(
+            `📅 Rounded:  ${this.formatTime(
+              roundedStartTime
+            )} → ${this.formatTime(roundedEndTime)}`
+          );
 
           const record: MachineRecord = {
             uniqueKey: uniqueKey,
@@ -155,6 +181,7 @@ export class SpreadsheetManager {
 
           // Mark as saved to prevent duplicates
           this.savedRecords.add(recordKey);
+          console.log(`📊 Total saved records: ${this.savedRecords.size}`);
         }
 
         // Update state
