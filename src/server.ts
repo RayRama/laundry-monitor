@@ -259,6 +259,9 @@ async function refresh() {
     };
 
     // Track machine status changes for spreadsheet
+    console.log(`🔍 SpreadsheetManager status: ${spreadsheetManager ? 'initialized' : 'null'}`);
+    console.log(`🔍 Running machines count: ${runningMachines.length}`);
+    
     if (spreadsheetManager) {
       try {
         console.log(
