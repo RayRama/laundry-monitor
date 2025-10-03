@@ -5,6 +5,74 @@ import { serve } from "@hono/node-server";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { normalize } from "./normalize.js";
+import { SpreadsheetManager } from "./spreadsheet.js";
+
+// State management untuk mesin
+const machineStates = new Map<
+  string,
+  {
+    status: string;
+    uniqueKey?: string;
+    lastUpdate: number;
+  }
+>();
+
+// Auto-cleanup state yang sudah lama (lebih dari 1 jam 5 menit)
+setInterval(() => {
+  const now = Date.now();
+  const oneHourFiveMinutesAgo = now - 60 * 60 * 1000 - 5 * 60 * 1000; // 1 jam + 5 menit
+
+  for (const [machineId, state] of machineStates.entries()) {
+    if (state.lastUpdate < oneHourFiveMinutesAgo) {
+      machineStates.delete(machineId);
+      console.log(`🧹 Cleaned up old state for machine: ${machineId}`);
+    }
+  }
+}, 30 * 60 * 1000); // Check every 30 minutes
+
+/**
+ * Update machine state dan generate UUID hanya saat status change
+ */
+function updateMachineState(machineId: string, newStatus: string): string {
+  const current = machineStates.get(machineId);
+  const now = Date.now();
+
+  if (!current) {
+    // Mesin baru
+    const uniqueKey = newStatus === "RUNNING" ? crypto.randomUUID() : undefined;
+    machineStates.set(machineId, {
+      status: newStatus,
+      uniqueKey,
+      lastUpdate: now,
+    });
+    return uniqueKey || "none";
+  }
+
+  if (current.status !== newStatus) {
+    // Status berubah
+    if (newStatus === "RUNNING") {
+      // Mulai running → Generate UUID baru
+      const uniqueKey = crypto.randomUUID();
+      machineStates.set(machineId, {
+        status: newStatus,
+        uniqueKey,
+        lastUpdate: now,
+      });
+      return uniqueKey;
+    } else {
+      // Selesai running → Hapus UUID
+      machineStates.set(machineId, {
+        status: newStatus,
+        uniqueKey: undefined,
+        lastUpdate: now,
+      });
+      return "none";
+    }
+  }
+
+  // Status sama, return existing uniqueKey
+  return current.uniqueKey || "none";
+}
 
 // Load env dari .env.local (jika ada) lalu fallback ke .env
 dotenv.config({ path: ".env.local" });
@@ -17,6 +85,7 @@ const PORT = 3000;
 let controllersMap: Record<string, string> | null = null;
 let snapshot: any = null;
 let lastSuccessTime: number | null = null;
+let spreadsheetManager: SpreadsheetManager | null = null;
 
 async function loadControllerMap() {
   const path = process.env.CONTROLLER_MAP_FILE || "";
@@ -29,6 +98,49 @@ async function loadControllerMap() {
     controllersMap = JSON.parse(raw); // {"807D3A4E5A46":"W6","2509BCA000360460945":"W6", ...}
   } catch {
     controllersMap = null;
+  }
+}
+
+async function setupSpreadsheet() {
+  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+  const credentialsJson = process.env.GOOGLE_CREDENTIALS_JSON;
+  const credentialsPath = process.env.GOOGLE_CREDENTIALS_PATH;
+
+  if (!spreadsheetId) {
+    console.log(
+      "⚠️  Google Sheets not configured (missing GOOGLE_SPREADSHEET_ID)"
+    );
+    return;
+  }
+
+  try {
+    let credentials;
+
+    // Priority: Use JSON string from environment variable (for Vercel)
+    if (credentialsJson) {
+      credentials = JSON.parse(credentialsJson);
+      console.log("📊 Using credentials from GOOGLE_CREDENTIALS_JSON");
+    }
+    // Fallback: Use file path (for local development)
+    else if (credentialsPath) {
+      credentials = JSON.parse(await fs.readFile(credentialsPath, "utf8"));
+      console.log("📁 Using credentials from file path");
+    } else {
+      console.log(
+        "⚠️  Google Sheets not configured (missing GOOGLE_CREDENTIALS_JSON or GOOGLE_CREDENTIALS_PATH)"
+      );
+      return;
+    }
+
+    spreadsheetManager = new SpreadsheetManager(spreadsheetId, credentials);
+
+    // Setup headers di spreadsheet
+    await spreadsheetManager.setupHeaders();
+
+    console.log("✅ Google Sheets integration initialized");
+  } catch (error) {
+    console.error("❌ Failed to setup Google Sheets:", error);
+    spreadsheetManager = null;
   }
 }
 
@@ -114,6 +226,21 @@ async function refresh() {
       ? json
       : [];
     const { list, summary } = normalize(rows, controllersMap);
+
+    // Update machine states dan generate uniqueKey
+    const machinesWithKeys = list.map((machine) => {
+      const uniqueKey = updateMachineState(machine.label, machine.status);
+      return {
+        ...machine,
+        uniqueKey: uniqueKey,
+      };
+    });
+
+    // Filter hanya mesin yang running untuk spreadsheet
+    const runningMachines = machinesWithKeys.filter(
+      (m) => m.uniqueKey !== "none"
+    );
+
     // console.log(list);
     // console.log(summary);
     // console.log(json);
@@ -122,7 +249,7 @@ async function refresh() {
     lastSuccessTime = Date.now();
 
     snapshot = {
-      machines: list,
+      machines: machinesWithKeys, // Include uniqueKey di response
       summary,
       meta: {
         ts: new Date().toISOString(),
@@ -130,6 +257,27 @@ async function refresh() {
         version: "v1",
       },
     };
+
+    // Track machine status changes for spreadsheet
+    if (spreadsheetManager) {
+      try {
+        console.log(
+          `📝 Attempting to track ${runningMachines.length} running machines:`,
+          runningMachines.map((m) => ({
+            id: m.id,
+            status: m.status,
+            uniqueKey: m.uniqueKey,
+            aid: m.aid,
+          }))
+        );
+        await spreadsheetManager.trackMachineStatus(runningMachines);
+        console.log("✅ Machine status tracking completed.");
+      } catch (error) {
+        console.error("❌ Error tracking machine status:", error);
+      }
+    } else {
+      console.log("⚠️ SpreadsheetManager is not initialized");
+    }
   } catch (e) {
     if (snapshot) {
       snapshot = {
@@ -244,6 +392,7 @@ app.post("/api/refresh", async (c) => {
 app.get("/", (c) => c.text("OK"));
 
 await loadControllerMap();
+await setupSpreadsheet();
 await refresh();
 setInterval(refresh, 180000); // 3 menit
 

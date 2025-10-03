@@ -628,6 +628,7 @@ function renderUpdatedAt() {
   const jam = new Intl.DateTimeFormat("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     timeZone: "Asia/Jakarta",
   }).format(ts);
 
@@ -651,15 +652,27 @@ function renderUpdatedAt() {
   lastUpdatedEl.textContent = `Terakhir diperbarui • ${jam}`;
 }
 
-// Constants for refresh scheduling - synchronized with backend
-const REFRESH_INTERVAL_MS = 180000; // 3 menit
-const REFRESH_OFFSET_MS = 10000; // 10 detik offset
+// Constants for refresh scheduling - random between 30-60 seconds
+const MIN_REFRESH_INTERVAL_MS = 30000; // 30 detik
+const MAX_REFRESH_INTERVAL_MS = 60000; // 60 detik
 
 /**
- * Schedule next refresh with 3-minute + 10-second offset
+ * Get random refresh interval between 30-60 seconds
+ */
+function getRandomRefreshInterval() {
+  return (
+    Math.floor(
+      Math.random() * (MAX_REFRESH_INTERVAL_MS - MIN_REFRESH_INTERVAL_MS + 1)
+    ) + MIN_REFRESH_INTERVAL_MS
+  );
+}
+
+/**
+ * Schedule next refresh with random 30-60 second interval
  */
 function scheduleNextRefresh(fn) {
-  const delay = REFRESH_INTERVAL_MS + REFRESH_OFFSET_MS;
+  const delay = getRandomRefreshInterval();
+  console.log(`Next refresh in ${Math.round(delay / 1000)} seconds`);
   setTimeout(async () => {
     await fn();
     scheduleNextRefresh(fn);
@@ -742,7 +755,7 @@ async function fetchFromBackend() {
 }
 
 function startPolling() {
-  console.log("Starting refresh scheduling with 3-5 minute jitter");
+  console.log("Starting refresh scheduling with random 30-60 second intervals");
 
   // Schedule first refresh
   scheduleNextRefresh(async () => {

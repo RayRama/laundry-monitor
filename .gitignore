@@ -3,3 +3,9 @@
 node_modules
 .vercel
 .env.*
+
+# Google Sheets credentials (SENSITIVE - DO NOT COMMIT)
+credentials/
+*.json
+!package.json
+!package-lock.json

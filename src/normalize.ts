@@ -8,6 +8,7 @@ export type Out = {
   updated_at: string | null;
   elapsed_ms?: number; // Elapsed time in milliseconds (for RUNNING machines)
   start_time?: number; // Start time in milliseconds (for RUNNING machines)
+  aid?: string; // Aid status for trigger mapping (BOS, PAYMENT, etc.)
 };
 
 const HYST_MS = Number(process.env.HYST_MS || 3000);
@@ -51,10 +52,24 @@ function calculateElapsed(
   // Validasi: elapsed tidak boleh lebih dari durasi total
   const maxElapsed = Math.min(elapsed, dur);
 
-  // Get or set start time (use updated_at as start time)
+  // Get or set start time (use current time as fallback if updated_at is not reliable)
   let startTime = startTimes.get(ctrlId);
   if (!startTime) {
-    startTime = updatedAtMs;
+    // Use updated_at if available and recent, otherwise use current time
+    const now = Date.now();
+    const dataAge = updatedAtMs ? now - updatedAtMs : Infinity;
+
+    // If updated_at is too old (> 5 minutes), use current time
+    if (dataAge > 5 * 60 * 1000) {
+      startTime = now;
+      console.log(
+        `Using current time for ${ctrlId} (updated_at too old: ${Math.round(
+          dataAge / 1000
+        )}s)`
+      );
+    } else {
+      startTime = updatedAtMs || now;
+    }
     startTimes.set(ctrlId, startTime);
   }
 
@@ -111,21 +126,12 @@ function classifyNew(device: any, updated_at: string | null): Out["status"] {
   // Validasi durasi maksimal (3 jam = 10800000ms)
   const MAX_DURATION_MS = 3 * 60 * 60 * 1000; // 3 jam
 
-  // Validasi data tidak terlalu lama (max 2 jam sejak updated_at)
-  const MAX_DATA_AGE_MS = 2 * 60 * 60 * 1000; // 2 jam
-  if (updated_at) {
-    const dataAge = Date.now() - new Date(updated_at).getTime();
-    if (dataAge > MAX_DATA_AGE_MS) {
-      console.log(`Data too old: ${dataAge}ms, marking as READY`);
-      return "READY";
-    }
-  }
-
   // Mesin running jika:
   // 1. tl > 0 (waktu tersisa > 0)
   // 2. dur > 0 (durasi total > 0)
   // 3. dur <= MAX_DURATION_MS (durasi masuk akal)
   // 4. tl <= dur (waktu tersisa tidak lebih dari durasi total)
+  // Catatan: Tidak menggunakan updated_at karena tidak sinkron dari API pusat
   const running = tl > 0 && dur > 0 && dur <= MAX_DURATION_MS && tl <= dur;
 
   return running ? "RUNNING" : "READY";
@@ -226,6 +232,7 @@ export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
       slot,
       status,
       updated_at: x?.updated_at || null,
+      aid: device?.aid || "UNKNOWN",
       ...elapsedData,
     };
   };
