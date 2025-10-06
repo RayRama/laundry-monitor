@@ -547,12 +547,50 @@ body {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--ink);
+  text-align: center;
 }
 
 .donut-label {
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--ink);
+  text-align: center;
+}
+
+/* Occupation rate text display */
+.occupation-text-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.occupation-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid var(--running);
+}
+
+.occupation-label {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.occupation-rate {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--running);
+}
+
+.occupation-details {
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 /* Responsive adjustments untuk TV display - HANYA untuk layar 1920px+ */

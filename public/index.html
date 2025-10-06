@@ -80,23 +80,35 @@
 
         <!-- Summary Card -->
         <div class="card summary-card">
-          <h2>Ringkasan</h2>
-          <div class="donut-charts">
-            <div class="donut-container">
-              <div class="donut-chart" id="dryerDonut">
-                <div class="donut-center">
-                  <span class="donut-number" id="dryerNumber">0/0</span>
-                </div>
-              </div>
-              <div class="donut-label">Dryer</div>
+          <h2>Tingkat Penggunaan</h2>
+          <p
+            style="
+              text-align: center;
+              color: var(--muted);
+              margin-bottom: 1.5rem;
+              font-size: 0.9rem;
+            "
+          >
+            Persentase mesin yang sedang digunakan
+          </p>
+          <div class="occupation-text-display">
+            <div class="occupation-item">
+              <span class="occupation-label">Dryer:</span>
+              <span class="occupation-rate" id="dryerOccupationRate"
+                >0% occupation rate</span
+              >
+              <span class="occupation-details" id="dryerDetails"
+                >(0 running + 0 offline out of 0 total)</span
+              >
             </div>
-            <div class="donut-container">
-              <div class="donut-chart" id="washerDonut">
-                <div class="donut-center">
-                  <span class="donut-number" id="washerNumber">0/0</span>
-                </div>
-              </div>
-              <div class="donut-label">Washer</div>
+            <div class="occupation-item">
+              <span class="occupation-label">Washer:</span>
+              <span class="occupation-rate" id="washerOccupationRate"
+                >0% occupation rate</span
+              >
+              <span class="occupation-details" id="washerDetails"
+                >(0 running + 0 offline out of 0 total)</span
+              >
             </div>
           </div>
         </div>

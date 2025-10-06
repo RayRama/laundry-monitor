@@ -518,15 +518,22 @@ function renderEta() {
 }
 
 /**
- * Render summary statistics with donut charts
+ * Render summary statistics with text-based occupation rate display
  */
 function renderSummary() {
-  const dryerNumberEl = document.getElementById("dryerNumber");
-  const washerNumberEl = document.getElementById("washerNumber");
-  const dryerDonutEl = document.getElementById("dryerDonut");
-  const washerDonutEl = document.getElementById("washerDonut");
+  const dryerOccupationRateEl = document.getElementById("dryerOccupationRate");
+  const dryerDetailsEl = document.getElementById("dryerDetails");
+  const washerOccupationRateEl = document.getElementById(
+    "washerOccupationRate"
+  );
+  const washerDetailsEl = document.getElementById("washerDetails");
 
-  if (!dryerNumberEl || !washerNumberEl || !dryerDonutEl || !washerDonutEl)
+  if (
+    !dryerOccupationRateEl ||
+    !dryerDetailsEl ||
+    !washerOccupationRateEl ||
+    !washerDetailsEl
+  )
     return;
 
   // Calculate statistics for Dryer
@@ -534,6 +541,7 @@ function renderSummary() {
   const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
   const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
   const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
+  const dryerTotal = dryers.length;
 
   // Calculate statistics for Washer
   const washers = machines.filter((m) => m.type === MACHINE_TYPE.WASHER);
@@ -544,26 +552,23 @@ function renderSummary() {
   const washerOffline = washers.filter(
     (m) => m.status === STATUS.OFFLINE
   ).length;
+  const washerTotal = washers.length;
 
-  // Update numbers
-  dryerNumberEl.textContent = `${dryerReady}/${dryers.length}`;
-  washerNumberEl.textContent = `${washerReady}/${washers.length}`;
+  // Calculate occupation rates (percentage of machines in use)
+  const dryerInUse = dryerRunning + dryerOffline; // Running + Offline = occupied
+  const dryerOccupationRate =
+    dryerTotal > 0 ? Math.round((dryerInUse / dryerTotal) * 100) : 0;
 
-  // Update donut charts
-  updateDonutChart(
-    dryerDonutEl,
-    dryerReady,
-    dryerRunning,
-    dryerOffline,
-    dryers.length
-  );
-  updateDonutChart(
-    washerDonutEl,
-    washerReady,
-    washerRunning,
-    washerOffline,
-    washers.length
-  );
+  const washerInUse = washerRunning + washerOffline; // Running + Offline = occupied
+  const washerOccupationRate =
+    washerTotal > 0 ? Math.round((washerInUse / washerTotal) * 100) : 0;
+
+  // Update text display with occupation rate and details
+  dryerOccupationRateEl.textContent = `${dryerOccupationRate}% occupation rate`;
+  dryerDetailsEl.textContent = `(${dryerRunning} running + ${dryerReady} ready + ${dryerOffline} offline out of ${dryerTotal} total)`;
+
+  washerOccupationRateEl.textContent = `${washerOccupationRate}% occupation rate`;
+  washerDetailsEl.textContent = `(${washerRunning} running + ${washerReady} ready + ${washerOffline} offline out of ${washerTotal} total)`;
 }
 
 /**
