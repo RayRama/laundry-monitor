@@ -66,8 +66,10 @@ class LeaderboardAPI {
       return data;
     } catch (error) {
       console.error("❌ Error fetching frequency leaderboard:", error);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - leaderboard API took too long to respond');
+      if (error.name === "AbortError") {
+        throw new Error(
+          "Request timeout - leaderboard API took too long to respond"
+        );
       }
       throw error;
     }
@@ -107,8 +109,10 @@ class LeaderboardAPI {
       return data;
     } catch (error) {
       console.error("❌ Error fetching revenue leaderboard:", error);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - leaderboard API took too long to respond');
+      if (error.name === "AbortError") {
+        throw new Error(
+          "Request timeout - leaderboard API took too long to respond"
+        );
       }
       throw error;
     }
