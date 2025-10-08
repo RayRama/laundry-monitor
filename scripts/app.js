@@ -37,41 +37,83 @@ const getMachineMaxWeight = (machineLabel) => {
 // Load machine configuration from external file
 async function loadMachineConfig() {
   try {
-    const response = await fetch('/src/constants.js');
+    const response = await fetch("/src/constants.js");
     if (!response.ok) {
-      throw new Error('Failed to load constants');
+      throw new Error("Failed to load constants");
     }
     const text = await response.text();
-    
+
     // Extract MACHINE_CONFIG from the module
-    const moduleMatch = text.match(/export const MACHINE_CONFIG = ({[\s\S]*?});/);
+    const moduleMatch = text.match(
+      /export const MACHINE_CONFIG = ({[\s\S]*?});/
+    );
     if (moduleMatch) {
       // Simple JSON parsing for the config object
       const configStr = moduleMatch[1]
         .replace(/(\w+):/g, '"$1":') // Add quotes to keys
         .replace(/'/g, '"'); // Replace single quotes with double quotes
-      
+
       MACHINE_CONFIG = JSON.parse(configStr);
       machineBrands = MACHINE_CONFIG.machineBrands;
-      console.log('✅ Machine config loaded from constants.js');
+      console.log("✅ Machine config loaded from constants.js");
     } else {
-      throw new Error('Could not parse MACHINE_CONFIG');
+      throw new Error("Could not parse MACHINE_CONFIG");
     }
   } catch (error) {
-    console.warn('⚠️ Failed to load machine config, using fallback:', error);
+    console.warn("⚠️ Failed to load machine config, using fallback:", error);
     // Fallback configuration
     MACHINE_CONFIG = {
       machineBrands: {
-        D01: "SQ", D02: "SQ", D03: "FGD", D04: "FGD", D05: "MDG", D06: "MDG",
-        D07: "MDG", D08: "MDG", D09: "MDG", D10: "NTG", D11: "NTG", D12: "NTG",
-        W01: "Titan", W02: "Titan", W03: "LG24", W04: "LG24", W05: "FGD", W06: "FGD",
-        W07: "LG20", W08: "LG20", W09: "LG20", W10: "NTG", W11: "BEKO", W12: "BEKO",
+        D01: "SQ",
+        D02: "SQ",
+        D03: "FGD",
+        D04: "FGD",
+        D05: "MDG",
+        D06: "MDG",
+        D07: "MDG",
+        D08: "MDG",
+        D09: "MDG",
+        D10: "NTG",
+        D11: "NTG",
+        D12: "NTG",
+        W01: "Titan",
+        W02: "Titan",
+        W03: "LG24",
+        W04: "LG24",
+        W05: "FGD",
+        W06: "FGD",
+        W07: "LG20",
+        W08: "LG20",
+        W09: "LG20",
+        W10: "NTG",
+        W11: "BEKO",
+        W12: "BEKO",
       },
       machineMaxWeight: {
-        D01: 10, D02: 10, D03: 10, D04: 10, D05: 10, D06: 10,
-        D07: 10, D08: 10, D09: 10, D10: 10, D11: 10, D12: 10,
-        W01: 10, W02: 10, W03: 10, W04: 10, W05: 10, W06: 10,
-        W07: 10, W08: 10, W09: 10, W10: 10, W11: 10, W12: 10,
+        D01: 10,
+        D02: 10,
+        D03: 10,
+        D04: 10,
+        D05: 10,
+        D06: 10,
+        D07: 10,
+        D08: 10,
+        D09: 10,
+        D10: 10,
+        D11: 10,
+        D12: 10,
+        W01: 10,
+        W02: 10,
+        W03: 10,
+        W04: 10,
+        W05: 10,
+        W06: 10,
+        W07: 10,
+        W08: 10,
+        W09: 10,
+        W10: 10,
+        W11: 10,
+        W12: 10,
       },
     };
     machineBrands = MACHINE_CONFIG.machineBrands;
