@@ -1,0 +1,288 @@
+/* Leaderboard Specific Styles */
+
+.leaderboard-section {
+  margin-bottom: 2rem;
+}
+
+.leaderboard-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--dark);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.leaderboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .leaderboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.leaderboard-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  border: 2px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.leaderboard-header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.leaderboard-subtitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--dark);
+  margin: 0;
+}
+
+.leaderboard-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.leaderboard-list {
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.15s ease;
+}
+
+.leaderboard-item:hover {
+  background-color: #f9fafb;
+}
+
+.leaderboard-item:last-child {
+  border-bottom: none;
+}
+
+/* Rank styling */
+.rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.875rem;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #92400e;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0, #e5e7eb);
+  color: #374151;
+  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.3);
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, #cd7f32, #f59e0b);
+  color: white;
+  box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3);
+}
+
+.rank-other {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Machine info */
+.machine-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.machine-label {
+  font-weight: 600;
+  color: var(--dark);
+  font-size: 0.875rem;
+}
+
+.machine-id {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+/* Value display */
+.leaderboard-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  min-width: 80px;
+}
+
+.value-primary {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--dark);
+}
+
+.value-secondary {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Loading placeholder */
+.loading-placeholder {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Error state */
+.error-state {
+  padding: 2rem;
+  text-align: center;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  margin: 1rem;
+}
+
+/* Empty state */
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .leaderboard-title {
+    font-size: 1.25rem;
+  }
+
+  .leaderboard-subtitle {
+    font-size: 1rem;
+  }
+
+  .leaderboard-header {
+    padding: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .leaderboard-stats {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .leaderboard-item {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .rank {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.75rem;
+    margin-right: 0.5rem;
+  }
+
+  .machine-label {
+    font-size: 0.8rem;
+  }
+
+  .machine-id {
+    font-size: 0.7rem;
+  }
+
+  .value-primary {
+    font-size: 0.8rem;
+  }
+
+  .value-secondary {
+    font-size: 0.7rem;
+  }
+}
+
+/* Animation for rank changes */
+.rank-change {
+  animation: rankChange 0.5s ease-in-out;
+}
+
+@keyframes rankChange {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Special styling for top performers */
+.leaderboard-item.top-performer {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.05), transparent);
+  border-left: 3px solid var(--brand);
+}
+
+.leaderboard-item.top-performer .machine-label {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+/* Currency formatting */
+.currency {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Frequency formatting */
+.frequency {
+  font-variant-numeric: tabular-nums;
+}

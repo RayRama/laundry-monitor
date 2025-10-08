@@ -253,10 +253,23 @@ let dashboardSummaryCache: any = null;
 let dashboardTransactionsCache: any = null;
 let lastDashboardSuccessTime: number | null = null;
 
+// Cache untuk leaderboard data
+let frequencyLeaderboardCache: any = null;
+let revenueLeaderboardCache: any = null;
+let lastLeaderboardSuccessTime: number | null = null;
+
 /**
  * Calculate ETag for dashboard data
  */
 function calculateDashboardETag(data: any): string {
+  const stableData = JSON.stringify(data);
+  return crypto.createHash("md5").update(stableData).digest("hex");
+}
+
+/**
+ * Calculate ETag for leaderboard data
+ */
+function calculateLeaderboardETag(data: any): string {
   const stableData = JSON.stringify(data);
   return crypto.createHash("md5").update(stableData).digest("hex");
 }
@@ -462,6 +475,307 @@ app.get("/api/transactions", async (c) => {
         message: error.message,
         data: [],
         jumlah_nota: 0,
+      },
+      500
+    );
+  }
+});
+
+// Leaderboard API endpoints
+app.get("/api/leaderboard/frequency", async (c) => {
+  try {
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+    const base = process.env.UPSTREAM_BASE!;
+
+    // Get query parameters
+    const filterBy = c.req.query("filter_by") || "bulan";
+    const bulan = c.req.query("bulan") || "2025-10";
+    const tanggalAwal = c.req.query("tanggal_awal");
+    const tanggalAkhir = c.req.query("tanggal_akhir");
+
+    console.log("📊 Generating frequency leaderboard...");
+
+    // Load controller map to get machine IDs
+    await loadControllerMap();
+    const machineIds = Object.keys(controllersMap || {});
+
+    const leaderboard = [];
+
+    // Get data for each machine
+    for (const machineId of machineIds) {
+      try {
+        let url = `${base}/list_transaksi_snap_konsumen?sort_by=transaksi&order_by=DESC&limit=1000&offset=0&idmesin=${machineId}`;
+
+        if (filterBy === "periode" && tanggalAwal && tanggalAkhir) {
+          url += `&filter_by=periode&tanggal_awal=${tanggalAwal}&tanggal_akhir=${tanggalAkhir}`;
+        } else if (filterBy === "bulan") {
+          url += `&filter_by=bulan&bulan=${bulan}`;
+        } else {
+          url += `&filter_by=tahun&tahun=2025`;
+        }
+
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+          "User-Agent": "leaderboard/1.0",
+        };
+        if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
+
+        const res = await fetchWithTimeout(url, 10000, { headers });
+        if (!res.ok) continue;
+
+        const json = await res.json();
+        const transactions = json.data || [];
+
+        // Calculate frequency (number of transactions)
+        const frequency = transactions.length;
+
+        if (frequency > 0) {
+          leaderboard.push({
+            machineId,
+            machineLabel: controllersMap?.[machineId] || machineId,
+            frequency,
+            totalRevenue: transactions.reduce(
+              (sum: number, t: any) => sum + (t.total_harga || 0),
+              0
+            ),
+            lastTransaction: transactions[0]?.waktu_diterima_raw || null,
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching data for machine ${machineId}:`, error);
+        continue;
+      }
+    }
+
+    // Sort by frequency (descending)
+    leaderboard.sort((a, b) => b.frequency - a.frequency);
+
+    console.log(
+      `✅ Frequency leaderboard generated: ${leaderboard.length} machines`
+    );
+
+    const responseData = {
+      success: true,
+      data: leaderboard.map((item, index) => ({
+        rank: index + 1,
+        machineId: item.machineId,
+        machineLabel: item.machineLabel,
+        frequency: item.frequency,
+        totalRevenue: item.totalRevenue,
+        lastTransaction: item.lastTransaction,
+      })),
+      total_machines: leaderboard.length,
+      period: { filterBy, bulan, tanggalAwal, tanggalAkhir },
+    };
+
+    // Update cache
+    frequencyLeaderboardCache = responseData;
+    lastLeaderboardSuccessTime = Date.now();
+
+    // Calculate ETag
+    const currentETag = calculateLeaderboardETag(responseData);
+
+    // Check If-None-Match header
+    const ifNoneMatch = c.req.header("If-None-Match");
+
+    if (ifNoneMatch === currentETag) {
+      // Data hasn't changed, return 304
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastLeaderboardSuccessTime
+          ? new Date(lastLeaderboardSuccessTime).toISOString()
+          : ""
+      );
+      return new Response(null, { status: 304 });
+    }
+
+    // Data has changed or no If-None-Match, return 200 with full data
+    c.header("ETag", currentETag);
+    c.header(
+      "X-Last-Success",
+      lastLeaderboardSuccessTime
+        ? new Date(lastLeaderboardSuccessTime).toISOString()
+        : ""
+    );
+
+    return c.json(responseData);
+  } catch (error) {
+    console.error("❌ Error generating frequency leaderboard:", error);
+
+    // Return cached data if available
+    if (frequencyLeaderboardCache) {
+      console.log(
+        "📦 Returning cached frequency leaderboard data due to error"
+      );
+      const currentETag = calculateLeaderboardETag(frequencyLeaderboardCache);
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastLeaderboardSuccessTime
+          ? new Date(lastLeaderboardSuccessTime).toISOString()
+          : ""
+      );
+      return c.json(frequencyLeaderboardCache);
+    }
+
+    return c.json(
+      {
+        success: false,
+        error: "Failed to generate frequency leaderboard",
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
+app.get("/api/leaderboard/revenue", async (c) => {
+  try {
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+    const base = process.env.UPSTREAM_BASE!;
+
+    // Get query parameters
+    const filterBy = c.req.query("filter_by") || "bulan";
+    const bulan = c.req.query("bulan") || "2025-10";
+    const tanggalAwal = c.req.query("tanggal_awal");
+    const tanggalAkhir = c.req.query("tanggal_akhir");
+
+    console.log("💰 Generating revenue leaderboard...");
+
+    // Load controller map to get machine IDs
+    await loadControllerMap();
+    const machineIds = Object.keys(controllersMap || {});
+
+    const leaderboard = [];
+
+    // Get data for each machine
+    for (const machineId of machineIds) {
+      try {
+        let url = `${base}/list_transaksi_snap_konsumen?sort_by=transaksi&order_by=DESC&limit=1000&offset=0&idmesin=${machineId}`;
+
+        if (filterBy === "periode" && tanggalAwal && tanggalAkhir) {
+          url += `&filter_by=periode&tanggal_awal=${tanggalAwal}&tanggal_akhir=${tanggalAkhir}`;
+        } else if (filterBy === "bulan") {
+          url += `&filter_by=bulan&bulan=${bulan}`;
+        } else {
+          url += `&filter_by=tahun&tahun=2025`;
+        }
+
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+          "User-Agent": "leaderboard/1.0",
+        };
+        if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
+
+        const res = await fetchWithTimeout(url, 10000, { headers });
+        if (!res.ok) continue;
+
+        const json = await res.json();
+        const transactions = json.data || [];
+
+        // Calculate total revenue
+        const totalRevenue = transactions.reduce(
+          (sum: number, t: any) => sum + (t.total_harga || 0),
+          0
+        );
+
+        if (totalRevenue > 0) {
+          leaderboard.push({
+            machineId,
+            machineLabel: controllersMap?.[machineId] || machineId,
+            frequency: transactions.length,
+            totalRevenue,
+            lastTransaction: transactions[0]?.waktu_diterima_raw || null,
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching data for machine ${machineId}:`, error);
+        continue;
+      }
+    }
+
+    // Sort by total revenue (descending)
+    leaderboard.sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+    console.log(
+      `✅ Revenue leaderboard generated: ${leaderboard.length} machines`
+    );
+
+    const responseData = {
+      success: true,
+      data: leaderboard.map((item, index) => ({
+        rank: index + 1,
+        machineId: item.machineId,
+        machineLabel: item.machineLabel,
+        frequency: item.frequency,
+        totalRevenue: item.totalRevenue,
+        lastTransaction: item.lastTransaction,
+      })),
+      total_machines: leaderboard.length,
+      total_revenue: leaderboard.reduce(
+        (sum, item) => sum + item.totalRevenue,
+        0
+      ),
+      period: { filterBy, bulan, tanggalAwal, tanggalAkhir },
+    };
+
+    // Update cache
+    revenueLeaderboardCache = responseData;
+    lastLeaderboardSuccessTime = Date.now();
+
+    // Calculate ETag
+    const currentETag = calculateLeaderboardETag(responseData);
+
+    // Check If-None-Match header
+    const ifNoneMatch = c.req.header("If-None-Match");
+
+    if (ifNoneMatch === currentETag) {
+      // Data hasn't changed, return 304
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastLeaderboardSuccessTime
+          ? new Date(lastLeaderboardSuccessTime).toISOString()
+          : ""
+      );
+      return new Response(null, { status: 304 });
+    }
+
+    // Data has changed or no If-None-Match, return 200 with full data
+    c.header("ETag", currentETag);
+    c.header(
+      "X-Last-Success",
+      lastLeaderboardSuccessTime
+        ? new Date(lastLeaderboardSuccessTime).toISOString()
+        : ""
+    );
+
+    return c.json(responseData);
+  } catch (error) {
+    console.error("❌ Error generating revenue leaderboard:", error);
+
+    // Return cached data if available
+    if (revenueLeaderboardCache) {
+      console.log("📦 Returning cached revenue leaderboard data due to error");
+      const currentETag = calculateLeaderboardETag(revenueLeaderboardCache);
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastLeaderboardSuccessTime
+          ? new Date(lastLeaderboardSuccessTime).toISOString()
+          : ""
+      );
+      return c.json(revenueLeaderboardCache);
+    }
+
+    return c.json(
+      {
+        success: false,
+        error: "Failed to generate revenue leaderboard",
+        message: error.message,
       },
       500
     );
