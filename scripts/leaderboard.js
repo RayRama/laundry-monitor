@@ -1,3 +1,74 @@
+// Machine Configuration Constants
+const MACHINE_CONFIG = {
+  machineBrands: {
+    // Dryers
+    D01: "SQ",
+    D02: "SQ",
+    D03: "FGD",
+    D04: "FGD",
+    D05: "MDG",
+    D06: "MDG",
+    D07: "MDG",
+    D08: "MDG",
+    D09: "MDG",
+    D10: "NTG",
+    D11: "NTG",
+    D12: "NTG",
+
+    // Washers
+    W01: "Titan",
+    W02: "Titan",
+    W03: "LG24",
+    W04: "LG24",
+    W05: "FGD",
+    W06: "FGD",
+    W07: "LG20",
+    W08: "LG20",
+    W09: "LG20",
+    W10: "NTG",
+    W11: "BEKO",
+    W12: "BEKO",
+  },
+  machineMaxWeight: {
+    // Dryers
+    D01: 10,
+    D02: 10,
+    D03: 10,
+    D04: 10,
+    D05: 10,
+    D06: 10,
+    D07: 10,
+    D08: 10,
+    D09: 10,
+    D10: 10,
+    D11: 10,
+    D12: 10,
+
+    // Washers
+    W01: 10,
+    W02: 10,
+    W03: 10,
+    W04: 10,
+    W05: 10,
+    W06: 10,
+    W07: 10,
+    W08: 10,
+    W09: 10,
+    W10: 10,
+    W11: 10,
+    W12: 10,
+  },
+};
+
+// Helper functions
+const getMachineBrand = (machineLabel) => {
+  return MACHINE_CONFIG.machineBrands[machineLabel] || "Unknown";
+};
+
+const getMachineMaxWeight = (machineLabel) => {
+  return MACHINE_CONFIG.machineMaxWeight[machineLabel] || 10;
+};
+
 // Leaderboard API Client
 class LeaderboardAPI {
   constructor() {
@@ -390,11 +461,19 @@ class LeaderboardRenderer {
       secondaryValue = this.dataManager.formatFrequency(item.frequency);
     }
 
+    // Get machine brand and max weight
+    const machineBrand = getMachineBrand(item.machineLabel);
+    const machineMaxWeight = getMachineMaxWeight(item.machineLabel);
+
     return `
       <div class="leaderboard-item ${isTopPerformer ? "top-performer" : ""}">
         <div class="rank ${rankClass}">${item.rank}</div>
         <div class="machine-info">
           <div class="machine-label">${item.machineLabel}</div>
+          <div class="machine-details">
+            <span class="machine-brand">${machineBrand}</span>
+            <span class="machine-weight">${machineMaxWeight}kg</span>
+          </div>
           <div class="machine-id">${item.machineId}</div>
         </div>
         <div class="leaderboard-value">
