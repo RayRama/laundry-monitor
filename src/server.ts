@@ -5,7 +5,6 @@ import { serve } from "@hono/node-server";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { normalize } from "./normalize.js";
-import { SpreadsheetManager } from "./spreadsheet.js";
 
 // Load env dari .env.local (jika ada) lalu fallback ke .env
 dotenv.config({ path: ".env.local" });
@@ -18,7 +17,6 @@ const PORT = 3000;
 let controllersMap: Record<string, string> | null = null;
 let snapshot: any = null;
 let lastSuccessTime: number | null = null;
-let spreadsheetManager: SpreadsheetManager | null = null;
 
 async function loadControllerMap() {
   const path = process.env.CONTROLLER_MAP_FILE || "";
@@ -31,55 +29,6 @@ async function loadControllerMap() {
     controllersMap = JSON.parse(raw); // {"807D3A4E5A46":"W6","2509BCA000360460945":"W6", ...}
   } catch {
     controllersMap = null;
-  }
-}
-
-async function setupSpreadsheet() {
-  console.log("🔧 Starting Google Sheets setup...");
-
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
-  const credentialsJson = process.env.GOOGLE_CREDENTIALS_JSON;
-  const credentialsPath = process.env.GOOGLE_CREDENTIALS_PATH;
-
-  console.log(`📊 Spreadsheet ID: ${spreadsheetId ? "SET" : "MISSING"}`);
-  console.log(`📊 Credentials JSON: ${credentialsJson ? "SET" : "MISSING"}`);
-  console.log(`📊 Credentials Path: ${credentialsPath ? "SET" : "MISSING"}`);
-
-  if (!spreadsheetId) {
-    console.log(
-      "⚠️  Google Sheets not configured (missing GOOGLE_SPREADSHEET_ID)"
-    );
-    return;
-  }
-
-  try {
-    let credentials;
-
-    // Priority: Use JSON string from environment variable (for Vercel)
-    if (credentialsJson) {
-      credentials = JSON.parse(credentialsJson);
-      console.log("📊 Using credentials from GOOGLE_CREDENTIALS_JSON");
-    }
-    // Fallback: Use file path (for local development)
-    else if (credentialsPath) {
-      credentials = JSON.parse(await fs.readFile(credentialsPath, "utf8"));
-      console.log("📁 Using credentials from file path");
-    } else {
-      console.log(
-        "⚠️  Google Sheets not configured (missing GOOGLE_CREDENTIALS_JSON or GOOGLE_CREDENTIALS_PATH)"
-      );
-      return;
-    }
-
-    spreadsheetManager = new SpreadsheetManager(spreadsheetId, credentials);
-
-    // Setup headers di spreadsheet
-    await spreadsheetManager.setupHeaders();
-
-    console.log("✅ Google Sheets integration initialized");
-  } catch (error) {
-    console.error("❌ Failed to setup Google Sheets:", error);
-    spreadsheetManager = null;
   }
 }
 
@@ -140,10 +89,9 @@ async function fetchWithTimeout(
 async function refresh() {
   const base = process.env.UPSTREAM_BASE!;
   const outlet = process.env.OUTLET_ID!;
-  const url = `${base}?idoutlet=${encodeURIComponent(
+  const url = `${base}/list_snap_mesin?idoutlet=${encodeURIComponent(
     outlet
   )}&offset=0&limit=25`;
-  // console.log(url);
   const to = Number(process.env.UPSTREAM_TIMEOUT_MS || 2000);
 
   try {
@@ -156,18 +104,16 @@ async function refresh() {
     if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
 
     const res = await fetchWithTimeout(url, to, { headers });
-    // console.log(res);
     if (!res.ok) throw new Error(`upstream ${res.status}`);
+
     const json = await res.json();
     const rows = Array.isArray(json?.data)
       ? json.data
       : Array.isArray(json)
       ? json
       : [];
+
     const { list, summary } = normalize(rows, controllersMap);
-    // console.log(list);
-    // console.log(summary);
-    // console.log(json);
 
     // Update last success time on successful refresh
     lastSuccessTime = Date.now();
@@ -181,27 +127,6 @@ async function refresh() {
         version: "v1",
       },
     };
-
-    // Track machine status changes for spreadsheet
-    if (spreadsheetManager) {
-      try {
-        console.log(
-          `📝 Attempting to track machine status for machines:`,
-          list.map((m) => ({
-            id: m.id,
-            status: m.status,
-            aid: m.aid,
-            updated_at: m.updated_at,
-          }))
-        );
-        await spreadsheetManager.trackMachineStatus(list);
-        console.log("✅ Machine status tracking completed.");
-      } catch (error) {
-        console.error("❌ Error tracking machine status:", error);
-      }
-    } else {
-      console.log("⚠️ SpreadsheetManager is not initialized");
-    }
   } catch (e) {
     if (snapshot) {
       snapshot = {
@@ -313,10 +238,239 @@ app.post("/api/refresh", async (c) => {
     stale: snapshot?.meta?.stale,
   });
 });
+// Dashboard endpoints
+app.get("/dashboard", async (c) => {
+  try {
+    const html = await fs.readFile("dashboard/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Dashboard not found", 404);
+  }
+});
+
+// Cache untuk dashboard data
+let dashboardSummaryCache: any = null;
+let dashboardTransactionsCache: any = null;
+let lastDashboardSuccessTime: number | null = null;
+
+/**
+ * Calculate ETag for dashboard data
+ */
+function calculateDashboardETag(data: any): string {
+  const stableData = JSON.stringify(data);
+  return crypto.createHash("md5").update(stableData).digest("hex");
+}
+
+// API untuk ringkasan transaksi
+app.get("/api/transactions/summary", async (c) => {
+  try {
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+
+    // Get query parameters
+    const limit = c.req.query("limit") || "20";
+    const offset = c.req.query("offset") || "0";
+    const filterBy = c.req.query("filter_by") || "tahun";
+    const tahun = c.req.query("tahun") || "2025";
+    const bulan = c.req.query("bulan") || "2025-10";
+    const tanggalAwal = c.req.query("tanggal_awal");
+    const tanggalAkhir = c.req.query("tanggal_akhir");
+
+    // Build URL based on filter
+    const base = process.env.UPSTREAM_BASE!;
+    let url = `${base}/ringkasan_transaksi_snap_konsumen?sort_by=transaksi&order_by=DESC&limit=${limit}&offset=${offset}`;
+
+    if (filterBy === "periode" && tanggalAwal && tanggalAkhir) {
+      url += `&filter_by=periode&tanggal_awal=${tanggalAwal}&tanggal_akhir=${tanggalAkhir}`;
+    } else if (filterBy === "bulan") {
+      url += `&filter_by=bulan&bulan=${bulan}`;
+    } else {
+      url += `&filter_by=tahun&tahun=${tahun}`;
+    }
+
+    console.log(`📊 Fetching transaction summary from: ${url}`);
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": "dashboard/1.0",
+    };
+    if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
+
+    const res = await fetchWithTimeout(url, 10000, { headers });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+
+    const json = await res.json();
+    console.log(
+      `✅ Transaction summary fetched: ${
+        json.data?.total_nota || 0
+      } total transactions`
+    );
+
+    // Update cache
+    dashboardSummaryCache = json;
+    lastDashboardSuccessTime = Date.now();
+
+    // Calculate ETag
+    const currentETag = calculateDashboardETag(json);
+
+    // Check If-None-Match header
+    const ifNoneMatch = c.req.header("If-None-Match");
+
+    if (ifNoneMatch === currentETag) {
+      // Data hasn't changed, return 304
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastDashboardSuccessTime
+          ? new Date(lastDashboardSuccessTime).toISOString()
+          : ""
+      );
+      return new Response(null, { status: 304 });
+    }
+
+    // Data has changed or no If-None-Match, return 200 with full data
+    c.header("ETag", currentETag);
+    c.header(
+      "X-Last-Success",
+      lastDashboardSuccessTime
+        ? new Date(lastDashboardSuccessTime).toISOString()
+        : ""
+    );
+
+    return c.json(json);
+  } catch (error) {
+    console.error("❌ Error fetching transaction summary:", error);
+
+    // Return cached data if available
+    if (dashboardSummaryCache) {
+      console.log("📦 Returning cached summary data due to error");
+      const currentETag = calculateDashboardETag(dashboardSummaryCache);
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastDashboardSuccessTime
+          ? new Date(lastDashboardSuccessTime).toISOString()
+          : ""
+      );
+      return c.json(dashboardSummaryCache);
+    }
+
+    return c.json(
+      {
+        error: "Failed to fetch transaction summary",
+        message: error.message,
+        data: { jumlah: 0 },
+      },
+      500
+    );
+  }
+});
+
+// API untuk detail transaksi
+app.get("/api/transactions", async (c) => {
+  try {
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+
+    // Get query parameters
+    const limit = c.req.query("limit") || "100";
+    const offset = c.req.query("offset") || "0";
+    const filterBy = c.req.query("filter_by") || "bulan";
+    const bulan = c.req.query("bulan") || "2025-10";
+    const tanggalAwal = c.req.query("tanggal_awal");
+    const tanggalAkhir = c.req.query("tanggal_akhir");
+
+    // Handle max limit - if limit is "max", use a reasonable default
+    const actualLimit = limit === "max" ? "1000" : limit;
+
+    // Build URL based on filter
+    const base = process.env.UPSTREAM_BASE!;
+    let url = `${base}/list_transaksi_snap_konsumen?sort_by=transaksi&order_by=DESC&limit=${actualLimit}&offset=${offset}`;
+
+    if (filterBy === "periode" && tanggalAwal && tanggalAkhir) {
+      url += `&filter_by=periode&tanggal_awal=${tanggalAwal}&tanggal_akhir=${tanggalAkhir}`;
+    } else {
+      url += `&filter_by=bulan&bulan=${bulan}`;
+    }
+
+    console.log(`📊 Fetching transactions from: ${url}`);
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": "dashboard/1.0",
+    };
+    if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
+
+    const res = await fetchWithTimeout(url, 10000, { headers });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+
+    const json = await res.json();
+    console.log(`✅ Transactions fetched: ${json.data?.length || 0} records`);
+
+    // Update cache
+    dashboardTransactionsCache = json;
+    lastDashboardSuccessTime = Date.now();
+
+    // Calculate ETag
+    const currentETag = calculateDashboardETag(json);
+
+    // Check If-None-Match header
+    const ifNoneMatch = c.req.header("If-None-Match");
+
+    if (ifNoneMatch === currentETag) {
+      // Data hasn't changed, return 304
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastDashboardSuccessTime
+          ? new Date(lastDashboardSuccessTime).toISOString()
+          : ""
+      );
+      return new Response(null, { status: 304 });
+    }
+
+    // Data has changed or no If-None-Match, return 200 with full data
+    c.header("ETag", currentETag);
+    c.header(
+      "X-Last-Success",
+      lastDashboardSuccessTime
+        ? new Date(lastDashboardSuccessTime).toISOString()
+        : ""
+    );
+
+    return c.json(json);
+  } catch (error) {
+    console.error("❌ Error fetching transactions:", error);
+
+    // Return cached data if available
+    if (dashboardTransactionsCache) {
+      console.log("📦 Returning cached transactions data due to error");
+      const currentETag = calculateDashboardETag(dashboardTransactionsCache);
+      c.header("ETag", currentETag);
+      c.header(
+        "X-Last-Success",
+        lastDashboardSuccessTime
+          ? new Date(lastDashboardSuccessTime).toISOString()
+          : ""
+      );
+      return c.json(dashboardTransactionsCache);
+    }
+
+    return c.json(
+      {
+        error: "Failed to fetch transactions",
+        message: error.message,
+        data: [],
+        jumlah_nota: 0,
+      },
+      500
+    );
+  }
+});
+
 app.get("/", (c) => c.text("OK"));
 
 await loadControllerMap();
-await setupSpreadsheet();
 await refresh();
 setInterval(refresh, 180000); // 3 menit
 

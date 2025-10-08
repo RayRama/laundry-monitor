@@ -427,7 +427,7 @@ function toMinutes(elapsedMs) {
   if (typeof elapsedMs === "string") {
     // Legacy format HH:MM
     const [h, m] = elapsedMs.split(":").map(Number);
-    return h * 60 + m;
+  return h * 60 + m;
   }
   // New format: milliseconds
   return Math.floor(elapsedMs / (1000 * 60));
