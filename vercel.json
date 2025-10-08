@@ -26,6 +26,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "config/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "src/server.ts",
       "use": "@vercel/node"
     }
