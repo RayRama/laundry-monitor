@@ -21,17 +21,17 @@ let lastSuccessTime: number | null = null;
 async function loadControllerMap() {
   // Hardcoded controller map to avoid file system issues in Vercel
   controllersMap = {
-    "D48AFC354603": "D05",
-    "D48AFC325A64": "D07",
+    D48AFC354603: "D05",
+    D48AFC325A64: "D07",
     "2CF4321072A5": "D01",
     "68C63AFC13FA": "D02",
     "483FDA643B85": "D03",
     "48E7296DE4BF": "D04",
-    "D48AFC35465C": "D06",
-    "D48AFC31F4C0": "D08",
-    "D48AFC354357": "D09",
-    "BCDDC248DF58": "D10",
-    "C82B961E9BF3": "D11",
+    D48AFC35465C: "D06",
+    D48AFC31F4C0: "D08",
+    D48AFC354357: "D09",
+    BCDDC248DF58: "D10",
+    C82B961E9BF3: "D11",
     "8CCE4EF44A99": "D12",
     "9C9C1F410120": "W01",
     "98F4ABD8506A": "W02",
@@ -43,8 +43,8 @@ async function loadControllerMap() {
     "5CCF7FDBB498": "W08",
     "483FDA6AFDC7": "W10",
     "500291EB8F36": "W09",
-    "A4CF12F307D1": "W11",
-    "68C63AFC1863": "W12"
+    A4CF12F307D1: "W11",
+    "68C63AFC1863": "W12",
   };
   console.log(
     "✅ Controller map loaded:",
