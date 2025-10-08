@@ -239,14 +239,14 @@ app.post("/api/refresh", async (c) => {
   });
 });
 // Dashboard endpoints
-app.get("/dashboard", async (c) => {
-  try {
-    const html = await fs.readFile("dashboard/index.html", "utf8");
-    return c.html(html);
-  } catch (error) {
-    return c.text("Dashboard not found", 404);
-  }
-});
+// app.get("/dashboard", async (c) => {
+//   try {
+//     const html = await fs.readFile("dashboard/index.html", "utf8");
+//     return c.html(html);
+//   } catch (error) {
+//     return c.text("Dashboard not found", 404);
+//   }
+// });
 
 // Cache untuk dashboard data
 let dashboardSummaryCache: any = null;
