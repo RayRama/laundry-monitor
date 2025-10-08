@@ -24,35 +24,77 @@ let isDataStale = false;
 let meta = { ts: null, stale: true };
 
 // Machine brand mapping
-const machineBrands = {
-  // Dryers
-  D01: "SQ",
-  D02: "SQ",
-  D03: "FGD",
-  D04: "FGD",
-  D05: "MDG",
-  D06: "MDG",
-  D07: "MDG",
-  D08: "MDG",
-  D09: "MDG",
-  D10: "NTG",
-  D11: "NTG",
-  D12: "NTG",
+// Import machine configuration from constants
+// Note: Since this is a client-side script, we'll define the constants here
+// In a real app, you might want to load this from a separate config file
+const MACHINE_CONFIG = {
+  machineBrands: {
+    // Dryers
+    D01: "SQ",
+    D02: "SQ",
+    D03: "FGD",
+    D04: "FGD",
+    D05: "MDG",
+    D06: "MDG",
+    D07: "MDG",
+    D08: "MDG",
+    D09: "MDG",
+    D10: "NTG",
+    D11: "NTG",
+    D12: "NTG",
 
-  // Washers
-  W01: "Titan",
-  W02: "Titan",
-  W03: "LG24",
-  W04: "LG24",
-  W05: "FGD",
-  W06: "FGD",
-  W07: "LG20",
-  W08: "LG20",
-  W09: "LG20",
-  W10: "NTG",
-  W11: "BEKO",
-  W12: "BEKO",
+    // Washers
+    W01: "Titan",
+    W02: "Titan",
+    W03: "LG24",
+    W04: "LG24",
+    W05: "FGD",
+    W06: "FGD",
+    W07: "LG20",
+    W08: "LG20",
+    W09: "LG20",
+    W10: "NTG",
+    W11: "BEKO",
+    W12: "BEKO",
+  },
+  machineMaxWeight: {
+    // Dryers
+    D01: 10,
+    D02: 10,
+    D03: 10,
+    D04: 10,
+    D05: 10,
+    D06: 10,
+    D07: 10,
+    D08: 10,
+    D09: 10,
+    D10: 10,
+    D11: 10,
+    D12: 10,
+
+    // Washers
+    W01: 10,
+    W02: 10,
+    W03: 10,
+    W04: 10,
+    W05: 10,
+    W06: 10,
+    W07: 10,
+    W08: 10,
+    W09: 10,
+    W10: 10,
+    W11: 10,
+    W12: 10,
+  },
 };
+
+const machineBrands = MACHINE_CONFIG.machineBrands;
+
+// Helper function to get machine max weight
+const getMachineMaxWeight = (machineLabel) => {
+  return MACHINE_CONFIG.machineMaxWeight[machineLabel] || 10;
+};
+
 let lastETag = null;
 
 // Tentukan base URL API:

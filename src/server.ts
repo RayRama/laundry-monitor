@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { normalize } from "./normalize.js";
+import { MACHINE_CONFIG, getAllMachineIds } from "./constants.js";
 
 // Load env dari .env.local (jika ada) lalu fallback ke .env
 dotenv.config({ path: ".env.local" });
@@ -19,33 +20,8 @@ let snapshot: any = null;
 let lastSuccessTime: number | null = null;
 
 async function loadControllerMap() {
-  // Hardcoded controller map to avoid file system issues in Vercel
-  controllersMap = {
-    D48AFC354603: "D05",
-    D48AFC325A64: "D07",
-    "2CF4321072A5": "D01",
-    "68C63AFC13FA": "D02",
-    "483FDA643B85": "D03",
-    "48E7296DE4BF": "D04",
-    D48AFC35465C: "D06",
-    D48AFC31F4C0: "D08",
-    D48AFC354357: "D09",
-    BCDDC248DF58: "D10",
-    C82B961E9BF3: "D11",
-    "8CCE4EF44A99": "D12",
-    "9C9C1F410120": "W01",
-    "98F4ABD8506A": "W02",
-    "8CAAB5D53E39": "W03",
-    "84F3EB6ED32F": "W04",
-    "483FDA69F7C5": "W05",
-    "483FDA077794": "W06",
-    "807D3A4E5A46": "W07",
-    "5CCF7FDBB498": "W08",
-    "483FDA6AFDC7": "W10",
-    "500291EB8F36": "W09",
-    A4CF12F307D1: "W11",
-    "68C63AFC1863": "W12",
-  };
+  // Use constants instead of hardcoded values
+  controllersMap = MACHINE_CONFIG.machineLabels;
   console.log(
     "✅ Controller map loaded:",
     Object.keys(controllersMap || {}).length,
@@ -519,7 +495,7 @@ app.get("/api/leaderboard/frequency", async (c) => {
 
     // Load controller map to get machine IDs
     await loadControllerMap();
-    const machineIds = Object.keys(controllersMap || {});
+    const machineIds = getAllMachineIds();
 
     const leaderboard = [];
 
@@ -668,7 +644,7 @@ app.get("/api/leaderboard/revenue", async (c) => {
 
     // Load controller map to get machine IDs
     await loadControllerMap();
-    const machineIds = Object.keys(controllersMap || {});
+    const machineIds = getAllMachineIds();
 
     const leaderboard = [];
 
