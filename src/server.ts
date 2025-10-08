@@ -19,11 +19,15 @@ let snapshot: any = null;
 let lastSuccessTime: number | null = null;
 
 async function loadControllerMap() {
-  const path = process.env.CONTROLLER_MAP_FILE || "config/controllers.json";
+  const path = process.env.CONTROLLER_MAP_FILE || "/vercel/path1/config/controllers.json";
   try {
     const raw = await fs.readFile(path, "utf8");
     controllersMap = JSON.parse(raw); // {"807D3A4E5A46":"W6","2509BCA000360460945":"W6", ...}
-    console.log("✅ Controller map loaded:", Object.keys(controllersMap || {}).length, "machines");
+    console.log(
+      "✅ Controller map loaded:",
+      Object.keys(controllersMap || {}).length,
+      "machines"
+    );
   } catch (error) {
     console.error("❌ Failed to load controller map:", error);
     controllersMap = null;
