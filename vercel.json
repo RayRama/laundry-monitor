@@ -6,6 +6,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "dashboard/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "styles/**",
       "use": "@vercel/static"
     },
@@ -26,6 +30,10 @@
     {
       "src": "/api/(.*)",
       "dest": "src/server.ts"
+    },
+    {
+      "src": "/dashboard",
+      "dest": "dashboard/index.html"
     },
     {
       "src": "/",
