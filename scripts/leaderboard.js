@@ -11,10 +11,11 @@ class LeaderboardAPI {
       ? ""
       : "http://localhost:3000";
     this.isLoading = false;
-    this.lastETag = null;
+    this.lastFrequencyETag = null;
+    this.lastRevenueETag = null;
   }
 
-  async fetchWithTimeout(url, options = {}, timeout = 10000) {
+  async fetchWithTimeout(url, options = {}, timeout = 30000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -37,8 +38,8 @@ class LeaderboardAPI {
 
     try {
       const headers = { "cache-control": "no-cache" };
-      if (this.lastETag) {
-        headers["If-None-Match"] = this.lastETag;
+      if (this.lastFrequencyETag) {
+        headers["If-None-Match"] = this.lastFrequencyETag;
       }
 
       const response = await this.fetchWithTimeout(url, { headers });
@@ -58,13 +59,16 @@ class LeaderboardAPI {
 
       const newETag = response.headers.get("ETag");
       if (newETag) {
-        this.lastETag = newETag;
+        this.lastFrequencyETag = newETag;
       }
 
       console.log("✅ Frequency leaderboard received:", data);
       return data;
     } catch (error) {
       console.error("❌ Error fetching frequency leaderboard:", error);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - leaderboard API took too long to respond');
+      }
       throw error;
     }
   }
@@ -75,8 +79,8 @@ class LeaderboardAPI {
 
     try {
       const headers = { "cache-control": "no-cache" };
-      if (this.lastETag) {
-        headers["If-None-Match"] = this.lastETag;
+      if (this.lastRevenueETag) {
+        headers["If-None-Match"] = this.lastRevenueETag;
       }
 
       const response = await this.fetchWithTimeout(url, { headers });
@@ -96,13 +100,16 @@ class LeaderboardAPI {
 
       const newETag = response.headers.get("ETag");
       if (newETag) {
-        this.lastETag = newETag;
+        this.lastRevenueETag = newETag;
       }
 
       console.log("✅ Revenue leaderboard received:", data);
       return data;
     } catch (error) {
       console.error("❌ Error fetching revenue leaderboard:", error);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - leaderboard API took too long to respond');
+      }
       throw error;
     }
   }
