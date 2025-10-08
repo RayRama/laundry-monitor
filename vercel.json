@@ -30,6 +30,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "src/constants.js",
+      "use": "@vercel/static"
+    },
+    {
       "src": "src/server.ts",
       "use": "@vercel/node"
     }
