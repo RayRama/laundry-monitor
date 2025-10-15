@@ -131,7 +131,7 @@ class DashboardDataManager {
     this.filteredData = [];
     this.summary = null;
     this.currentFilter = {
-      filterBy: "bulan",
+      filterBy: "bulan_ini",
       bulan: this.getCurrentMonth(),
       tahun: this.getCurrentYear(),
       tanggalAwal: "",
@@ -158,7 +158,41 @@ class DashboardDataManager {
   }
 
   getDefaultStartDate() {
-    return "2025-01-01";
+    return "2025-09-22";
+  }
+
+  getTodayDate() {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  }
+
+  getWeekStartDate() {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
+    const monday = new Date(today.getFullYear(), today.getMonth(), diff);
+    return monday.toISOString().split("T")[0];
+  }
+
+  getMonthStartDate() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  }
+
+  getDateRangeForFilter(filterBy) {
+    const today = this.getCurrentDate();
+
+    switch (filterBy) {
+      case "hari_ini":
+        return { tanggalAwal: today, tanggalAkhir: today };
+      case "minggu_ini":
+        return { tanggalAwal: this.getWeekStartDate(), tanggalAkhir: today };
+      case "bulan_ini":
+        return { tanggalAwal: this.getMonthStartDate(), tanggalAkhir: today };
+      default:
+        return null;
+    }
   }
 
   async loadData() {
@@ -244,12 +278,17 @@ class DashboardDataManager {
 
   buildSummaryParams() {
     const params = {
-      filter_by: this.currentFilter.filterBy,
+      filter_by: "periode", // Always use periode for new filters
       limit: "20",
       offset: "0",
     };
 
-    if (
+    // Handle new filter types
+    const dateRange = this.getDateRangeForFilter(this.currentFilter.filterBy);
+    if (dateRange) {
+      params.tanggal_awal = dateRange.tanggalAwal;
+      params.tanggal_akhir = dateRange.tanggalAkhir;
+    } else if (
       this.currentFilter.filterBy === "periode" &&
       this.currentFilter.tanggalAwal &&
       this.currentFilter.tanggalAkhir
@@ -257,8 +296,10 @@ class DashboardDataManager {
       params.tanggal_awal = this.currentFilter.tanggalAwal;
       params.tanggal_akhir = this.currentFilter.tanggalAkhir;
     } else if (this.currentFilter.filterBy === "bulan") {
+      params.filter_by = "bulan";
       params.bulan = this.currentFilter.bulan;
-    } else {
+    } else if (this.currentFilter.filterBy === "tahun") {
+      params.filter_by = "tahun";
       params.tahun = this.currentFilter.tahun;
     }
 
@@ -268,7 +309,7 @@ class DashboardDataManager {
 
   buildTransactionParams() {
     const params = {
-      filter_by: this.currentFilter.filterBy,
+      filter_by: "periode", // Always use periode for new filters
       offset: "0",
     };
 
@@ -283,7 +324,12 @@ class DashboardDataManager {
       params.limit = this.currentFilter.limit || "100";
     }
 
-    if (
+    // Handle new filter types
+    const dateRange = this.getDateRangeForFilter(this.currentFilter.filterBy);
+    if (dateRange) {
+      params.tanggal_awal = dateRange.tanggalAwal;
+      params.tanggal_akhir = dateRange.tanggalAkhir;
+    } else if (
       this.currentFilter.filterBy === "periode" &&
       this.currentFilter.tanggalAwal &&
       this.currentFilter.tanggalAkhir
@@ -291,8 +337,10 @@ class DashboardDataManager {
       params.tanggal_awal = this.currentFilter.tanggalAwal;
       params.tanggal_akhir = this.currentFilter.tanggalAkhir;
     } else if (this.currentFilter.filterBy === "bulan") {
+      params.filter_by = "bulan";
       params.bulan = this.currentFilter.bulan;
-    } else {
+    } else if (this.currentFilter.filterBy === "tahun") {
+      params.filter_by = "tahun";
       params.tahun = this.currentFilter.tahun;
     }
 
@@ -382,7 +430,15 @@ class DashboardDataManager {
   }
 
   getFilterDescription() {
-    if (this.currentFilter.filterBy === "periode") {
+    const dateRange = this.getDateRangeForFilter(this.currentFilter.filterBy);
+
+    if (this.currentFilter.filterBy === "hari_ini") {
+      return "Hari Ini";
+    } else if (this.currentFilter.filterBy === "minggu_ini") {
+      return "Minggu Ini";
+    } else if (this.currentFilter.filterBy === "bulan_ini") {
+      return "Bulan Ini";
+    } else if (this.currentFilter.filterBy === "periode") {
       if (this.currentFilter.tanggalAwal && this.currentFilter.tanggalAkhir) {
         const startDate = new Date(this.currentFilter.tanggalAwal);
         const endDate = new Date(this.currentFilter.tanggalAkhir);
@@ -408,9 +464,11 @@ class DashboardDataManager {
         "Desember",
       ];
       return `Bulan ${monthNames[parseInt(month) - 1]} ${year}`;
-    } else {
+    } else if (this.currentFilter.filterBy === "tahun") {
       return `Tahun ${this.currentFilter.tahun}`;
     }
+
+    return "Filter tidak dikenal";
   }
 }
 
@@ -569,6 +627,28 @@ class DashboardRenderer {
       heat[day][hour] += 1;
     });
 
+    // Weekly aggregation
+    const byWeekMap = new Map();
+    rows.forEach((r) => {
+      if (!r.dt) return;
+      const date = new Date(r.dt);
+      const weekStart = this.getWeekStart(date);
+      const weekKey = weekStart.toISOString().slice(0, 10);
+
+      const cur = byWeekMap.get(weekKey) || {
+        date: weekKey,
+        rev: 0,
+        tx: 0,
+        weekLabel: this.getWeekLabel(weekStart),
+      };
+      cur.rev += r.total_harga || 0;
+      cur.tx += 1;
+      byWeekMap.set(weekKey, cur);
+    });
+    const byWeek = Array.from(byWeekMap.values()).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
     return {
       tx,
       rev,
@@ -576,6 +656,7 @@ class DashboardRenderer {
       paid,
       finished,
       byDay,
+      byWeek,
       byHour,
       bucketCounts,
       perday,
@@ -590,8 +671,10 @@ class DashboardRenderer {
 
     this.renderDailyChart(stats);
     this.renderTicketChart(stats);
+    this.renderWeeklyChart(stats);
+    this.renderTransactionDailyChart(stats);
+    this.renderCombinedChart(stats);
     this.renderHourlyChart(stats);
-    this.renderStatusChart(stats);
     this.renderHeatMap(stats);
   }
 
@@ -606,7 +689,11 @@ class DashboardRenderer {
             data: stats.byDay.map((d) => d.rev),
             borderWidth: 3,
             tension: 0.3,
-            pointRadius: 0,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: "rgba(14,165,233,1)",
+            pointBorderColor: "rgba(14,165,233,1)",
+            pointBorderWidth: 2,
             borderColor: "rgba(14,165,233,1)",
             backgroundColor: "rgba(14,165,233,0.12)",
             fill: true,
@@ -615,17 +702,50 @@ class DashboardRenderer {
       },
       options: {
         scales: {
-          y: { ticks: { callback: (v) => this.IDR.format(v) } },
+          y: {
+            ticks: { callback: (v) => this.IDR.format(v) },
+            beginAtZero: true,
+          },
           x: {
             ticks: {
-              callback: (v, i, t) =>
-                this.shortDate(new Date(stats.byDay[i].date)),
+              callback: (v, i, t) => {
+                const date = new Date(stats.byDay[i].date);
+                const isWeekend = this.isWeekend(date);
+                return this.shortDate(date);
+              },
+              color: (ctx) => {
+                const date = new Date(stats.byDay[ctx.index].date);
+                return this.isWeekend(date) ? "#dc2626" : "#6b7280";
+              },
+              font: {
+                weight: (ctx) => {
+                  const date = new Date(stats.byDay[ctx.index].date);
+                  return this.isWeekend(date) ? "bold" : "normal";
+                },
+              },
             },
           },
         },
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: (ctx) => this.IDR.format(ctx.raw) } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const date = new Date(stats.byDay[ctx.dataIndex].date);
+                const dateStr = date.toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                });
+                return `${dateStr}: ${this.IDR.format(ctx.raw)}`;
+              },
+            },
+          },
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
         },
       },
     });
@@ -650,6 +770,251 @@ class DashboardRenderer {
     });
   }
 
+  renderWeeklyChart(stats) {
+    this.makeChart("chartWeekly", {
+      type: "bar",
+      data: {
+        labels: stats.byWeek.map((w) => w.weekLabel),
+        datasets: [
+          {
+            label: "Omzet per Minggu (IDR)",
+            data: stats.byWeek.map((w) => w.rev),
+            backgroundColor: "rgba(14,165,233,0.8)",
+            borderColor: "rgba(14,165,233,1)",
+            borderWidth: 1,
+            borderRadius: 4,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        scales: {
+          y: {
+            ticks: { callback: (v) => this.IDR.format(v) },
+            beginAtZero: true,
+          },
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+            },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const week = stats.byWeek[ctx.dataIndex];
+                return `Minggu ${week.weekLabel}: ${this.IDR.format(ctx.raw)}`;
+              },
+            },
+          },
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+      },
+    });
+  }
+
+  renderTransactionDailyChart(stats) {
+    this.makeChart("chartTransactionDaily", {
+      type: "line",
+      data: {
+        labels: stats.byDay.map((d) => d.date),
+        datasets: [
+          {
+            label: "Jumlah Transaksi",
+            data: stats.byDay.map((d) => d.tx),
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: "rgba(252,211,77,1)",
+            pointBorderColor: "rgba(252,211,77,1)",
+            pointBorderWidth: 2,
+            borderColor: "rgba(252,211,77,1)",
+            backgroundColor: "rgba(252,211,77,0.12)",
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        scales: {
+          y: {
+            ticks: { callback: (v) => v.toLocaleString("id-ID") },
+            beginAtZero: true,
+          },
+          x: {
+            ticks: {
+              callback: (v, i, t) => {
+                const date = new Date(stats.byDay[i].date);
+                const isWeekend = this.isWeekend(date);
+                return this.shortDate(date);
+              },
+              color: (ctx) => {
+                const date = new Date(stats.byDay[ctx.index].date);
+                return this.isWeekend(date) ? "#dc2626" : "#6b7280";
+              },
+              font: {
+                weight: (ctx) => {
+                  const date = new Date(stats.byDay[ctx.index].date);
+                  return this.isWeekend(date) ? "bold" : "normal";
+                },
+              },
+            },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const date = new Date(stats.byDay[ctx.dataIndex].date);
+                const dateStr = date.toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                });
+                return `${dateStr}: ${ctx.raw} transaksi`;
+              },
+            },
+          },
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+      },
+    });
+  }
+
+  renderCombinedChart(stats) {
+    this.makeChart("chartCombined", {
+      type: "line",
+      data: {
+        labels: stats.byDay.map((d) => d.date),
+        datasets: [
+          {
+            label: "Omzet (IDR)",
+            data: stats.byDay.map((d) => d.rev),
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: "rgba(14,165,233,1)",
+            pointBorderColor: "rgba(14,165,233,1)",
+            pointBorderWidth: 2,
+            borderColor: "rgba(14,165,233,1)",
+            backgroundColor: "rgba(14,165,233,0.12)",
+            fill: false,
+            yAxisID: "y",
+          },
+          {
+            label: "Jumlah Transaksi",
+            data: stats.byDay.map((d) => d.tx),
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: "rgba(252,211,77,1)",
+            pointBorderColor: "rgba(252,211,77,1)",
+            pointBorderWidth: 2,
+            borderColor: "rgba(252,211,77,1)",
+            backgroundColor: "rgba(252,211,77,0.12)",
+            fill: false,
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        scales: {
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+            ticks: {
+              callback: (v) => this.IDR.format(v),
+              color: "rgba(14,165,233,1)",
+            },
+            beginAtZero: true,
+            grid: {
+              color: "rgba(14,165,233,0.1)",
+            },
+          },
+          y1: {
+            type: "linear",
+            display: true,
+            position: "right",
+            ticks: {
+              callback: (v) => v.toLocaleString("id-ID"),
+              color: "rgba(252,211,77,1)",
+            },
+            beginAtZero: true,
+            grid: {
+              drawOnChartArea: false,
+            },
+          },
+          x: {
+            ticks: {
+              callback: (v, i, t) => {
+                const date = new Date(stats.byDay[i].date);
+                const isWeekend = this.isWeekend(date);
+                return this.shortDate(date);
+              },
+              color: (ctx) => {
+                const date = new Date(stats.byDay[ctx.index].date);
+                return this.isWeekend(date) ? "#dc2626" : "#6b7280";
+              },
+              font: {
+                weight: (ctx) => {
+                  const date = new Date(stats.byDay[ctx.index].date);
+                  return this.isWeekend(date) ? "bold" : "normal";
+                },
+              },
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              usePointStyle: true,
+              padding: 20,
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const date = new Date(stats.byDay[ctx.dataIndex].date);
+                const dateStr = date.toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                });
+
+                if (ctx.datasetIndex === 0) {
+                  return `${dateStr} - Omzet: ${this.IDR.format(ctx.raw)}`;
+                } else {
+                  return `${dateStr} - Transaksi: ${ctx.raw} transaksi`;
+                }
+              },
+            },
+          },
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+      },
+    });
+  }
+
   renderHourlyChart(stats) {
     this.makeChart("chartHourly", {
       type: "bar",
@@ -669,25 +1034,6 @@ class DashboardRenderer {
     });
   }
 
-  renderStatusChart(stats) {
-    this.makeChart("chartStatus", {
-      type: "bar",
-      data: {
-        labels: ["Selesai", "Belum"],
-        datasets: [
-          {
-            data: [stats.finished, Math.max(0, stats.tx - stats.finished)],
-          },
-        ],
-      },
-      options: {
-        indexAxis: "y",
-        scales: { x: { beginAtZero: true } },
-        plugins: { legend: { display: false } },
-      },
-    });
-  }
-
   renderHeatMap(stats) {
     const container = document.getElementById("heatWrap");
     const max = Math.max(1, ...stats.heat.flat());
@@ -697,24 +1043,30 @@ class DashboardRenderer {
       return `background: rgb(${c}, ${255 - Math.round(120 * t)}, ${255});`;
     };
     const hdr =
-      '<tr><th class="text-left p-2 text-xs text-slate-500">Hari/Jam</th>' +
+      '<tr><th class="text-left p-3 text-sm text-slate-500 font-semibold">Hari/Jam</th>' +
       Array.from(
         { length: 24 },
-        (_, h) => `<th class="text-xs text-slate-500">${this.pad2(h)}</th>`
+        (_, h) =>
+          `<th class="text-sm text-slate-500 font-semibold p-2">${this.pad2(
+            h
+          )}</th>`
       ).join("") +
       "</tr>";
     const rows = stats.days
       .map((d, idx) => {
         const cells = stats.heat[idx]
           .map(
-            (v) => `<td class="p-1 text-sm" style="${scale(v)}">${v || ""}</td>`
+            (v) =>
+              `<td class="p-2 text-sm font-medium text-center" style="${scale(
+                v
+              )}">${v || ""}</td>`
           )
           .join("");
-        return `<tr><td class="p-2 text-xs text-slate-600 font-semibold">${d}</td>${cells}</tr>`;
+        return `<tr><td class="p-3 text-sm text-slate-600 font-semibold">${d}</td>${cells}</tr>`;
       })
       .join("");
 
-    container.innerHTML = `<table class="table heat">${hdr}${rows}</table>`;
+    container.innerHTML = `<table class="table heat w-full">${hdr}${rows}</table>`;
   }
 
   renderTable(rows) {
@@ -762,14 +1114,31 @@ class DashboardRenderer {
   }
 
   shortDate(d) {
-    return new Intl.DateTimeFormat("id-ID", {
-      day: "2-digit",
-      month: "short",
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
     }).format(d);
   }
 
   pad2(n) {
     return n < 10 ? "0" + n : "" + n;
+  }
+
+  getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+  }
+
+  getWeekLabel(weekStart) {
+    const end = new Date(weekStart);
+    end.setDate(end.getDate() + 6);
+    return `${this.shortDate(weekStart)}–${this.shortDate(end)}`;
+  }
+
+  isWeekend(date) {
+    const day = new Date(date).getDay();
+    return day === 0 || day === 6; // Sunday or Saturday
   }
 }
 
@@ -814,10 +1183,14 @@ class DashboardController {
     const defaultStartDate = this.dataManager.getDefaultStartDate();
     const currentDate = this.dataManager.getCurrentDate();
 
+    document.getElementById("filterBy").value = "bulan_ini";
     document.getElementById("bulan").value = currentMonth;
     document.getElementById("tahun").value = currentYear;
     document.getElementById("tanggalAwal").value = defaultStartDate;
     document.getElementById("tanggalAkhir").value = currentDate;
+
+    // Initialize filter type display
+    this.updateFilterType("bulan_ini");
   }
 
   updateFilterType(type) {
@@ -841,6 +1214,7 @@ class DashboardController {
       periodeGroup.style.display = "block";
       periodeGroup2.style.display = "block";
     }
+    // For new filter types (hari_ini, minggu_ini, bulan_ini), no additional inputs needed
   }
 
   updateLimitType(type) {
@@ -876,7 +1250,7 @@ class DashboardController {
 
   clearFilter() {
     // Reset to default values
-    document.getElementById("filterBy").value = "bulan";
+    document.getElementById("filterBy").value = "bulan_ini";
     document.getElementById("bulan").value = this.dataManager.getCurrentMonth();
     document.getElementById("tahun").value = this.dataManager.getCurrentYear();
     document.getElementById("tanggalAwal").value =
@@ -886,11 +1260,11 @@ class DashboardController {
     document.getElementById("limitType").value = "max";
     document.getElementById("customLimit").value = "100";
 
-    this.updateFilterType("bulan");
+    this.updateFilterType("bulan_ini");
     this.updateLimitType("max");
 
     const defaultFilter = {
-      filterBy: "bulan",
+      filterBy: "bulan_ini",
       bulan: this.dataManager.getCurrentMonth(),
       tahun: this.dataManager.getCurrentYear(),
       tanggalAwal: this.dataManager.getDefaultStartDate(),

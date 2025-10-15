@@ -97,10 +97,13 @@
         <div class="filter-row">
           <div class="filter-group">
             <label for="filterBy">Jenis Filter</label>
-            <select id="filterBy" class="w-32">
-              <option value="bulan">Bulan</option>
+            <select id="filterBy" class="w-40">
+              <option value="hari_ini">Hari Ini</option>
+              <option value="minggu_ini">Minggu Ini</option>
+              <option value="bulan_ini">Bulan Ini</option>
+              <option value="bulan">Bulan (Custom)</option>
               <option value="tahun">Tahun</option>
-              <option value="periode">Periode</option>
+              <option value="periode">Rentang Tanggal</option>
             </select>
           </div>
 
@@ -211,7 +214,57 @@
         </div>
       </section>
 
-      <section class="grid lg:grid-cols-3 gap-4">
+      <!-- Additional Charts -->
+      <section class="grid lg:grid-cols-2 gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-slate-900 font-bold">Omzet Mingguan</h3>
+            <div class="text-xs text-slate-500">
+              <span class="legend-dot" style="background: var(--brand)"></span>
+              Omzet per Minggu (IDR)
+            </div>
+          </div>
+          <canvas id="chartWeekly" height="120"></canvas>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-slate-900 font-bold">Transaksi Harian</h3>
+            <div class="text-xs text-slate-500">
+              <span class="legend-dot" style="background: var(--accent)"></span>
+              Jumlah Transaksi
+            </div>
+          </div>
+          <canvas id="chartTransactionDaily" height="120"></canvas>
+        </div>
+      </section>
+
+      <!-- Combined Chart -->
+      <section class="grid lg:grid-cols-1 gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-slate-900 font-bold">Omzet & Transaksi Harian</h3>
+            <div class="text-xs text-slate-500 flex items-center gap-4">
+              <span class="flex items-center gap-1">
+                <span
+                  class="legend-dot"
+                  style="background: var(--brand)"
+                ></span>
+                Omzet (IDR)
+              </span>
+              <span class="flex items-center gap-1">
+                <span
+                  class="legend-dot"
+                  style="background: var(--accent)"
+                ></span>
+                Transaksi
+              </span>
+            </div>
+          </div>
+          <canvas id="chartCombined" height="120"></canvas>
+        </div>
+      </section>
+
+      <section class="grid lg:grid-cols-2 gap-4">
         <div class="card p-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-slate-900 font-bold">Transaksi per Jam</h3>
@@ -222,13 +275,6 @@
           </div>
           <canvas id="chartHourly" height="200"></canvas>
         </div>
-        <div class="card p-4">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-slate-900 font-bold">Status Order</h3>
-            <div class="text-xs text-slate-500">Selesai vs Belum</div>
-          </div>
-          <canvas id="chartStatus" height="200"></canvas>
-        </div>
         <div class="card p-4 overflow-x-auto">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-slate-900 font-bold">Heat • Hari × Jam</h3>
@@ -236,7 +282,7 @@
               Kepadatan transaksi (jumlah)
             </div>
           </div>
-          <div id="heatWrap" class="min-w-[520px]"></div>
+          <div id="heatWrap" class="min-w-[800px]"></div>
         </div>
       </section>
 

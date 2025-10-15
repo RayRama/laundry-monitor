@@ -225,7 +225,7 @@ class LeaderboardDataManager {
   constructor() {
     this.api = new LeaderboardAPI();
     this.currentFilter = {
-      filterBy: "bulan",
+      filterBy: "minggu_ini",
       bulan: "2025-10",
       tanggalAwal: "2025-09-26",
       tanggalAkhir: this.getCurrentDate(),
@@ -252,17 +252,50 @@ class LeaderboardDataManager {
     return new Date().getFullYear().toString();
   }
 
+  getTodayDate() {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  }
+
+  getWeekStartDate() {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
+    const monday = new Date(today.getFullYear(), today.getMonth(), diff);
+    return monday.toISOString().split("T")[0];
+  }
+
+  getDateRangeForFilter(filterBy) {
+    const today = this.getCurrentDate();
+
+    switch (filterBy) {
+      case "hari_ini":
+        return { tanggalAwal: today, tanggalAkhir: today };
+      case "minggu_ini":
+        return { tanggalAwal: this.getWeekStartDate(), tanggalAkhir: today };
+      default:
+        return null;
+    }
+  }
+
   buildParams() {
     const params = {
-      filter_by: this.currentFilter.filterBy,
+      filter_by: "periode", // Always use periode for new filters
     };
 
-    if (this.currentFilter.filterBy === "periode") {
+    // Handle new filter types
+    const dateRange = this.getDateRangeForFilter(this.currentFilter.filterBy);
+    if (dateRange) {
+      params.tanggal_awal = dateRange.tanggalAwal;
+      params.tanggal_akhir = dateRange.tanggalAkhir;
+    } else if (this.currentFilter.filterBy === "periode") {
       params.tanggal_awal = this.currentFilter.tanggalAwal;
       params.tanggal_akhir = this.currentFilter.tanggalAkhir;
     } else if (this.currentFilter.filterBy === "bulan") {
+      params.filter_by = "bulan";
       params.bulan = this.currentFilter.bulan;
-    } else {
+    } else if (this.currentFilter.filterBy === "tahun") {
+      params.filter_by = "tahun";
       params.tahun = this.currentFilter.tahun;
     }
 
@@ -531,7 +564,11 @@ class LeaderboardRenderer {
       this.dataManager.currentFilter;
 
     let rangeText = "";
-    if (filterBy === "periode") {
+    if (filterBy === "hari_ini") {
+      rangeText = "Hari Ini";
+    } else if (filterBy === "minggu_ini") {
+      rangeText = "Minggu Ini";
+    } else if (filterBy === "periode") {
       rangeText = `Periode: ${tanggalAwal} - ${tanggalAkhir}`;
     } else if (filterBy === "bulan") {
       const [year, month] = bulan.split("-");
@@ -550,7 +587,7 @@ class LeaderboardRenderer {
         "Desember",
       ];
       rangeText = `Bulan: ${monthNames[parseInt(month) - 1]} ${year}`;
-    } else {
+    } else if (filterBy === "tahun") {
       rangeText = `Tahun: ${tahun}`;
     }
 
@@ -607,9 +644,13 @@ class LeaderboardController {
     const currentMonth = this.dataManager.getCurrentMonth();
     const currentDate = this.dataManager.getCurrentDate();
 
+    document.getElementById("filterBy").value = "minggu_ini";
     document.getElementById("bulan").value = currentMonth;
     document.getElementById("tanggalAkhir").value = currentDate;
     document.getElementById("tahun").value = this.dataManager.getCurrentYear();
+
+    // Initialize filter type display
+    this.updateFilterType("minggu_ini");
   }
 
   updateFilterType(filterBy) {
@@ -628,6 +669,7 @@ class LeaderboardController {
     } else if (filterBy === "tahun") {
       document.getElementById("tahunGroup").style.display = "block";
     }
+    // For new filter types (hari_ini, minggu_ini), no additional inputs needed
   }
 
   updateFilterFromInputs() {
@@ -642,6 +684,7 @@ class LeaderboardController {
     } else if (filterBy === "tahun") {
       newFilter.tahun = document.getElementById("tahun").value;
     }
+    // For new filter types (hari_ini, minggu_ini), no additional inputs needed
 
     this.dataManager.updateFilter(newFilter);
   }
