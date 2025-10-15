@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laundry Monitor - TV Display</title>
+    <link rel="stylesheet" href="/styles/main.css" />
+    <link rel="stylesheet" href="/styles/monitor.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container monitor-view">
+      <!-- Header -->
+      <header class="header">
+        <h1>Laundry Monitor</h1>
+        <span id="last-updated" aria-live="polite"
+          >Terakhir diperbarui • --:--</span
+        >
+      </header>
+
+      <!-- Status Legend Row -->
+      <div class="status-legend-row">
+        <div class="legend-item">
+          <div class="legend-icon ready"></div>
+          <span>Tersedia</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon running"></div>
+          <span>Berjalan</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon offline"></div>
+          <span>Offline</span>
+        </div>
+      </div>
+
+      <!-- Machine Grid -->
+      <div class="machines-section">
+        <!-- Desktop/Tablet/TV: Single Grid -->
+        <div class="machines-wrap">
+          <div class="parent" id="machineGrid">
+            <!-- Mesin Washer (W1-W12) dan Dryer (D1-D12) akan di-render di sini -->
+            <!-- Grid positions akan diatur via CSS grid-area -->
+          </div>
+        </div>
+
+        <!-- Mobile: Separate Grids -->
+        <div id="mobileGrids" class="mobile-grids">
+          <div class="mobile-grid-section">
+            <h3 class="mobile-grid-title">Washers</h3>
+            <div id="washerGrid" class="parent mobile-grid"></div>
+          </div>
+          <div class="mobile-grid-section">
+            <h3 class="mobile-grid-title">Dryers</h3>
+            <div id="dryerGrid" class="parent mobile-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards Section -->
+      <div class="cards" id="cards">
+        <!-- ETA Card -->
+        <div class="card eta-card">
+          <h2>Mesin Berjalan</h2>
+          <p>Teratas = hampir selesai</p>
+          <div class="eta-table">
+            <!-- <div class="eta-header">
+              <div class="eta-col-header">Mesin</div>
+              <div class="eta-col-header">Sisa Waktu</div>
+            </div> -->
+            <div class="eta-body" id="etaBody">
+              <!-- Daftar ETA akan di-render di sini -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Card -->
+        <div class="card summary-card">
+          <h2>Tingkat Penggunaan</h2>
+          <p
+            style="
+              text-align: center;
+              color: var(--muted);
+              margin-bottom: 1.5rem;
+              font-size: 0.9rem;
+            "
+          >
+            Persentase mesin yang sedang digunakan
+          </p>
+          <div class="occupation-text-display">
+            <div class="occupation-item">
+              <span class="occupation-label">Dryer:</span>
+              <span class="occupation-rate" id="dryerOccupationRate"
+                >0% occupation rate</span
+              >
+              <span class="occupation-details" id="dryerDetails"
+                >(0 running + 0 offline out of 0 total)</span
+              >
+            </div>
+            <div class="occupation-item">
+              <span class="occupation-label">Washer:</span>
+              <span class="occupation-rate" id="washerOccupationRate"
+                >0% occupation rate</span
+              >
+              <span class="occupation-details" id="washerDetails"
+                >(0 running + 0 offline out of 0 total)</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/scripts/app.js"></script>
+  </body>
+</html>

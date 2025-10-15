@@ -1,6 +1,6 @@
 /**
- * Laundry Monitor - TV Display Application
- * Render functions, polling, dan hysteresis untuk monitoring mesin laundry
+ * Laundry Monitor - Public TV Display Application
+ * Simplified version for consumers - no machine names or usage statistics
  */
 
 // Konstanta
@@ -15,110 +15,11 @@ const MACHINE_TYPE = {
   WASHER: "W",
 };
 
-// FE kini pakai slot dari API langsung
-
 // Global variables
 let machines = [];
 let lastUpdateTime = null;
 let isDataStale = false;
 let meta = { ts: null, stale: true };
-
-// Machine brand mapping
-// Machine Configuration - will be loaded from external file
-let MACHINE_CONFIG = null;
-let machineBrands = {};
-
-// Helper function to get machine max weight
-const getMachineMaxWeight = (machineLabel) => {
-  if (!MACHINE_CONFIG) return 10;
-  return MACHINE_CONFIG.machineMaxWeight[machineLabel] || 10;
-};
-
-// Load machine configuration from external file
-async function loadMachineConfig() {
-  try {
-    const response = await fetch("/src/constants.js");
-    if (!response.ok) {
-      throw new Error("Failed to load constants");
-    }
-    const text = await response.text();
-
-    // Extract MACHINE_CONFIG from the module
-    const moduleMatch = text.match(
-      /export const MACHINE_CONFIG = ({[\s\S]*?});/
-    );
-    if (moduleMatch) {
-      // Simple JSON parsing for the config object
-      const configStr = moduleMatch[1]
-        .replace(/(\w+):/g, '"$1":') // Add quotes to keys
-        .replace(/'/g, '"'); // Replace single quotes with double quotes
-
-      MACHINE_CONFIG = JSON.parse(configStr);
-      machineBrands = MACHINE_CONFIG.machineBrands;
-      console.log("✅ Machine config loaded from constants.js");
-    } else {
-      throw new Error("Could not parse MACHINE_CONFIG");
-    }
-  } catch (error) {
-    console.warn("⚠️ Failed to load machine config, using fallback:", error);
-    // Fallback configuration
-    MACHINE_CONFIG = {
-      machineBrands: {
-        D01: "SQ",
-        D02: "SQ",
-        D03: "FGD",
-        D04: "FGD",
-        D05: "MDG",
-        D06: "MDG",
-        D07: "MDG",
-        D08: "MDG",
-        D09: "MDG",
-        D10: "NTG",
-        D11: "NTG",
-        D12: "NTG",
-        W01: "Titan",
-        W02: "Titan",
-        W03: "LG24",
-        W04: "LG24",
-        W05: "FGD",
-        W06: "FGD",
-        W07: "LG20",
-        W08: "LG20",
-        W09: "LG20",
-        W10: "NTG",
-        W11: "BEKO",
-        W12: "BEKO",
-      },
-      machineMaxWeight: {
-        D01: 10,
-        D02: 10,
-        D03: 10,
-        D04: 10,
-        D05: 10,
-        D06: 10,
-        D07: 10,
-        D08: 10,
-        D09: 10,
-        D10: 10,
-        D11: 10,
-        D12: 10,
-        W01: 10,
-        W02: 10,
-        W03: 10,
-        W04: 10,
-        W05: 10,
-        W06: 10,
-        W07: 10,
-        W08: 10,
-        W09: 10,
-        W10: 10,
-        W11: 10,
-        W12: 10,
-      },
-    };
-    machineBrands = MACHINE_CONFIG.machineBrands;
-  }
-}
 
 let lastETag = null;
 
@@ -145,12 +46,12 @@ const HYSTERESIS_THRESHOLD = 3000; // 3 detik
  * Inisialisasi aplikasi
  */
 async function init() {
-  console.log("Initializing Laundry Monitor...");
+  console.log("Initializing Public Laundry Monitor...");
 
   // Render awal kosong sambil fetch pertama
   renderGrid();
   renderEta();
-  renderSummary();
+  renderStatusLegend();
   renderUpdatedAt();
 
   // Fetch pertama langsung agar tidak menunggu jitter
@@ -163,11 +64,11 @@ async function init() {
   // Mulai polling dari API
   startPolling();
 
-  console.log("Application initialized successfully");
+  console.log("Public application initialized successfully");
 }
 
 /**
- * Render grid mesin dengan responsive layout
+ * Render grid mesin dengan responsive layout (tanpa nama brand)
  */
 function renderGrid() {
   const screenWidth = window.innerWidth;
@@ -186,7 +87,7 @@ function renderGrid() {
 }
 
 /**
- * Render single grid for desktop/tablet/TV
+ * Render single grid for desktop/tablet/TV (tanpa nama brand)
  */
 function renderSingleGrid() {
   const grid = document.getElementById("machineGrid");
@@ -238,16 +139,12 @@ function renderSingleGrid() {
       divClass = `responsive-${index}`;
     }
 
-    // Create wrapper for machine + brand
-    const machineWrapper = document.createElement("div");
-    machineWrapper.className = "machine-wrapper";
-
-    // Create machine box
+    // Create machine box (tanpa wrapper untuk brand)
     const machineElement = document.createElement("div");
     machineElement.className = `machine ${divClass}`;
     machineElement.dataset.machineId = machine.id;
 
-    // Create machine content with new layout
+    // Create machine content
     const machineContent = document.createElement("div");
     machineContent.className = "machine-content";
 
@@ -272,24 +169,15 @@ function renderSingleGrid() {
     machineContent.appendChild(statusInfo);
     machineElement.appendChild(machineContent);
 
-    // Brand name - OUTSIDE the box
-    const brandElement = document.createElement("div");
-    brandElement.className = "machine-brand";
-    brandElement.textContent = machineBrands[machine.label] || "Unknown";
-
-    // Add machine and brand to wrapper
-    machineWrapper.appendChild(machineElement);
-    machineWrapper.appendChild(brandElement);
-
     // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
-    grid.appendChild(machineWrapper);
+    grid.appendChild(machineElement);
   });
 }
 
 /**
- * Render separate grids for mobile (dryers and washers)
+ * Render separate grids for mobile (dryers and washers) - tanpa nama brand
  */
 function renderMobileGrids() {
   const dryerGrid = document.getElementById("dryerGrid");
@@ -317,33 +205,24 @@ function renderMobileGrids() {
   washers.sort((a, b) => a.label.localeCompare(b.label));
   dryers.sort((a, b) => a.label.localeCompare(b.label));
 
-  // Render washers first
+  // Render washers first (tanpa brand)
   washers.forEach((machine, index) => {
-    // Create wrapper for machine + brand
-    const machineWrapper = document.createElement("div");
-    machineWrapper.className = "machine-wrapper";
-
-    // Create machine box
     const machineElement = document.createElement("div");
     machineElement.className = `machine responsive-${index}`;
     machineElement.dataset.machineId = machine.id;
 
-    // Create machine content with new layout
     const machineContent = document.createElement("div");
     machineContent.className = "machine-content";
 
-    // Machine label (D01, D02, etc.)
     const labelElement = document.createElement("div");
     labelElement.className = "machine-label";
     labelElement.textContent = machine.label;
     machineContent.appendChild(labelElement);
 
-    // Status info (different for RUNNING vs READY/OFFLINE)
     const statusInfo = document.createElement("div");
     statusInfo.className = "machine-status-info";
 
     if (machine.status === "RUNNING") {
-      // For RUNNING: Show elapsed time only
       const timeElement = document.createElement("div");
       timeElement.className = "machine-time";
       timeElement.textContent = getStatusText(machine);
@@ -353,48 +232,29 @@ function renderMobileGrids() {
     machineContent.appendChild(statusInfo);
     machineElement.appendChild(machineContent);
 
-    // Brand name - OUTSIDE the box
-    const brandElement = document.createElement("div");
-    brandElement.className = "machine-brand";
-    brandElement.textContent = machineBrands[machine.label] || "Unknown";
-
-    // Add machine and brand to wrapper
-    machineWrapper.appendChild(machineElement);
-    machineWrapper.appendChild(brandElement);
-
-    // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
-    washerGrid.appendChild(machineWrapper);
+    washerGrid.appendChild(machineElement);
   });
 
-  // Render dryers
+  // Render dryers (tanpa brand)
   dryers.forEach((machine, index) => {
-    // Create wrapper for machine + brand
-    const machineWrapper = document.createElement("div");
-    machineWrapper.className = "machine-wrapper";
-
-    // Create machine box
     const machineElement = document.createElement("div");
     machineElement.className = `machine responsive-${index}`;
     machineElement.dataset.machineId = machine.id;
 
-    // Create machine content with new layout
     const machineContent = document.createElement("div");
     machineContent.className = "machine-content";
 
-    // Machine label (W01, W02, etc.)
     const labelElement = document.createElement("div");
     labelElement.className = "machine-label";
     labelElement.textContent = machine.label;
     machineContent.appendChild(labelElement);
 
-    // Status info (different for RUNNING vs READY/OFFLINE)
     const statusInfo = document.createElement("div");
     statusInfo.className = "machine-status-info";
 
     if (machine.status === "RUNNING") {
-      // For RUNNING: Show elapsed time only
       const timeElement = document.createElement("div");
       timeElement.className = "machine-time";
       timeElement.textContent = getStatusText(machine);
@@ -404,19 +264,9 @@ function renderMobileGrids() {
     machineContent.appendChild(statusInfo);
     machineElement.appendChild(machineContent);
 
-    // Brand name - OUTSIDE the box
-    const brandElement = document.createElement("div");
-    brandElement.className = "machine-brand";
-    brandElement.textContent = machineBrands[machine.label] || "Unknown";
-
-    // Add machine and brand to wrapper
-    machineWrapper.appendChild(machineElement);
-    machineWrapper.appendChild(brandElement);
-
-    // Apply status class dengan hysteresis
     applyStatusWithHysteresis(machineElement, machine);
 
-    dryerGrid.appendChild(machineWrapper);
+    dryerGrid.appendChild(machineElement);
   });
 }
 
@@ -528,7 +378,7 @@ function formatElapsedTime(elapsedMs) {
 }
 
 /**
- * Render panel ETA
+ * Render panel ETA (simplified - no usage statistics)
  */
 function renderEta() {
   const etaBody = document.getElementById("etaBody");
@@ -538,7 +388,6 @@ function renderEta() {
   const runningMachines = machines
     .filter((m) => m.status === STATUS.RUNNING)
     .sort((a, b) => toMinutes(b.elapsed_ms) - toMinutes(a.elapsed_ms));
-  // Remove slice(0, 3) to show all items
 
   etaBody.innerHTML = "";
 
@@ -550,15 +399,6 @@ function renderEta() {
     return;
   }
 
-  // Add header with note
-  // const header = document.createElement("div");
-  // header.className = "eta-header";
-  // header.innerHTML = `
-  //   <div class="eta-title">⏱️ Mesin Berjalan</div>
-  //   <div class="eta-note">Teratas = hampir selesai</div>
-  // `;
-  // etaBody.appendChild(header);
-
   runningMachines.forEach((machine, index) => {
     const row = document.createElement("div");
     row.className = `eta-row ${index === 0 ? "eta-priority" : ""}`;
@@ -567,7 +407,6 @@ function renderEta() {
     machineCell.className = "eta-machine";
     machineCell.innerHTML = `
       <span class="eta-label">${machine.label}</span>
-      <!-- <span class="eta-status">⏱️ Berjalan</span> -->
     `;
 
     const timeCell = document.createElement("div");
@@ -585,33 +424,11 @@ function renderEta() {
 }
 
 /**
- * Render summary statistics with text-based occupation rate display
+ * Render status legend with separate counts for washer and dryer
  */
-function renderSummary() {
-  const dryerOccupationRateEl = document.getElementById("dryerOccupationRate");
-  const dryerDetailsEl = document.getElementById("dryerDetails");
-  const washerOccupationRateEl = document.getElementById(
-    "washerOccupationRate"
-  );
-  const washerDetailsEl = document.getElementById("washerDetails");
-
-  if (
-    !dryerOccupationRateEl ||
-    !dryerDetailsEl ||
-    !washerOccupationRateEl ||
-    !washerDetailsEl
-  )
-    return;
-
-  // Calculate statistics for Dryer
-  const dryers = machines.filter((m) => m.type === MACHINE_TYPE.DRYER);
-  const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
-  const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
-  const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
-  const dryerTotal = dryers.length;
-
-  // Calculate statistics for Washer
-  const washers = machines.filter((m) => m.type === MACHINE_TYPE.WASHER);
+function renderStatusLegend() {
+  // Calculate washer counts
+  const washers = machines.filter((m) => m.type === "W");
   const washerReady = washers.filter((m) => m.status === STATUS.READY).length;
   const washerRunning = washers.filter(
     (m) => m.status === STATUS.RUNNING
@@ -619,71 +436,30 @@ function renderSummary() {
   const washerOffline = washers.filter(
     (m) => m.status === STATUS.OFFLINE
   ).length;
-  const washerTotal = washers.length;
 
-  // Calculate occupation rates (percentage of machines in use)
-  const dryerInUse = dryerRunning + dryerOffline; // Running + Offline = occupied
-  const dryerOccupationRate =
-    dryerTotal > 0 ? Math.round((dryerInUse / dryerTotal) * 100) : 0;
+  // Calculate dryer counts
+  const dryers = machines.filter((m) => m.type === "D");
+  const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
+  const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
+  const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
 
-  const washerInUse = washerRunning + washerOffline; // Running + Offline = occupied
-  const washerOccupationRate =
-    washerTotal > 0 ? Math.round((washerInUse / washerTotal) * 100) : 0;
+  // Update washer counts
+  const washerReadyEl = document.getElementById("washer-ready-count");
+  const washerRunningEl = document.getElementById("washer-running-count");
+  const washerOfflineEl = document.getElementById("washer-offline-count");
 
-  // Update text display with occupation rate and details
-  dryerOccupationRateEl.textContent = `${dryerOccupationRate}% occupation rate`;
-  dryerDetailsEl.textContent = `(${dryerRunning} running + ${dryerReady} ready + ${dryerOffline} offline out of ${dryerTotal} total)`;
+  if (washerReadyEl) washerReadyEl.textContent = washerReady;
+  if (washerRunningEl) washerRunningEl.textContent = washerRunning;
+  if (washerOfflineEl) washerOfflineEl.textContent = washerOffline;
 
-  washerOccupationRateEl.textContent = `${washerOccupationRate}% occupation rate`;
-  washerDetailsEl.textContent = `(${washerRunning} running + ${washerReady} ready + ${washerOffline} offline out of ${washerTotal} total)`;
-}
+  // Update dryer counts
+  const dryerReadyEl = document.getElementById("dryer-ready-count");
+  const dryerRunningEl = document.getElementById("dryer-running-count");
+  const dryerOfflineEl = document.getElementById("dryer-offline-count");
 
-/**
- * Update donut chart with conic gradient
- */
-function updateDonutChart(element, ready, running, offline, total) {
-  if (total === 0) {
-    element.style.background = `conic-gradient(var(--line) 0deg 360deg)`;
-    return;
-  }
-
-  const readyAngle = (ready / total) * 360;
-  const runningAngle = (running / total) * 360;
-  const offlineAngle = (offline / total) * 360;
-
-  let gradient = "";
-  let currentAngle = 0;
-
-  if (ready > 0) {
-    gradient += `var(--ready) ${currentAngle}deg ${
-      currentAngle + readyAngle
-    }deg`;
-    currentAngle += readyAngle;
-  }
-
-  if (running > 0) {
-    if (gradient) gradient += ", ";
-    gradient += `var(--running) ${currentAngle}deg ${
-      currentAngle + runningAngle
-    }deg`;
-    currentAngle += runningAngle;
-  }
-
-  if (offline > 0) {
-    if (gradient) gradient += ", ";
-    gradient += `var(--offline) ${currentAngle}deg ${
-      currentAngle + offlineAngle
-    }deg`;
-    currentAngle += offlineAngle;
-  }
-
-  // Fill remaining with line color
-  if (currentAngle < 360) {
-    if (gradient) gradient += ", ";
-    gradient += `var(--line) ${currentAngle}deg 360deg`;
-  }
-
-  element.style.background = `conic-gradient(${gradient})`;
+  if (dryerReadyEl) dryerReadyEl.textContent = dryerReady;
+  if (dryerRunningEl) dryerRunningEl.textContent = dryerRunning;
+  if (dryerOfflineEl) dryerOfflineEl.textContent = dryerOffline;
 }
 
 /**
@@ -816,7 +592,7 @@ async function fetchFromBackend() {
 
     renderGrid();
     renderEta();
-    renderSummary();
+    renderStatusLegend();
     renderUpdatedAt();
   } catch (err) {
     console.error("Fetch backend gagal:", err);
@@ -834,16 +610,14 @@ function startPolling() {
     await fetchFromBackend();
     renderGrid();
     renderEta();
-    renderSummary();
+    renderStatusLegend();
     renderUpdatedAt();
   });
 }
 
 // Event listeners
-document.addEventListener("DOMContentLoaded", async () => {
-  // Load machine configuration first
-  await loadMachineConfig();
-  // Then initialize the app
+document.addEventListener("DOMContentLoaded", () => {
+  // Initialize the app (no machine config needed for public view)
   init();
 });
 
@@ -874,11 +648,10 @@ if (typeof module !== "undefined" && module.exports) {
     init,
     renderGrid,
     renderEta,
-    renderSummary,
+    renderStatusLegend,
     renderUpdatedAt,
     toMinutes,
     formatElapsedTime,
     getStatusText,
-    updateDonutChart,
   };
 }

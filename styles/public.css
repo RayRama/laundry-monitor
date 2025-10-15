@@ -1,0 +1,328 @@
+/**
+ * Public View Specific Styles
+ * For consumer TV display - simplified layout
+ */
+
+/* Override cards container for public view - no grid layout */
+.public-view .cards {
+  display: block !important;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Container adjustments for public view */
+.public-view .container {
+  padding: 0.5rem;
+}
+
+/* Full width ETA card for public view */
+.public-view .eta-card-full {
+  width: calc(100% - 1rem);
+  margin: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Legend Styling for Public View - like the image */
+.public-view .status-legend-row {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  align-items: flex-start;
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--panel);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.public-view .legend-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.public-view .legend-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  text-align: center;
+}
+
+.public-view .legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.public-view .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.public-view .legend-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.public-view .legend-icon.ready {
+  background: #76c19e; /* Greenish-blue like in the image */
+}
+
+.public-view .legend-icon.running {
+  background: #fac686; /* Orange like in the image */
+}
+
+.public-view .legend-icon.offline {
+  background: #d9d9d9; /* Light gray like in the image */
+}
+
+.public-view .legend-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.public-view .legend-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* Scrollable ETA table */
+.eta-table-scrollable {
+  max-height: 60vh; /* 60% of viewport height */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.eta-table-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.eta-table-scrollable::-webkit-scrollbar-track {
+  background: var(--surface);
+  border-radius: 4px;
+}
+
+.eta-table-scrollable::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+.eta-table-scrollable::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
+}
+
+/* Enhanced ETA row styling for public view */
+.public-view .eta-row {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--background);
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.public-view .eta-row:hover {
+  background-color: var(--surface);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.public-view .eta-row:last-child {
+  border-bottom: none;
+}
+
+/* Priority row (first item) styling */
+.eta-priority {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin: 0.8rem 0;
+  border-left: 5px solid #28a745;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+/* Machine label styling */
+.eta-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* Duration styling */
+.eta-duration {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.eta-subtitle {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+/* Responsive adjustments for public view */
+@media (max-width: 768px) {
+  .public-view .container {
+    padding: 0.25rem;
+  }
+
+  .public-view .eta-card-full {
+    margin: 0.25rem;
+    width: calc(100% - 0.5rem);
+  }
+
+  .public-view .status-legend-row {
+    flex-direction: column;
+    gap: 1rem;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+  }
+
+  .public-view .legend-section {
+    gap: 0.5rem;
+  }
+
+  .public-view .legend-items {
+    flex-direction: row;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .public-view .legend-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .public-view .legend-count {
+    font-size: 0.8rem;
+  }
+
+  .public-view .legend-label {
+    font-size: 0.8rem;
+  }
+
+  .public-view .legend-section-title {
+    font-size: 0.9rem;
+  }
+
+  .eta-table-scrollable {
+    max-height: 50vh;
+  }
+
+  .public-view .eta-row {
+    padding: 1rem;
+    margin: 0.75rem 0;
+    min-height: 60px;
+  }
+
+  .eta-label {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .eta-duration {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-view .container {
+    padding: 0.125rem;
+  }
+
+  .public-view .eta-card-full {
+    margin: 0.125rem;
+    width: calc(100% - 0.25rem);
+  }
+
+  .public-view .status-legend-row {
+    gap: 0.75rem;
+    /* margin: 0.5rem 0; */
+    padding: 0.5rem;
+  }
+
+  .public-view .legend-items {
+    gap: 0.5rem;
+  }
+
+  .public-view .legend-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .public-view .legend-count {
+    font-size: 0.75rem;
+  }
+
+  .public-view .legend-label {
+    font-size: 0.75rem;
+  }
+
+  .public-view .legend-section-title {
+    font-size: 0.8rem;
+  }
+
+  .eta-table-scrollable {
+    max-height: 40vh;
+  }
+
+  .public-view .eta-row {
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    min-height: 50px;
+  }
+
+  .eta-label {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .eta-duration {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+}
+
+/* TV/Large screen optimizations */
+@media (min-width: 1920px) {
+  .eta-table-scrollable {
+    max-height: 70vh;
+  }
+
+  .eta-row {
+    padding: 1.25rem;
+  }
+
+  .eta-label {
+    font-size: 1.25rem;
+  }
+
+  .eta-duration {
+    font-size: 1.5rem;
+  }
+
+  .eta-subtitle {
+    font-size: 1rem;
+  }
+}

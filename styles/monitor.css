@@ -1,0 +1,258 @@
+/**
+ * Monitor View Specific Styles
+ * For owner dashboard, leaderboard, and layanan pages
+ */
+
+/* Monitor-specific overrides */
+.monitor-view .cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+/* Dashboard specific styles */
+.dashboard-view .eta-card {
+  grid-column: 1;
+}
+
+.dashboard-view .summary-card {
+  grid-column: 2;
+}
+
+/* Leaderboard specific styles */
+.leaderboard-view .leaderboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.leaderboard-card {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.leaderboard-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.rank {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.5rem;
+  border-radius: 50%;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #92400e;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0, #e0e0e0);
+  color: #4b5563;
+  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.3);
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, #cd7f32, #e69a5c);
+  color: #7c2d12;
+  box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3);
+}
+
+.rank-other {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.machine-info {
+  flex: 1;
+  margin-left: 1rem;
+}
+
+.machine-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.machine-details {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.machine-brand {
+  /* background: #e0f2fe; */
+  /* color: #0369a1; */
+  padding: 0.125rem 0.375rem;
+  /* border-radius: 0.375rem; */
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.machine-weight {
+  background: #f0fdf4;
+  color: #166534;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.machine-id {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.125rem;
+}
+
+.leaderboard-value {
+  text-align: right;
+}
+
+.value-primary {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.value-primary.frequency {
+  color: #059669;
+}
+
+.value-primary.currency {
+  color: #dc2626;
+}
+
+.value-secondary {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.125rem;
+}
+
+/* Layanan specific styles */
+.layanan-view .layanan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.layanan-card {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid var(--line);
+}
+
+.layanan-card.washer {
+  border-left-color: #3b82f6;
+}
+
+.layanan-card.dryer {
+  border-left-color: #f59e0b;
+}
+
+.layanan-card.maintenance {
+  border-left-color: #ef4444;
+}
+
+.layanan-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.layanan-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 0.5rem;
+}
+
+.layanan-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.layanan-status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+.layanan-status.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.layanan-status.inactive {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Responsive adjustments for monitor view */
+@media (max-width: 1024px) {
+  .monitor-view .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-view .leaderboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layanan-view .layanan-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .machine-details {
+    gap: 0.375rem;
+  }
+
+  .machine-brand,
+  .machine-weight {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.3rem;
+  }
+
+  .layanan-view .layanan-grid {
+    grid-template-columns: 1fr;
+  }
+}

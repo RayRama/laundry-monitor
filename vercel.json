@@ -14,6 +14,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "monitor/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "styles/**",
       "use": "@vercel/static"
     },
@@ -46,6 +50,10 @@
     {
       "src": "/dashboard",
       "dest": "dashboard/index.html"
+    },
+    {
+      "src": "/monitor",
+      "dest": "monitor/index.html"
     },
     {
       "src": "/leaderboard",
