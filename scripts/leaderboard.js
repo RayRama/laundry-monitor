@@ -456,11 +456,23 @@ class LeaderboardRenderer {
       "frequency"
     );
 
-    // Update totals
+    console.log("🔍 Separated data:", separatedData);
+    console.log("🔍 Washer frequency:", separatedData.washer.frequency);
+    console.log("🔍 Dryer frequency:", separatedData.dryer.frequency);
+
+    // Update totals (sum of all frequencies per machine, not just count of machines)
+    const washerFreqTotal = separatedData.washer.frequency.reduce(
+      (sum, item) => sum + (item.frequency || 0),
+      0
+    );
+    const dryerFreqTotal = separatedData.dryer.frequency.reduce(
+      (sum, item) => sum + (item.frequency || 0),
+      0
+    );
     document.getElementById("washerFreqTotal").textContent =
-      this.dataManager.formatFrequency(separatedData.washer.frequency.length);
+      this.dataManager.formatFrequency(washerFreqTotal);
     document.getElementById("dryerFreqTotal").textContent =
-      this.dataManager.formatFrequency(separatedData.dryer.frequency.length);
+      this.dataManager.formatFrequency(dryerFreqTotal);
   }
 
   renderRevenueLeaderboards() {

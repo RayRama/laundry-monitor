@@ -154,7 +154,11 @@ class DashboardDataManager {
 
   getCurrentDate() {
     const now = new Date();
-    return now.toISOString().split("T")[0];
+    // Use local timezone (Indonesia UTC+7) instead of UTC
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   getDefaultStartDate() {
@@ -163,7 +167,11 @@ class DashboardDataManager {
 
   getTodayDate() {
     const today = new Date();
-    return today.toISOString().split("T")[0];
+    // Use local timezone instead of UTC
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   getWeekStartDate() {
@@ -171,13 +179,21 @@ class DashboardDataManager {
     const dayOfWeek = today.getDay();
     const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
     const monday = new Date(today.getFullYear(), today.getMonth(), diff);
-    return monday.toISOString().split("T")[0];
+    // Use local timezone instead of UTC
+    const year = monday.getFullYear();
+    const month = String(monday.getMonth() + 1).padStart(2, "0");
+    const day = String(monday.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   getMonthStartDate() {
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    return firstDay.toISOString().split("T")[0];
+    // Use local timezone instead of UTC
+    const year = firstDay.getFullYear();
+    const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+    const day = String(firstDay.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   getDateRangeForFilter(filterBy) {
@@ -556,8 +572,13 @@ class DashboardRenderer {
     // Daily
     const byDayMap = new Map();
     rows.forEach((r) => {
-      const d = r.dt ? r.dt.toISOString().slice(0, 10) : "";
-      if (!d) return;
+      if (!r.dt) return;
+      // Use local timezone instead of UTC
+      const year = r.dt.getFullYear();
+      const month = String(r.dt.getMonth() + 1).padStart(2, "0");
+      const day = String(r.dt.getDate()).padStart(2, "0");
+      const d = `${year}-${month}-${day}`;
+
       const cur = byDayMap.get(d) || { date: d, rev: 0, tx: 0 };
       cur.rev += r.total_harga || 0;
       cur.tx += 1;
