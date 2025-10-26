@@ -75,7 +75,7 @@
 
 .leaderboard-list {
   padding: 0;
-  max-height: 400px;
+  max-height: 75rem;
   overflow-y: auto;
 }
 
