@@ -1007,7 +1007,7 @@ app.get("/dashboard", async (c) => {
   }
 
   const token = authHeader.substring(7);
-  const { verifyToken } = await import("./auth");
+  const { verifyToken } = await import("./auth.js");
   const payload = verifyToken(token);
 
   if (!payload) {
@@ -1030,7 +1030,7 @@ app.get("/leaderboard", async (c) => {
   }
 
   const token = authHeader.substring(7);
-  const { verifyToken } = await import("./auth");
+  const { verifyToken } = await import("./auth.js");
   const payload = verifyToken(token);
 
   if (!payload) {
@@ -1053,7 +1053,7 @@ app.get("/monitor", async (c) => {
   }
 
   const token = authHeader.substring(7);
-  const { verifyToken } = await import("./auth");
+  const { verifyToken } = await import("./auth.js");
   const payload = verifyToken(token);
 
   if (!payload) {
