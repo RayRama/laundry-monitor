@@ -16,7 +16,7 @@ import {
   adminMiddleware,
   authenticateUser,
   generateToken,
-} from "./auth";
+} from "./auth.js";
 
 const app = new Hono();
 app.use(
