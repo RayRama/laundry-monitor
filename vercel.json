@@ -4,6 +4,38 @@
     {
       "src": "src/**/*.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "login/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "dashboard/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "monitor/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "leaderboard/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "styles/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "scripts/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "assets/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
