@@ -250,14 +250,17 @@
     <script src="/scripts/auth.js"></script>
     <script src="/scripts/leaderboard.js"></script>
     <script>
-      // Show admin navigation menu only for admin users
+      // Require admin access and show navigation menu
       document.addEventListener('DOMContentLoaded', function() {
-        const userInfo = Auth.getUserInfo();
-        if (userInfo && userInfo.role === 'admin') {
-          const adminNav = document.querySelector('.admin-nav');
-          if (adminNav) {
-            adminNav.classList.remove('hidden');
-          }
+        // Check admin access first
+        if (!Auth.requireAdmin()) {
+          return; // Will redirect if not admin
+        }
+
+        // Show admin navigation menu
+        const adminNav = document.querySelector('.admin-nav');
+        if (adminNav) {
+          adminNav.classList.remove('hidden');
         }
       });
     </script>

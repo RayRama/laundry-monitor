@@ -85,6 +85,23 @@ const Auth = {
     return true;
   },
 
+  // Require admin role - redirect to monitor if not admin
+  requireAdmin() {
+    if (!this.isAuthenticated()) {
+      const currentPath = window.location.pathname;
+      window.location.href = `/login?return=${encodeURIComponent(currentPath)}`;
+      return false;
+    }
+
+    const userInfo = this.getUserInfo();
+    if (!userInfo || userInfo.role !== 'admin') {
+      // Redirect non-admin users to monitor page
+      window.location.href = '/monitor';
+      return false;
+    }
+    return true;
+  },
+
   // Logout user
   logout() {
     this.removeToken();
