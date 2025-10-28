@@ -2,42 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "public/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "dashboard/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "leaderboard/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "monitor/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "styles/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "scripts/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "assets/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "config/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "src/constants.js",
-      "use": "@vercel/static"
-    },
-    {
       "src": "src/server.ts",
       "use": "@vercel/node"
     }
@@ -46,6 +10,10 @@
     {
       "src": "/api/(.*)",
       "dest": "src/server.ts"
+    },
+    {
+      "src": "/login",
+      "dest": "login/index.html"
     },
     {
       "src": "/dashboard",

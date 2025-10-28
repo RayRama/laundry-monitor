@@ -16,3 +16,9 @@ scripts/layanan.*
 styles/layanan.*
 
 test turn on mesin.txt
+
+generate-password-hash.js
+
+# Exclude all .md files except README.md
+*.md
+!README.md

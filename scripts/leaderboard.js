@@ -102,14 +102,9 @@ async function loadMachineConfig() {
 // Leaderboard API Client
 class LeaderboardAPI {
   constructor() {
-    // Determine base URL same as dashboard.js
-    const onFile = window.location.origin.startsWith("file");
-    const onPort3000 = window.location.port === "3000";
-    const onVercel = window.location.hostname.includes("vercel.app");
-    this.apiBase = onFile
-      ? "http://localhost:3000"
-      : onPort3000 || onVercel
-      ? ""
+    // Use API_CONFIG for consistent API URL handling
+    this.apiBase = window.API_CONFIG
+      ? window.API_CONFIG.getBaseUrl()
       : "http://localhost:3000";
     this.isLoading = false;
     this.lastFrequencyETag = null;
@@ -138,7 +133,10 @@ class LeaderboardAPI {
     const url = `${this.apiBase}/api/leaderboard/frequency?${queryParams}`;
 
     try {
-      const headers = { "cache-control": "no-cache" };
+      const headers = {
+        "cache-control": "no-cache",
+        ...Auth.getAuthHeaders(),
+      };
       if (this.lastFrequencyETag) {
         headers["If-None-Match"] = this.lastFrequencyETag;
       }
@@ -181,7 +179,10 @@ class LeaderboardAPI {
     const url = `${this.apiBase}/api/leaderboard/revenue?${queryParams}`;
 
     try {
-      const headers = { "cache-control": "no-cache" };
+      const headers = {
+        "cache-control": "no-cache",
+        ...Auth.getAuthHeaders(),
+      };
       if (this.lastRevenueETag) {
         headers["If-None-Match"] = this.lastRevenueETag;
       }

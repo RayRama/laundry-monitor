@@ -28,6 +28,34 @@ let meta = { ts: null, stale: true };
 let MACHINE_CONFIG = null;
 let machineBrands = {};
 
+// Hardcoded machine ID mapping (from controllers.json)
+const MACHINE_ID_MAPPING = {
+  D48AFC354603: "D05",
+  D48AFC325A64: "D07",
+  "2CF4321072A5": "D01",
+  "68C63AFC13FA": "D02",
+  "483FDA643B85": "D03",
+  "48E7296DE4BF": "D04",
+  D48AFC35465C: "D06",
+  D48AFC31F4C0: "D08",
+  D48AFC354357: "D09",
+  BCDDC248DF58: "D10",
+  C82B961E9BF3: "D11",
+  "8CCE4EF44A99": "D12",
+  "9C9C1F410120": "W01",
+  "98F4ABD8506A": "W02",
+  "8CAAB5D53E39": "W03",
+  "84F3EB6ED32F": "W04",
+  "483FDA69F7C5": "W05",
+  "483FDA077794": "W06",
+  "807D3A4E5A46": "W07",
+  "5CCF3FDBB498": "W08",
+  "483FDA6AFDC7": "W10",
+  "500291EB8F36": "W09",
+  A4CF12F307D1: "W11",
+  "68C63AFC1863": "W12",
+};
+
 // Helper function to get machine max weight
 const getMachineMaxWeight = (machineLabel) => {
   if (!MACHINE_CONFIG) return 10;
@@ -247,6 +275,12 @@ function renderSingleGrid() {
     machineElement.className = `machine ${divClass}`;
     machineElement.dataset.machineId = machine.id;
 
+    // Add click handler for READY machines
+    if (machine.status === "READY") {
+      machineElement.style.cursor = "pointer";
+      machineElement.addEventListener("click", () => openMachineModal(machine));
+    }
+
     // Create machine content with new layout
     const machineContent = document.createElement("div");
     machineContent.className = "machine-content";
@@ -328,6 +362,12 @@ function renderMobileGrids() {
     machineElement.className = `machine responsive-${index}`;
     machineElement.dataset.machineId = machine.id;
 
+    // Add click handler for READY machines
+    if (machine.status === "READY") {
+      machineElement.style.cursor = "pointer";
+      machineElement.addEventListener("click", () => openMachineModal(machine));
+    }
+
     // Create machine content with new layout
     const machineContent = document.createElement("div");
     machineContent.className = "machine-content";
@@ -378,6 +418,12 @@ function renderMobileGrids() {
     const machineElement = document.createElement("div");
     machineElement.className = `machine responsive-${index}`;
     machineElement.dataset.machineId = machine.id;
+
+    // Add click handler for READY machines
+    if (machine.status === "READY") {
+      machineElement.style.cursor = "pointer";
+      machineElement.addEventListener("click", () => openMachineModal(machine));
+    }
 
     // Create machine content with new layout
     const machineContent = document.createElement("div");
@@ -866,6 +912,191 @@ window.addEventListener("error", (event) => {
   console.error("Application error:", event.error);
 });
 
+// Modal functions
+let currentMachine = null;
+
+/**
+ * Open machine control modal
+ */
+function openMachineModal(machine) {
+  if (machine.status !== "READY") {
+    console.log("Machine is not ready:", machine.label);
+    return;
+  }
+
+  currentMachine = machine;
+
+  // Get machine label from mapping
+  const machineLabel = MACHINE_ID_MAPPING[machine.id] || machine.label;
+
+  console.log(`Opening modal for machine ${machine.id} -> ${machineLabel}`);
+
+  // Update modal content
+  document.getElementById("modalMachineLabel").textContent = machineLabel;
+  document.getElementById("modalMachineBrand").textContent =
+    machineBrands[machineLabel] || "Unknown";
+
+  // Update machine icon based on type
+  const icon = document.getElementById("modalMachineIcon");
+  if (machine.type === "W") {
+    // Washer icon
+    icon.innerHTML =
+      '<path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8H6V4zm0 10h5v6H6v-6zm7 0h5v6h-5v-6zm0-10h5v8h-5V4z"/>';
+  } else {
+    // Dryer icon
+    icon.innerHTML =
+      '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>';
+  }
+
+  // Reset duration input
+  document.getElementById("durationInput").value = "1";
+
+  // Show modal
+  document.getElementById("machineModal").style.display = "flex";
+
+  // Focus on duration input
+  setTimeout(() => {
+    document.getElementById("durationInput").focus();
+  }, 100);
+}
+
+/**
+ * Close machine control modal
+ */
+function closeMachineModal() {
+  document.getElementById("machineModal").style.display = "none";
+  currentMachine = null;
+}
+
+/**
+ * Start machine with selected duration
+ */
+async function startMachine() {
+  console.log("startMachine called, currentMachine:", currentMachine);
+
+  if (!currentMachine) {
+    console.error("currentMachine is null!");
+    alert("Error: Tidak ada mesin yang dipilih");
+    return;
+  }
+
+  const durationInput = document.getElementById("durationInput");
+  const duration = parseInt(durationInput.value);
+
+  if (!duration || duration < 1 || duration > 180) {
+    alert("Durasi harus antara 1-180 menit");
+    return;
+  }
+
+  // Get machine label from mapping
+  const machineLabel =
+    MACHINE_ID_MAPPING[currentMachine.id] || currentMachine.label;
+  console.log(
+    `Starting machine ${currentMachine.id} (${machineLabel}) for ${duration} minutes`
+  );
+
+  try {
+    // Show loading state
+    const startBtn = document.getElementById("modalStartBtn");
+    const originalText = startBtn.innerHTML;
+    startBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="animate-spin">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      Memulai...
+    `;
+    startBtn.disabled = true;
+
+    // Make API call to start machine
+    const response = await fetch(
+      `${API_BASE}/api/machines/${currentMachine.id}/start`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...Auth.getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          duration: duration,
+          program: "normal",
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      // Success - close modal and show message
+      closeMachineModal();
+      alert(
+        `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!`
+      );
+
+      // Refresh data to show updated status
+      await fetchFromBackend();
+    } else {
+      throw new Error(result.message || "Gagal menyalakan mesin");
+    }
+  } catch (error) {
+    console.error("Error starting machine:", error);
+    alert(`Gagal menyalakan mesin: ${error.message}`);
+  } finally {
+    // Reset button state
+    const startBtn = document.getElementById("modalStartBtn");
+    startBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+      Mulai Mesin
+    `;
+    startBtn.disabled = false;
+  }
+}
+
+// Modal event listeners
+document.addEventListener("DOMContentLoaded", () => {
+  // Close modal buttons
+  document
+    .getElementById("modalCloseBtn")
+    .addEventListener("click", closeMachineModal);
+  document
+    .getElementById("modalCancelBtn")
+    .addEventListener("click", closeMachineModal);
+
+  // Start machine button
+  document
+    .getElementById("modalStartBtn")
+    .addEventListener("click", startMachine);
+
+  // Close modal when clicking overlay
+  document.getElementById("machineModal").addEventListener("click", (e) => {
+    if (e.target.id === "machineModal") {
+      closeMachineModal();
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "Escape" &&
+      document.getElementById("machineModal").style.display === "flex"
+    ) {
+      closeMachineModal();
+    }
+  });
+
+  // Enter key to start machine
+  document.getElementById("durationInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      startMachine();
+    }
+  });
+});
+
 // Export untuk testing (jika diperlukan)
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -880,5 +1111,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatElapsedTime,
     getStatusText,
     updateDonutChart,
+    openMachineModal,
+    closeMachineModal,
+    startMachine,
   };
 }

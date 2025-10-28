@@ -1,19 +1,9 @@
 // Dashboard API Client
 class DashboardAPI {
   constructor() {
-    // Tentukan base URL API sama seperti di app.js:
-    // - Jika dibuka via file:// → gunakan http://localhost:3000
-    // - Jika bukan di port 3000 (mis. serve statis di port lain) → gunakan http://localhost:3000
-    // - Jika di Vercel deployment → gunakan relative path
-    // - Jika di localhost:3000 (diserve oleh BE) → gunakan relative path ""
-    // - Jika di file:// → gunakan localhost:3000
-    const onFile = window.location.origin.startsWith("file");
-    const onPort3000 = window.location.port === "3000";
-    const onVercel = window.location.hostname.includes("vercel.app");
-    this.apiBase = onFile
-      ? "http://localhost:3000"
-      : onPort3000 || onVercel
-      ? ""
+    // Use API_CONFIG for consistent API URL handling
+    this.apiBase = window.API_CONFIG
+      ? window.API_CONFIG.getBaseUrl()
       : "http://localhost:3000";
     this.isLoading = false;
     this.lastETag = null;
@@ -43,7 +33,10 @@ class DashboardAPI {
     console.log("📊 Fetching transaction summary:", url);
 
     try {
-      const headers = { "cache-control": "no-cache" };
+      const headers = {
+        "cache-control": "no-cache",
+        ...Auth.getAuthHeaders(),
+      };
       if (this.lastETag) {
         headers["If-None-Match"] = this.lastETag;
       }
@@ -85,7 +78,10 @@ class DashboardAPI {
     console.log("📊 Fetching transactions:", url);
 
     try {
-      const headers = { "cache-control": "no-cache" };
+      const headers = {
+        "cache-control": "no-cache",
+        ...Auth.getAuthHeaders(),
+      };
       if (this.lastETag) {
         headers["If-None-Match"] = this.lastETag;
       }

@@ -10,6 +10,11 @@
   --ready: #76c19e; /* TERSEDIA → hijau muda */
   --running: #fac686; /* SEDANG DIGUNAKAN → oranye */
   --offline: #d9d9d9; /* OFFLINE → abu-abu */
+  --primary: #3b82f6; /* Blue primary color */
+  --primary-dark: #2563eb; /* Darker blue for hover */
+  --primary-rgb: 59, 130, 246; /* RGB values for primary */
+  --background: #ffffff;
+  --text-primary: #0f172a;
 }
 
 /* New Machine Layout Styles */

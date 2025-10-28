@@ -1,4 +1,9 @@
 import dotenv from "dotenv";
+
+// Load env dari .env.local (jika ada) lalu fallback ke .env
+dotenv.config({ path: ".env.local" });
+dotenv.config();
+
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
@@ -6,13 +11,33 @@ import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { normalize } from "./normalize.js";
 import { MACHINE_CONFIG, getAllMachineIds } from "./constants.js";
-
-// Load env dari .env.local (jika ada) lalu fallback ke .env
-dotenv.config({ path: ".env.local" });
-dotenv.config();
+import {
+  authMiddleware,
+  adminMiddleware,
+  authenticateUser,
+  generateToken,
+} from "./auth";
 
 const app = new Hono();
-app.use("*", cors());
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Cache-Control",
+      "Pragma",
+      "If-Modified-Since",
+      "If-None-Match",
+      "ETag",
+      "Last-Modified",
+    ],
+  })
+);
 const PORT = 3000;
 
 let controllersMap: Record<string, string> | null = null;
@@ -227,6 +252,130 @@ app.get("/api/machines", async (c) => {
 
   return c.json(response);
 });
+
+// Start machine endpoint
+app.post("/api/machines/:id/start", async (c) => {
+  try {
+    const machineId = c.req.param("id");
+    const body = await c.req.json();
+    const { duration, program = "normal" } = body;
+
+    if (!duration || duration < 1 || duration > 180) {
+      return c.json(
+        {
+          success: false,
+          error: "Invalid duration",
+          message: "Duration must be between 1-180 minutes",
+        },
+        400
+      );
+    }
+
+    console.log(
+      `Starting machine ${machineId} for ${duration} minutes with program ${program}`
+    );
+
+    // Get upstream bearer token
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+
+    if (!bearer) {
+      return c.json(
+        {
+          success: false,
+          error: "Configuration error",
+          message: "Upstream bearer token not configured",
+        },
+        500
+      );
+    }
+
+    // Construct the correct URL for turning on machine
+    const turnOnUrl = `https://owner-api.smartlink.id/masterData/snap_mesin/turn_on_mesin_timer?idsnap_mesin=${machineId}`;
+
+    console.log(`Making request to: ${turnOnUrl}`);
+
+    // Create form data
+    const formData = new FormData();
+    formData.append("menit", duration.toString());
+
+    // Make API call to actual machine controller
+    const response = await fetch(turnOnUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${bearer}`,
+        Origin: "https://dashboard-vue.smartlink.id",
+        Referer: "https://dashboard-vue.smartlink.id",
+      },
+      body: formData,
+    });
+
+    console.log(`Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API Error: ${response.status} - ${errorText}`);
+      throw new Error(`API returned ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log("API Response:", result);
+
+    // Get machine label from mapping (same as frontend)
+    const MACHINE_ID_MAPPING = {
+      D48AFC354603: "D05",
+      D48AFC325A64: "D07",
+      "2CF4321072A5": "D01",
+      "68C63AFC13FA": "D02",
+      "483FDA643B85": "D03",
+      "48E7296DE4BF": "D04",
+      D48AFC35465C: "D06",
+      D48AFC31F4C0: "D08",
+      D48AFC354357: "D09",
+      BCDDC248DF58: "D10",
+      C82B961E9BF3: "D11",
+      "8CCE4EF44A99": "D12",
+      "9C9C1F410120": "W01",
+      "98F4ABD8506A": "W02",
+      "8CAAB5D53E39": "W03",
+      "84F3EB6ED32F": "W04",
+      "483FDA69F7C5": "W05",
+      "483FDA077794": "W06",
+      "807D3A4E5A46": "W07",
+      "5CCF3FDBB498": "W08",
+      "483FDA6AFDC7": "W10",
+      "500291EB8F36": "W09",
+      A4CF12F307D1: "W11",
+      "68C63AFC1863": "W12",
+    };
+
+    const machineLabel = MACHINE_ID_MAPPING[machineId] || machineId;
+
+    return c.json({
+      success: true,
+      message: `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit`,
+      data: {
+        machineId,
+        machineLabel,
+        duration,
+        program,
+        startedAt: new Date().toISOString(),
+        apiResponse: result,
+      },
+    });
+  } catch (error) {
+    console.error("Error starting machine:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Failed to start machine",
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
 app.post("/api/refresh", async (c) => {
   await refresh();
   return c.json({
@@ -779,6 +928,190 @@ app.get("/api/leaderboard/revenue", async (c) => {
   }
 });
 
+// Authentication endpoints
+app.post("/api/auth/login", async (c) => {
+  try {
+    // Check Content-Type header
+    const contentType = c.req.header("Content-Type");
+    if (!contentType || !contentType.includes("application/json")) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message: "Content-Type must be application/json",
+        },
+        400
+      );
+    }
+
+    // Parse JSON with better error handling
+    let body;
+    try {
+      body = await c.req.json();
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      return c.json(
+        { error: "Bad Request", message: "Invalid JSON format" },
+        400
+      );
+    }
+
+    const { username, password } = body;
+
+    if (!username || !password) {
+      return c.json(
+        { error: "Bad Request", message: "Username and password are required" },
+        400
+      );
+    }
+
+    const user = await authenticateUser(username, password);
+
+    if (!user) {
+      return c.json(
+        { error: "Unauthorized", message: "Invalid credentials" },
+        401
+      );
+    }
+
+    const token = generateToken(user);
+
+    return c.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return c.json(
+      { error: "Internal Server Error", message: "Login failed" },
+      500
+    );
+  }
+});
+
+// Protected routes - require authentication
+app.use("/api/transactions/*", authMiddleware());
+app.use("/api/leaderboard/*", authMiddleware());
+app.use("/api/machines/*/start", authMiddleware());
+
+// Protected HTML pages - require authentication
+app.get("/dashboard", async (c) => {
+  const authHeader = c.req.header("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.redirect("/login?return=/dashboard");
+  }
+
+  const token = authHeader.substring(7);
+  const { verifyToken } = await import("./auth");
+  const payload = verifyToken(token);
+
+  if (!payload) {
+    return c.redirect("/login?return=/dashboard");
+  }
+
+  try {
+    const html = await fs.readFile("dashboard/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Dashboard not found", 404);
+  }
+});
+
+app.get("/leaderboard", async (c) => {
+  const authHeader = c.req.header("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.redirect("/login?return=/leaderboard");
+  }
+
+  const token = authHeader.substring(7);
+  const { verifyToken } = await import("./auth");
+  const payload = verifyToken(token);
+
+  if (!payload) {
+    return c.redirect("/login?return=/leaderboard");
+  }
+
+  try {
+    const html = await fs.readFile("leaderboard/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Leaderboard not found", 404);
+  }
+});
+
+app.get("/monitor", async (c) => {
+  const authHeader = c.req.header("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.redirect("/login?return=/monitor");
+  }
+
+  const token = authHeader.substring(7);
+  const { verifyToken } = await import("./auth");
+  const payload = verifyToken(token);
+
+  if (!payload) {
+    return c.redirect("/login?return=/monitor");
+  }
+
+  try {
+    const html = await fs.readFile("monitor/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Monitor not found", 404);
+  }
+});
+
+// Serve static files
+app.get("/login", async (c) => {
+  try {
+    const html = await fs.readFile("login/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Login page not found", 404);
+  }
+});
+
+app.get("/styles/*", async (c) => {
+  const path = c.req.path.replace("/styles/", "styles/");
+  try {
+    const content = await fs.readFile(path, "utf8");
+    return c.text(content, 200, { "Content-Type": "text/css" });
+  } catch (error) {
+    return c.text("File not found", 404);
+  }
+});
+
+app.get("/scripts/*", async (c) => {
+  const path = c.req.path.replace("/scripts/", "scripts/");
+  try {
+    const content = await fs.readFile(path, "utf8");
+    return c.text(content, 200, { "Content-Type": "application/javascript" });
+  } catch (error) {
+    return c.text("File not found", 404);
+  }
+});
+
+app.get("/assets/*", async (c) => {
+  const path = c.req.path.replace("/assets/", "assets/");
+  try {
+    const content = await fs.readFile(path);
+    const ext = path.split(".").pop();
+    const contentType =
+      ext === "svg" ? "image/svg+xml" : "application/octet-stream";
+    return new Response(content, { headers: { "Content-Type": contentType } });
+  } catch (error) {
+    return c.text("File not found", 404);
+  }
+});
+
+// Public routes
 app.get("/", (c) => c.text("OK"));
 
 await loadControllerMap();
