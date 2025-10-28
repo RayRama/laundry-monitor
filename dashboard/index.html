@@ -45,6 +45,16 @@
             </p>
           </div>
 
+          <!-- Navigation Menu (Admin Only) -->
+          <div class="hidden admin-nav flex items-center gap-1 sm:gap-2 mr-2">
+            <a href="/monitor" class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+              Monitor
+            </a>
+            <a href="/leaderboard" class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+              Leaderboard
+            </a>
+          </div>
+
           <!-- Action Buttons -->
           <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <!-- Live Badge -->
@@ -367,5 +377,17 @@
 
     <script src="/scripts/auth.js"></script>
     <script src="/scripts/dashboard.js"></script>
+    <script>
+      // Show admin navigation menu only for admin users
+      document.addEventListener('DOMContentLoaded', function() {
+        const userInfo = Auth.getUserInfo();
+        if (userInfo && userInfo.role === 'admin') {
+          const adminNav = document.querySelector('.admin-nav');
+          if (adminNav) {
+            adminNav.classList.remove('hidden');
+          }
+        }
+      });
+    </script>
   </body>
 </html>

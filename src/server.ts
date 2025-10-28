@@ -1014,6 +1014,31 @@ app.get("/dashboard", async (c) => {
     return c.redirect("/login?return=/dashboard");
   }
 
+  // Check if user has admin role
+  if (payload.role !== "admin") {
+    return c.html(
+      `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Access Denied</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+          .error { color: #e74c3c; }
+          .btn { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1 class="error">Access Denied</h1>
+        <p>You need admin privileges to access the dashboard.</p>
+        <a href="/monitor" class="btn">Go to Monitor</a>
+      </body>
+      </html>
+    `,
+      403
+    );
+  }
+
   try {
     const html = await fs.readFile("dashboard/index.html", "utf8");
     return c.html(html);
@@ -1035,6 +1060,31 @@ app.get("/leaderboard", async (c) => {
 
   if (!payload) {
     return c.redirect("/login?return=/leaderboard");
+  }
+
+  // Check if user has admin role
+  if (payload.role !== "admin") {
+    return c.html(
+      `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Access Denied</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+          .error { color: #e74c3c; }
+          .btn { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1 class="error">Access Denied</h1>
+        <p>You need admin privileges to access the leaderboard.</p>
+        <a href="/monitor" class="btn">Go to Monitor</a>
+      </body>
+      </html>
+    `,
+      403
+    );
   }
 
   try {
