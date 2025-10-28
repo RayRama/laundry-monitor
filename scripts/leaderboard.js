@@ -92,8 +92,8 @@ async function loadMachineConfig() {
         W08: 6,
         W09: 6,
         W10: 5,
-        W11: 4,
-        W12: 4,
+        W11: 5,
+        W12: 5,
       },
     };
   }
