@@ -668,11 +668,12 @@ function renderSummary() {
   const washerTotal = washers.length;
 
   // Calculate occupation rates (percentage of machines in use)
-  const dryerInUse = dryerRunning + dryerOffline; // Running + Offline = occupied
+  // Only RUNNING machines are considered "in use" - OFFLINE machines are not occupied
+  const dryerInUse = dryerRunning; // Only running machines are occupied
   const dryerOccupationRate =
     dryerTotal > 0 ? Math.round((dryerInUse / dryerTotal) * 100) : 0;
 
-  const washerInUse = washerRunning + washerOffline; // Running + Offline = occupied
+  const washerInUse = washerRunning; // Only running machines are occupied
   const washerOccupationRate =
     washerTotal > 0 ? Math.round((washerInUse / washerTotal) * 100) : 0;
 
