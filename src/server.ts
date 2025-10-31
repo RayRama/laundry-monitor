@@ -376,6 +376,107 @@ app.post("/api/machines/:id/start", async (c) => {
   }
 });
 
+// Stop machine endpoint
+app.post("/api/machines/:id/stop", async (c) => {
+  try {
+    const machineId = c.req.param("id");
+
+    console.log(`Stopping machine ${machineId}`);
+
+    // Get upstream bearer token
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+
+    if (!bearer) {
+      return c.json(
+        {
+          success: false,
+          error: "Configuration error",
+          message: "Upstream bearer token not configured",
+        },
+        500
+      );
+    }
+
+    // Construct the correct URL for turning off machine
+    const turnOffUrl = `https://owner-api.smartlink.id/masterData/snap_mesin/turn_off_mesin?idsnap_mesin=${machineId}`;
+
+    console.log(`Making request to: ${turnOffUrl}`);
+
+    // Make API call to actual machine controller
+    const response = await fetch(turnOffUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${bearer}`,
+        Origin: "https://dashboard-vue.smartlink.id",
+        Referer: "https://dashboard-vue.smartlink.id",
+      },
+    });
+
+    console.log(`Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API Error: ${response.status} - ${errorText}`);
+      throw new Error(`API returned ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log("API Response:", result);
+
+    // Get machine label from mapping (same as frontend)
+    const MACHINE_ID_MAPPING = {
+      D48AFC354603: "D05",
+      D48AFC325A64: "D07",
+      "2CF4321072A5": "D01",
+      "68C63AFC13FA": "D02",
+      "483FDA643B85": "D03",
+      "48E7296DE4BF": "D04",
+      D48AFC35465C: "D06",
+      D48AFC31F4C0: "D08",
+      D48AFC354357: "D09",
+      BCDDC248DF58: "D10",
+      C82B961E9BF3: "D11",
+      "8CCE4EF44A99": "D12",
+      "9C9C1F410120": "W01",
+      "98F4ABD8506A": "W02",
+      "8CAAB5D53E39": "W03",
+      "84F3EB6ED32F": "W04",
+      "483FDA69F7C5": "W05",
+      "483FDA077794": "W06",
+      "807D3A4E5A46": "W07",
+      "5CCF3FDBB498": "W08",
+      "483FDA6AFDC7": "W10",
+      "500291EB8F36": "W09",
+      A4CF12F307D1: "W11",
+      "68C63AFC1863": "W12",
+    };
+
+    const machineLabel = MACHINE_ID_MAPPING[machineId] || machineId;
+
+    return c.json({
+      success: true,
+      message: `Mesin ${machineLabel} berhasil dimatikan`,
+      data: {
+        machineId,
+        machineLabel,
+        stoppedAt: new Date().toISOString(),
+        apiResponse: result,
+      },
+    });
+  } catch (error) {
+    console.error("Error stopping machine:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Failed to stop machine",
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
 app.post("/api/refresh", async (c) => {
   await refresh();
   return c.json({
@@ -997,6 +1098,7 @@ app.post("/api/auth/login", async (c) => {
 app.use("/api/transactions/*", authMiddleware());
 app.use("/api/leaderboard/*", authMiddleware());
 app.use("/api/machines/*/start", authMiddleware());
+app.use("/api/machines/*/stop", authMiddleware());
 
 // Protected HTML pages - require authentication
 app.get("/dashboard", async (c) => {

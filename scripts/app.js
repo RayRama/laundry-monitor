@@ -275,10 +275,13 @@ function renderSingleGrid() {
     machineElement.className = `machine ${divClass}`;
     machineElement.dataset.machineId = machine.id;
 
-    // Add click handler for READY machines
+    // Add click handler for READY and RUNNING machines
     if (machine.status === "READY") {
       machineElement.style.cursor = "pointer";
       machineElement.addEventListener("click", () => openMachineModal(machine));
+    } else if (machine.status === "RUNNING") {
+      machineElement.style.cursor = "pointer";
+      machineElement.addEventListener("click", () => openStopModal(machine));
     }
 
     // Create machine content with new layout
@@ -362,10 +365,13 @@ function renderMobileGrids() {
     machineElement.className = `machine responsive-${index}`;
     machineElement.dataset.machineId = machine.id;
 
-    // Add click handler for READY machines
+    // Add click handler for READY and RUNNING machines
     if (machine.status === "READY") {
       machineElement.style.cursor = "pointer";
       machineElement.addEventListener("click", () => openMachineModal(machine));
+    } else if (machine.status === "RUNNING") {
+      machineElement.style.cursor = "pointer";
+      machineElement.addEventListener("click", () => openStopModal(machine));
     }
 
     // Create machine content with new layout
@@ -419,10 +425,13 @@ function renderMobileGrids() {
     machineElement.className = `machine responsive-${index}`;
     machineElement.dataset.machineId = machine.id;
 
-    // Add click handler for READY machines
+    // Add click handler for READY and RUNNING machines
     if (machine.status === "READY") {
       machineElement.style.cursor = "pointer";
       machineElement.addEventListener("click", () => openMachineModal(machine));
+    } else if (machine.status === "RUNNING") {
+      machineElement.style.cursor = "pointer";
+      machineElement.addEventListener("click", () => openStopModal(machine));
     }
 
     // Create machine content with new layout
@@ -915,6 +924,7 @@ window.addEventListener("error", (event) => {
 
 // Modal functions
 let currentMachine = null;
+let currentStopMachine = null;
 
 /**
  * Open machine control modal
@@ -967,6 +977,51 @@ function openMachineModal(machine) {
 function closeMachineModal() {
   document.getElementById("machineModal").style.display = "none";
   currentMachine = null;
+}
+
+/**
+ * Open stop machine modal
+ */
+function openStopModal(machine) {
+  if (machine.status !== "RUNNING") {
+    console.log("Machine is not running:", machine.label);
+    return;
+  }
+
+  currentStopMachine = machine;
+
+  // Get machine label from mapping
+  const machineLabel = MACHINE_ID_MAPPING[machine.id] || machine.label;
+
+  console.log(`Opening stop modal for machine ${machine.id} -> ${machineLabel}`);
+
+  // Update modal content
+  document.getElementById("stopModalMachineLabel").textContent = machineLabel;
+  document.getElementById("stopModalMachineBrand").textContent =
+    machineBrands[machineLabel] || "Unknown";
+
+  // Update machine icon based on type
+  const icon = document.getElementById("stopModalMachineIcon");
+  if (machine.type === "W") {
+    // Washer icon
+    icon.innerHTML =
+      '<path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8H6V4zm0 10h5v6H6v-6zm7 0h5v6h-5v-6zm0-10h5v8h-5V4z"/>';
+  } else {
+    // Dryer icon
+    icon.innerHTML =
+      '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>';
+  }
+
+  // Show modal
+  document.getElementById("stopMachineModal").style.display = "flex";
+}
+
+/**
+ * Close stop machine modal
+ */
+function closeStopModal() {
+  document.getElementById("stopMachineModal").style.display = "none";
+  currentStopMachine = null;
 }
 
 /**
@@ -1058,9 +1113,82 @@ async function startMachine() {
   }
 }
 
+/**
+ * Stop machine
+ */
+async function stopMachine() {
+  console.log("stopMachine called, currentStopMachine:", currentStopMachine);
+
+  if (!currentStopMachine) {
+    console.error("currentStopMachine is null!");
+    alert("Error: Tidak ada mesin yang dipilih");
+    return;
+  }
+
+  // Get machine label from mapping
+  const machineLabel =
+    MACHINE_ID_MAPPING[currentStopMachine.id] || currentStopMachine.label;
+  console.log(`Stopping machine ${currentStopMachine.id} (${machineLabel})`);
+
+  try {
+    // Show loading state
+    const stopBtn = document.getElementById("stopModalStopBtn");
+    const originalText = stopBtn.innerHTML;
+    stopBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="animate-spin">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      Mematikan...
+    `;
+    stopBtn.disabled = true;
+
+    // Make API call to stop machine
+    const response = await fetch(
+      `${API_BASE}/api/machines/${currentStopMachine.id}/stop`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...Auth.getAuthHeaders(),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      // Success - close modal and show message
+      closeStopModal();
+      alert(`Mesin ${machineLabel} berhasil dimatikan!`);
+
+      // Refresh data to show updated status
+      await fetchFromBackend();
+    } else {
+      throw new Error(result.message || "Gagal mematikan mesin");
+    }
+  } catch (error) {
+    console.error("Error stopping machine:", error);
+    alert(`Gagal mematikan mesin: ${error.message}`);
+  } finally {
+    // Reset button state
+    const stopBtn = document.getElementById("stopModalStopBtn");
+    stopBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 6h12v12H6z" />
+      </svg>
+      Matikan Mesin
+    `;
+    stopBtn.disabled = false;
+  }
+}
+
 // Modal event listeners
 document.addEventListener("DOMContentLoaded", () => {
-  // Close modal buttons
+  // Close start modal buttons
   document
     .getElementById("modalCloseBtn")
     .addEventListener("click", closeMachineModal);
@@ -1073,19 +1201,9 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("modalStartBtn")
     .addEventListener("click", startMachine);
 
-  // Close modal when clicking overlay
+  // Close start modal when clicking overlay
   document.getElementById("machineModal").addEventListener("click", (e) => {
     if (e.target.id === "machineModal") {
-      closeMachineModal();
-    }
-  });
-
-  // Close modal with Escape key
-  document.addEventListener("keydown", (e) => {
-    if (
-      e.key === "Escape" &&
-      document.getElementById("machineModal").style.display === "flex"
-    ) {
       closeMachineModal();
     }
   });
@@ -1094,6 +1212,39 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("durationInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       startMachine();
+    }
+  });
+
+  // Close stop modal buttons
+  document
+    .getElementById("stopModalCloseBtn")
+    .addEventListener("click", closeStopModal);
+  document
+    .getElementById("stopModalCancelBtn")
+    .addEventListener("click", closeStopModal);
+
+  // Stop machine button
+  document
+    .getElementById("stopModalStopBtn")
+    .addEventListener("click", stopMachine);
+
+  // Close stop modal when clicking overlay
+  document.getElementById("stopMachineModal").addEventListener("click", (e) => {
+    if (e.target.id === "stopMachineModal") {
+      closeStopModal();
+    }
+  });
+
+  // Close modals with Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (document.getElementById("machineModal").style.display === "flex") {
+        closeMachineModal();
+      } else if (
+        document.getElementById("stopMachineModal").style.display === "flex"
+      ) {
+        closeStopModal();
+      }
     }
   });
 });
@@ -1115,5 +1266,8 @@ if (typeof module !== "undefined" && module.exports) {
     openMachineModal,
     closeMachineModal,
     startMachine,
+    openStopModal,
+    closeStopModal,
+    stopMachine,
   };
 }

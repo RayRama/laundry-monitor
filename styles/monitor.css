@@ -507,6 +507,53 @@
   transform: translateY(0);
 }
 
+.btn-danger {
+  background: #dc2626 !important;
+  color: white !important;
+  border: none !important;
+  min-height: 44px;
+}
+
+.btn-danger:hover {
+  background: #b91c1c !important;
+  transform: translateY(-1px);
+}
+
+.btn-danger:active {
+  transform: translateY(0);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-badge.running {
+  background: var(--running);
+  color: white;
+}
+
+.stop-confirmation {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.stop-warning {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.stop-warning p {
+  margin: 0;
+  font-weight: 500;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
 /* Responsive modal */
 @media (max-width: 768px) {
   .modal-content {
