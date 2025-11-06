@@ -98,38 +98,61 @@
           </div>
         </div>
 
-        <!-- Summary Card -->
+        <!-- Shift Transaction Card -->
         <div class="card summary-card">
-          <h2>Tingkat Penggunaan</h2>
-          <p
-            style="
-              text-align: center;
-              color: var(--muted);
-              margin-bottom: 1.5rem;
-              font-size: 0.9rem;
-            "
-          >
-            Persentase mesin yang sedang digunakan
-          </p>
-          <div class="occupation-text-display">
-            <div class="occupation-item">
-              <span class="occupation-label">Dryer:</span>
-              <span class="occupation-rate" id="dryerOccupationRate"
-                >0% occupation rate</span
-              >
-              <span class="occupation-details" id="dryerDetails"
-                >(0 running + 0 offline out of 0 total)</span
-              >
+          <h2>Transaksi per Shift</h2>
+          <div class="shift-filter-section">
+            <div class="filter-group">
+              <label for="shiftDatePicker">Tanggal:</label>
+              <input
+                type="date"
+                id="shiftDatePicker"
+                class="shift-date-input"
+              />
             </div>
-            <div class="occupation-item">
-              <span class="occupation-label">Washer:</span>
-              <span class="occupation-rate" id="washerOccupationRate"
-                >0% occupation rate</span
+            <button id="refreshShiftData" class="btn btn-secondary btn-small">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
               >
-              <span class="occupation-details" id="washerDetails"
-                >(0 running + 0 offline out of 0 total)</span
-              >
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                />
+              </svg>
+              Refresh
+            </button>
+          </div>
+          <div class="shift-transactions-display">
+            <div class="shift-item">
+              <div class="shift-header">
+                <span class="shift-label">Shift 1</span>
+                <span class="shift-time">06:00 - 14:00</span>
+              </div>
+              <div class="shift-count" id="shift1Count">0 transaksi</div>
+              <div class="shift-revenue" id="shift1Revenue">Rp 0</div>
             </div>
+            <div class="shift-item">
+              <div class="shift-header">
+                <span class="shift-label">Shift 2</span>
+                <span class="shift-time">14:01 - 21:59</span>
+              </div>
+              <div class="shift-count" id="shift2Count">0 transaksi</div>
+              <div class="shift-revenue" id="shift2Revenue">Rp 0</div>
+            </div>
+            <div class="shift-item">
+              <div class="shift-header">
+                <span class="shift-label">Shift 3</span>
+                <span class="shift-time">22:00 - 05:59</span>
+              </div>
+              <div class="shift-count" id="shift3Count">0 transaksi</div>
+              <div class="shift-revenue" id="shift3Revenue">Rp 0</div>
+            </div>
+          </div>
+          <div class="shift-loading" id="shiftLoading" style="display: none">
+            Memuat data...
           </div>
         </div>
       </div>
@@ -218,7 +241,11 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="stopModalTitle">Mematikan Mesin</h3>
-          <button id="stopModalCloseBtn" class="modal-close-btn" aria-label="Tutup">
+          <button
+            id="stopModalCloseBtn"
+            class="modal-close-btn"
+            aria-label="Tutup"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -267,22 +294,24 @@
                 height="24"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-                style="color: #f59e0b; margin-right: 0.5rem; flex-shrink: 0;"
+                style="color: #f59e0b; margin-right: 0.5rem; flex-shrink: 0"
               >
-                <path
-                  d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"
-                />
+                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
               </svg>
               <p>Apakah Anda yakin ingin mematikan mesin ini?</p>
             </div>
-            <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem;">
+            <p
+              style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem"
+            >
               Mesin yang dimatikan akan segera berhenti beroperasi.
             </p>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button id="stopModalCancelBtn" class="btn btn-secondary">Batal</button>
+          <button id="stopModalCancelBtn" class="btn btn-secondary">
+            Batal
+          </button>
           <button id="stopModalStopBtn" class="btn btn-danger">
             <svg
               xmlns="http://www.w3.org/2000/svg"

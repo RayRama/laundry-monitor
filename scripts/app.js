@@ -23,6 +23,11 @@ let lastUpdateTime = null;
 let isDataStale = false;
 let meta = { ts: null, stale: true };
 
+// Shift transaction cache
+let shiftTransactionETag = null;
+let cachedShiftTransactions = null;
+let cachedShiftDate = null;
+
 // Machine brand mapping
 // Machine Configuration - will be loaded from external file
 let MACHINE_CONFIG = null;
@@ -178,7 +183,7 @@ async function init() {
   // Render awal kosong sambil fetch pertama
   renderGrid();
   renderEta();
-  renderSummary();
+  renderShiftTransactions();
   renderUpdatedAt();
 
   // Fetch pertama langsung agar tidak menunggu jitter
@@ -640,58 +645,300 @@ function renderEta() {
 }
 
 /**
- * Render summary statistics with text-based occupation rate display
+ * Get current date in YYYY-MM-DD format (local timezone)
  */
-function renderSummary() {
-  const dryerOccupationRateEl = document.getElementById("dryerOccupationRate");
-  const dryerDetailsEl = document.getElementById("dryerDetails");
-  const washerOccupationRateEl = document.getElementById(
-    "washerOccupationRate"
-  );
-  const washerDetailsEl = document.getElementById("washerDetails");
+function getCurrentDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Fetch transactions from API for a specific date range with ETag caching
+ */
+async function fetchTransactions(tanggalAwal, tanggalAkhir, useCache = true) {
+  try {
+    // Check cache first if same date range
+    if (
+      useCache &&
+      cachedShiftTransactions &&
+      cachedShiftDate === `${tanggalAwal}_${tanggalAkhir}`
+    ) {
+      console.log("📦 Using cached shift transactions");
+      return cachedShiftTransactions;
+    }
+
+    const params = new URLSearchParams({
+      filter_by: "periode",
+      tanggal_awal: tanggalAwal,
+      tanggal_akhir: tanggalAkhir,
+      limit: "max",
+      offset: "0",
+    });
+
+    const url = `${API_BASE}/api/transactions?${params}`;
+    console.log("📊 Fetching transactions:", url);
+
+    const headers = {
+      "cache-control": "no-cache",
+      ...Auth.getAuthHeaders(),
+    };
+
+    // Add ETag if available
+    if (shiftTransactionETag && useCache) {
+      headers["If-None-Match"] = shiftTransactionETag;
+    }
+
+    const response = await fetch(url, { headers });
+
+    // Handle 304 Not Modified response
+    if (response.status === 304) {
+      console.log("📦 Transactions unchanged (304), using cached data");
+      if (cachedShiftTransactions) {
+        return cachedShiftTransactions;
+      }
+      // If no cache but 304, return empty array
+      return [];
+    }
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Update ETag from response
+    const newETag = response.headers.get("ETag");
+    if (newETag) {
+      shiftTransactionETag = newETag;
+    }
+
+    // Cache the data
+    const transactions = data.data || [];
+    cachedShiftTransactions = transactions;
+    cachedShiftDate = `${tanggalAwal}_${tanggalAkhir}`;
+
+    console.log("✅ Transactions received:", transactions.length, "records");
+    return transactions;
+  } catch (error) {
+    console.error("❌ Error fetching transactions:", error);
+    // Return cached data if available on error
+    if (
+      cachedShiftTransactions &&
+      cachedShiftDate === `${tanggalAwal}_${tanggalAkhir}`
+    ) {
+      console.log("📦 Returning cached data due to error");
+      return cachedShiftTransactions;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Calculate shift transactions from transaction array
+ * Shift 1: 06:00:00 - 14:00:00 (same day, inclusive)
+ * Shift 2: 14:01:00 - 21:59:59 (same day, ends before 22:00)
+ * Shift 3: 22:00:00 - 05:59:59 (spans to next day, from 22:00 today to 05:59 next day)
+ * Returns count and revenue for each shift
+ */
+function calculateShiftTransactions(transactions, selectedDate) {
+  const shift1 = [];
+  const shift2 = [];
+  const shift3 = [];
+
+  let shift1Revenue = 0;
+  let shift2Revenue = 0;
+  let shift3Revenue = 0;
+
+  // Parse selected date
+  const selectedDateObj = new Date(selectedDate + "T00:00:00+07:00");
+  const nextDateObj = new Date(selectedDateObj);
+  nextDateObj.setDate(nextDateObj.getDate() + 1);
+
+  transactions.forEach((tx) => {
+    const waktuRaw = tx.waktu_diterima_raw || tx.waktu_diterima;
+    if (!waktuRaw) return;
+
+    // Parse ISO timestamp (expecting format like "2025-10-07T18:36:48+07:00")
+    const txDate = new Date(waktuRaw);
+    if (isNaN(txDate.getTime())) return;
+
+    // Get hour and minutes in local timezone (Asia/Jakarta UTC+7)
+    // The timestamp from API is already in Asia/Jakarta timezone
+    const hour = txDate.getHours();
+    const minutes = txDate.getMinutes();
+    const seconds = txDate.getSeconds();
+    const totalMinutes = hour * 60 + minutes;
+
+    // Get date string in local timezone (not UTC)
+    const year = txDate.getFullYear();
+    const month = String(txDate.getMonth() + 1).padStart(2, "0");
+    const day = String(txDate.getDate()).padStart(2, "0");
+    const txDateOnly = `${year}-${month}-${day}`;
+
+    // Check if transaction is on selected date or next day (for shift 3)
+    const isSelectedDate = txDateOnly === selectedDate;
+
+    // Get next date string in local timezone for comparison
+    const nextYear = nextDateObj.getFullYear();
+    const nextMonth = String(nextDateObj.getMonth() + 1).padStart(2, "0");
+    const nextDay = String(nextDateObj.getDate()).padStart(2, "0");
+    const nextDateStr = `${nextYear}-${nextMonth}-${nextDay}`;
+    const isNextDate = txDateOnly === nextDateStr;
+
+    const revenue = tx.total_harga || 0;
+
+    // Shift 1: 06:00:00 - 14:00:00 (same day, inclusive of 14:00)
+    if (isSelectedDate && totalMinutes >= 6 * 60 && totalMinutes <= 14 * 60) {
+      shift1.push(tx);
+      shift1Revenue += revenue;
+    }
+    // Shift 2: 14:01:00 - 21:59:59 (same day, ends before 22:00)
+    else if (
+      isSelectedDate &&
+      totalMinutes > 14 * 60 &&
+      totalMinutes < 22 * 60
+    ) {
+      shift2.push(tx);
+      shift2Revenue += revenue;
+    }
+    // Shift 3: 22:00:00 - 05:59:59 (spans to next day)
+    // Includes 22:00:00 onwards on selected date, and up to 05:59:59 on next day
+    else if (
+      (isSelectedDate && totalMinutes >= 22 * 60) ||
+      (isNextDate && totalMinutes < 6 * 60)
+    ) {
+      shift3.push(tx);
+      shift3Revenue += revenue;
+    }
+  });
+
+  return {
+    shift1: {
+      count: shift1.length,
+      revenue: shift1Revenue,
+    },
+    shift2: {
+      count: shift2.length,
+      revenue: shift2Revenue,
+    },
+    shift3: {
+      count: shift3.length,
+      revenue: shift3Revenue,
+    },
+  };
+}
+
+/**
+ * Format currency in IDR
+ */
+function formatIDR(amount) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+/**
+ * Render shift transaction statistics
+ */
+async function renderShiftTransactions(forceRefresh = false) {
+  const shift1CountEl = document.getElementById("shift1Count");
+  const shift2CountEl = document.getElementById("shift2Count");
+  const shift3CountEl = document.getElementById("shift3Count");
+  const shift1RevenueEl = document.getElementById("shift1Revenue");
+  const shift2RevenueEl = document.getElementById("shift2Revenue");
+  const shift3RevenueEl = document.getElementById("shift3Revenue");
+  const shiftLoadingEl = document.getElementById("shiftLoading");
+  const shiftDatePicker = document.getElementById("shiftDatePicker");
 
   if (
-    !dryerOccupationRateEl ||
-    !dryerDetailsEl ||
-    !washerOccupationRateEl ||
-    !washerDetailsEl
-  )
+    !shift1CountEl ||
+    !shift2CountEl ||
+    !shift3CountEl ||
+    !shift1RevenueEl ||
+    !shift2RevenueEl ||
+    !shift3RevenueEl ||
+    !shiftLoadingEl ||
+    !shiftDatePicker
+  ) {
+    console.warn("Shift transaction elements not found");
     return;
+  }
 
-  // Calculate statistics for Dryer
-  const dryers = machines.filter((m) => m.type === MACHINE_TYPE.DRYER);
-  const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
-  const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
-  const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
-  const dryerTotal = dryers.length;
+  // Get selected date or default to today
+  let selectedDate = shiftDatePicker.value || getCurrentDate();
+  if (!shiftDatePicker.value) {
+    shiftDatePicker.value = selectedDate;
+  }
 
-  // Calculate statistics for Washer
-  const washers = machines.filter((m) => m.type === MACHINE_TYPE.WASHER);
-  const washerReady = washers.filter((m) => m.status === STATUS.READY).length;
-  const washerRunning = washers.filter(
-    (m) => m.status === STATUS.RUNNING
-  ).length;
-  const washerOffline = washers.filter(
-    (m) => m.status === STATUS.OFFLINE
-  ).length;
-  const washerTotal = washers.length;
+  // Show loading state
+  shiftLoadingEl.style.display = "block";
+  shift1CountEl.textContent = "Memuat...";
+  shift2CountEl.textContent = "Memuat...";
+  shift3CountEl.textContent = "Memuat...";
+  shift1RevenueEl.textContent = "Memuat...";
+  shift2RevenueEl.textContent = "Memuat...";
+  shift3RevenueEl.textContent = "Memuat...";
 
-  // Calculate occupation rates (percentage of machines in use)
-  // Only RUNNING machines are considered "in use" - OFFLINE machines are not occupied
-  const dryerInUse = dryerRunning; // Only running machines are occupied
-  const dryerOccupationRate =
-    dryerTotal > 0 ? Math.round((dryerInUse / dryerTotal) * 100) : 0;
+  try {
+    // For shift 3, we need data from selected date and next day
+    const selectedDateObj = new Date(selectedDate + "T00:00:00+07:00");
+    const nextDateObj = new Date(selectedDateObj);
+    nextDateObj.setDate(nextDateObj.getDate() + 1);
 
-  const washerInUse = washerRunning; // Only running machines are occupied
-  const washerOccupationRate =
-    washerTotal > 0 ? Math.round((washerInUse / washerTotal) * 100) : 0;
+    // Get next date string in local timezone
+    const nextYear = nextDateObj.getFullYear();
+    const nextMonth = String(nextDateObj.getMonth() + 1).padStart(2, "0");
+    const nextDay = String(nextDateObj.getDate()).padStart(2, "0");
+    const nextDateStr = `${nextYear}-${nextMonth}-${nextDay}`;
 
-  // Update text display with occupation rate and details
-  dryerOccupationRateEl.textContent = `${dryerOccupationRate}% occupation rate`;
-  dryerDetailsEl.textContent = `(${dryerRunning} running + ${dryerReady} ready + ${dryerOffline} offline out of ${dryerTotal} total)`;
+    // Fetch transactions for selected date and next day (for shift 3)
+    // Use forceRefresh to bypass cache when manually refreshing
+    const transactions = await fetchTransactions(
+      selectedDate,
+      nextDateStr,
+      !forceRefresh
+    );
 
-  washerOccupationRateEl.textContent = `${washerOccupationRate}% occupation rate`;
-  washerDetailsEl.textContent = `(${washerRunning} running + ${washerReady} ready + ${washerOffline} offline out of ${washerTotal} total)`;
+    // Calculate shift totals
+    const shiftTotals = calculateShiftTransactions(transactions, selectedDate);
+
+    // Update display with count and revenue
+    shift1CountEl.textContent = `${shiftTotals.shift1.count} transaksi`;
+    shift1RevenueEl.textContent = formatIDR(shiftTotals.shift1.revenue);
+
+    shift2CountEl.textContent = `${shiftTotals.shift2.count} transaksi`;
+    shift2RevenueEl.textContent = formatIDR(shiftTotals.shift2.revenue);
+
+    shift3CountEl.textContent = `${shiftTotals.shift3.count} transaksi`;
+    shift3RevenueEl.textContent = formatIDR(shiftTotals.shift3.revenue);
+
+    console.log("✅ Shift transactions rendered:", shiftTotals);
+  } catch (error) {
+    console.error("❌ Error rendering shift transactions:", error);
+    shift1CountEl.textContent = "Error";
+    shift2CountEl.textContent = "Error";
+    shift3CountEl.textContent = "Error";
+    shift1RevenueEl.textContent = "Error";
+    shift2RevenueEl.textContent = "Error";
+    shift3RevenueEl.textContent = "Error";
+  } finally {
+    shiftLoadingEl.style.display = "none";
+  }
+}
+
+/**
+ * Render summary statistics with text-based occupation rate display
+ * @deprecated Replaced by renderShiftTransactions
+ */
+function renderSummary() {
+  // This function is kept for backward compatibility but no longer used
+  // The occupation rate card has been replaced with shift transaction card
+  return;
 }
 
 /**
@@ -872,7 +1119,8 @@ async function fetchFromBackend() {
 
     renderGrid();
     renderEta();
-    renderSummary();
+    // Note: renderShiftTransactions is NOT called here to avoid auto-refresh
+    // Shift transactions only refresh on manual trigger or initial load
     renderUpdatedAt();
   } catch (err) {
     console.error("Fetch backend gagal:", err);
@@ -890,7 +1138,8 @@ function startPolling() {
     await fetchFromBackend();
     renderGrid();
     renderEta();
-    renderSummary();
+    // Note: renderShiftTransactions is NOT called here to avoid auto-refresh
+    // Shift transactions only refresh on manual trigger or initial load
     renderUpdatedAt();
   });
 }
@@ -901,6 +1150,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadMachineConfig();
   // Then initialize the app
   init();
+
+  // Shift transaction card event listeners
+  const shiftDatePicker = document.getElementById("shiftDatePicker");
+  const refreshShiftDataBtn = document.getElementById("refreshShiftData");
+
+  if (shiftDatePicker) {
+    shiftDatePicker.addEventListener("change", () => {
+      console.log("Shift date changed, refreshing transactions");
+      // Clear cache when date changes to ensure fresh data for new date
+      cachedShiftTransactions = null;
+      cachedShiftDate = null;
+      shiftTransactionETag = null;
+      renderShiftTransactions(false); // Use cache if available for new date
+    });
+  }
+
+  if (refreshShiftDataBtn) {
+    refreshShiftDataBtn.addEventListener("click", () => {
+      console.log("Refresh shift data clicked - forcing refresh");
+      renderShiftTransactions(true); // Force refresh bypasses cache
+    });
+  }
 });
 
 // Refetch when tab becomes active
@@ -993,7 +1264,9 @@ function openStopModal(machine) {
   // Get machine label from mapping
   const machineLabel = MACHINE_ID_MAPPING[machine.id] || machine.label;
 
-  console.log(`Opening stop modal for machine ${machine.id} -> ${machineLabel}`);
+  console.log(
+    `Opening stop modal for machine ${machine.id} -> ${machineLabel}`
+  );
 
   // Update modal content
   document.getElementById("stopModalMachineLabel").textContent = machineLabel;
@@ -1258,6 +1531,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderGrid,
     renderEta,
     renderSummary,
+    renderShiftTransactions,
     renderUpdatedAt,
     toMinutes,
     formatElapsedTime,
@@ -1269,5 +1543,7 @@ if (typeof module !== "undefined" && module.exports) {
     openStopModal,
     closeStopModal,
     stopMachine,
+    fetchTransactions,
+    calculateShiftTransactions,
   };
 }
