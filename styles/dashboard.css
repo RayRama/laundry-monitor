@@ -360,3 +360,101 @@ body {
   color: #0369a1;
   margin-top: 0.25rem;
 }
+
+/* Shift Transaction Card Styles */
+.shift-filter-section {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.shift-filter-section .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shift-transactions-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.shift-item {
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.shift-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.shift-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.shift-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.shift-time {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.shift-count {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
+.shift-revenue {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--brand);
+  letter-spacing: -0.02em;
+}
+
+.shift-loading {
+  text-align: center;
+  padding: 1rem;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Responsive adjustments for shift card */
+@media (max-width: 640px) {
+  .shift-item {
+    padding: 0.75rem;
+  }
+
+  .shift-label {
+    font-size: 0.9rem;
+  }
+
+  .shift-time {
+    font-size: 0.75rem;
+  }
+
+  .shift-count {
+    font-size: 1rem;
+  }
+
+  .shift-revenue {
+    font-size: 1.25rem;
+  }
+}

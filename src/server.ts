@@ -641,7 +641,7 @@ app.get("/api/transactions", async (c) => {
     const tanggalAkhir = c.req.query("tanggal_akhir");
 
     // Handle max limit - if limit is "max", use a reasonable default
-    const actualLimit = limit === "max" ? "1000" : limit;
+    const actualLimit = limit === "max" ? "10000" : limit;
 
     // Build URL based on filter
     const base = process.env.UPSTREAM_BASE!;

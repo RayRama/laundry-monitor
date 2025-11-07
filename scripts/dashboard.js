@@ -687,7 +687,7 @@ class DashboardRenderer {
     const stats = this.computeStats(data.transactions);
 
     this.renderDailyChart(stats);
-    this.renderTicketChart(stats);
+    // this.renderTicketChart(stats); // Chart removed from UI
     this.renderWeeklyChart(stats);
     this.renderTransactionDailyChart(stats);
     this.renderCombinedChart(stats);
@@ -812,8 +812,8 @@ class DashboardRenderer {
           },
           x: {
             ticks: {
-              maxRotation: 45,
-              minRotation: 45,
+              maxRotation: 0,
+              minRotation: 0,
             },
           },
         },
@@ -1136,6 +1136,12 @@ class DashboardRenderer {
     }).format(d);
   }
 
+  formatDateShort(d) {
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = d.toLocaleDateString("id-ID", { month: "short" });
+    return `${day} ${month}`;
+  }
+
   pad2(n) {
     return n < 10 ? "0" + n : "" + n;
   }
@@ -1150,7 +1156,40 @@ class DashboardRenderer {
   getWeekLabel(weekStart) {
     const end = new Date(weekStart);
     end.setDate(end.getDate() + 6);
-    return `${this.shortDate(weekStart)}–${this.shortDate(end)}`;
+
+    // Calculate week number in the month (weeks starting from Monday)
+    // Get the first Monday of the month
+    const year = weekStart.getFullYear();
+    const month = weekStart.getMonth();
+    const monthStart = new Date(year, month, 1);
+    const monthStartDay = monthStart.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+    // Find first Monday of the month
+    // If month starts on Sunday (0), first Monday is day 1
+    // If month starts on Monday (1), first Monday is day 1
+    // If month starts on Tuesday (2), first Monday is day 7 (1 + 6)
+    // Formula: (8 - day) % 7 gives days to add, but we need to handle Sunday specially
+    let daysToFirstMonday;
+    if (monthStartDay === 0) {
+      daysToFirstMonday = 1; // Sunday -> Monday is next day
+    } else if (monthStartDay === 1) {
+      daysToFirstMonday = 0; // Already Monday
+    } else {
+      daysToFirstMonday = 8 - monthStartDay; // Days until next Monday
+    }
+
+    const firstMonday = new Date(year, month, 1 + daysToFirstMonday);
+
+    // Calculate week number in the month
+    const daysDiff = Math.floor(
+      (weekStart - firstMonday) / (7 * 24 * 60 * 60 * 1000)
+    );
+    const weekNumber = daysDiff + 1;
+
+    // Format: "Minggu ke X (tanggal - tanggal)" using date format
+    return `Minggu ke ${weekNumber} (${this.formatDateShort(
+      weekStart
+    )} - ${this.formatDateShort(end)})`;
   }
 
   isWeekend(date) {
@@ -1313,8 +1352,318 @@ class DashboardController {
   }
 }
 
+// Shift Transaction Manager (separate from main dashboard data)
+class ShiftTransactionManager {
+  constructor() {
+    this.api = new DashboardAPI();
+    this.apiBase = this.api.apiBase;
+    this.shiftETag = null;
+    this.cachedShiftTransactions = null;
+    this.cachedShiftDate = null;
+  }
+
+  getCurrentDate() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  formatIDR(amount) {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+
+  async fetchShiftTransactions(tanggalAwal, tanggalAkhir, useCache = true) {
+    try {
+      // Check cache first if same date range
+      if (
+        useCache &&
+        this.cachedShiftTransactions &&
+        this.cachedShiftDate === `${tanggalAwal}_${tanggalAkhir}`
+      ) {
+        console.log("📦 Using cached shift transactions");
+        return this.cachedShiftTransactions;
+      }
+
+      const params = new URLSearchParams({
+        filter_by: "periode",
+        tanggal_awal: tanggalAwal,
+        tanggal_akhir: tanggalAkhir,
+        limit: "max",
+        offset: "0",
+      });
+
+      const url = `${this.apiBase}/api/transactions?${params}`;
+      console.log("📊 Fetching shift transactions:", url);
+
+      const headers = {
+        "cache-control": "no-cache",
+        ...Auth.getAuthHeaders(),
+      };
+
+      // Add ETag if available
+      if (this.shiftETag && useCache) {
+        headers["If-None-Match"] = this.shiftETag;
+      }
+
+      const response = await this.api.fetchWithTimeout(url, { headers });
+
+      // Handle 304 Not Modified response
+      if (response.status === 304) {
+        console.log("📦 Shift transactions unchanged (304), using cached data");
+        if (this.cachedShiftTransactions) {
+          return this.cachedShiftTransactions;
+        }
+        return [];
+      }
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Update ETag from response
+      const newETag = response.headers.get("ETag");
+      if (newETag) {
+        this.shiftETag = newETag;
+      }
+
+      // Cache the data
+      const transactions = data.data || [];
+      this.cachedShiftTransactions = transactions;
+      this.cachedShiftDate = `${tanggalAwal}_${tanggalAkhir}`;
+
+      console.log(
+        "✅ Shift transactions received:",
+        transactions.length,
+        "records"
+      );
+      return transactions;
+    } catch (error) {
+      console.error("❌ Error fetching shift transactions:", error);
+      // Return cached data if available on error
+      if (
+        this.cachedShiftTransactions &&
+        this.cachedShiftDate === `${tanggalAwal}_${tanggalAkhir}`
+      ) {
+        console.log("📦 Returning cached data due to error");
+        return this.cachedShiftTransactions;
+      }
+      throw error;
+    }
+  }
+
+  calculateShiftTransactions(transactions, selectedDate) {
+    const shift1 = [];
+    const shift2 = [];
+    const shift3 = [];
+
+    let shift1Revenue = 0;
+    let shift2Revenue = 0;
+    let shift3Revenue = 0;
+
+    // Parse selected date
+    const selectedDateObj = new Date(selectedDate + "T00:00:00+07:00");
+    const nextDateObj = new Date(selectedDateObj);
+    nextDateObj.setDate(nextDateObj.getDate() + 1);
+
+    transactions.forEach((tx) => {
+      const waktuRaw = tx.waktu_diterima_raw || tx.waktu_diterima;
+      if (!waktuRaw) return;
+
+      // Parse ISO timestamp
+      const txDate = new Date(waktuRaw);
+      if (isNaN(txDate.getTime())) return;
+
+      // Get hour and minutes in local timezone (Asia/Jakarta UTC+7)
+      const hour = txDate.getHours();
+      const minutes = txDate.getMinutes();
+      const totalMinutes = hour * 60 + minutes;
+
+      // Get date string in local timezone
+      const year = txDate.getFullYear();
+      const month = String(txDate.getMonth() + 1).padStart(2, "0");
+      const day = String(txDate.getDate()).padStart(2, "0");
+      const txDateOnly = `${year}-${month}-${day}`;
+
+      // Check if transaction is on selected date or next day (for shift 3)
+      const isSelectedDate = txDateOnly === selectedDate;
+
+      // Get next date string in local timezone for comparison
+      const nextYear = nextDateObj.getFullYear();
+      const nextMonth = String(nextDateObj.getMonth() + 1).padStart(2, "0");
+      const nextDay = String(nextDateObj.getDate()).padStart(2, "0");
+      const nextDateStr = `${nextYear}-${nextMonth}-${nextDay}`;
+      const isNextDate = txDateOnly === nextDateStr;
+
+      const revenue = tx.total_harga || 0;
+
+      // Shift 1: 06:00:00 - 14:00:00 (same day, inclusive of 14:00)
+      if (isSelectedDate && totalMinutes >= 6 * 60 && totalMinutes <= 14 * 60) {
+        shift1.push(tx);
+        shift1Revenue += revenue;
+      }
+      // Shift 2: 14:01:00 - 21:59:59 (same day, ends before 22:00)
+      else if (
+        isSelectedDate &&
+        totalMinutes > 14 * 60 &&
+        totalMinutes < 22 * 60
+      ) {
+        shift2.push(tx);
+        shift2Revenue += revenue;
+      }
+      // Shift 3: 22:00:00 - 05:59:59 (spans to next day)
+      else if (
+        (isSelectedDate && totalMinutes >= 22 * 60) ||
+        (isNextDate && totalMinutes < 6 * 60)
+      ) {
+        shift3.push(tx);
+        shift3Revenue += revenue;
+      }
+    });
+
+    return {
+      shift1: {
+        count: shift1.length,
+        revenue: shift1Revenue,
+      },
+      shift2: {
+        count: shift2.length,
+        revenue: shift2Revenue,
+      },
+      shift3: {
+        count: shift3.length,
+        revenue: shift3Revenue,
+      },
+    };
+  }
+
+  async renderShiftTransactions(forceRefresh = false) {
+    const shift1CountEl = document.getElementById("shift1Count");
+    const shift2CountEl = document.getElementById("shift2Count");
+    const shift3CountEl = document.getElementById("shift3Count");
+    const shift1RevenueEl = document.getElementById("shift1Revenue");
+    const shift2RevenueEl = document.getElementById("shift2Revenue");
+    const shift3RevenueEl = document.getElementById("shift3Revenue");
+    const shiftLoadingEl = document.getElementById("shiftLoading");
+    const shiftDatePicker = document.getElementById("shiftDatePicker");
+
+    if (
+      !shift1CountEl ||
+      !shift2CountEl ||
+      !shift3CountEl ||
+      !shift1RevenueEl ||
+      !shift2RevenueEl ||
+      !shift3RevenueEl ||
+      !shiftLoadingEl ||
+      !shiftDatePicker
+    ) {
+      console.warn("Shift transaction elements not found");
+      return;
+    }
+
+    // Get selected date or default to today
+    let selectedDate = shiftDatePicker.value || this.getCurrentDate();
+    if (!shiftDatePicker.value) {
+      shiftDatePicker.value = selectedDate;
+    }
+
+    // Show loading state
+    shiftLoadingEl.style.display = "block";
+    shift1CountEl.textContent = "Memuat...";
+    shift2CountEl.textContent = "Memuat...";
+    shift3CountEl.textContent = "Memuat...";
+    shift1RevenueEl.textContent = "Memuat...";
+    shift2RevenueEl.textContent = "Memuat...";
+    shift3RevenueEl.textContent = "Memuat...";
+
+    try {
+      // For shift 3, we need data from selected date and next day
+      const selectedDateObj = new Date(selectedDate + "T00:00:00+07:00");
+      const nextDateObj = new Date(selectedDateObj);
+      nextDateObj.setDate(nextDateObj.getDate() + 1);
+
+      // Get next date string in local timezone
+      const nextYear = nextDateObj.getFullYear();
+      const nextMonth = String(nextDateObj.getMonth() + 1).padStart(2, "0");
+      const nextDay = String(nextDateObj.getDate()).padStart(2, "0");
+      const nextDateStr = `${nextYear}-${nextMonth}-${nextDay}`;
+
+      // Fetch transactions for selected date and next day (for shift 3)
+      // Use forceRefresh to bypass cache when manually refreshing
+      const transactions = await this.fetchShiftTransactions(
+        selectedDate,
+        nextDateStr,
+        !forceRefresh
+      );
+
+      // Calculate shift totals
+      const shiftTotals = this.calculateShiftTransactions(
+        transactions,
+        selectedDate
+      );
+
+      // Update display with count and revenue
+      shift1CountEl.textContent = `${shiftTotals.shift1.count} transaksi`;
+      shift1RevenueEl.textContent = this.formatIDR(shiftTotals.shift1.revenue);
+
+      shift2CountEl.textContent = `${shiftTotals.shift2.count} transaksi`;
+      shift2RevenueEl.textContent = this.formatIDR(shiftTotals.shift2.revenue);
+
+      shift3CountEl.textContent = `${shiftTotals.shift3.count} transaksi`;
+      shift3RevenueEl.textContent = this.formatIDR(shiftTotals.shift3.revenue);
+
+      console.log("✅ Shift transactions rendered:", shiftTotals);
+    } catch (error) {
+      console.error("❌ Error rendering shift transactions:", error);
+      shift1CountEl.textContent = "Error";
+      shift2CountEl.textContent = "Error";
+      shift3CountEl.textContent = "Error";
+      shift1RevenueEl.textContent = "Error";
+      shift2RevenueEl.textContent = "Error";
+      shift3RevenueEl.textContent = "Error";
+    } finally {
+      shiftLoadingEl.style.display = "none";
+    }
+  }
+}
+
 // Initialize dashboard when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
   const dashboard = new DashboardController();
   dashboard.initialize();
+
+  // Initialize shift transaction manager (separate from main dashboard)
+  const shiftManager = new ShiftTransactionManager();
+
+  // Shift transaction card event listeners
+  const shiftDatePicker = document.getElementById("shiftDatePicker");
+  const refreshShiftDataBtn = document.getElementById("refreshShiftData");
+
+  if (shiftDatePicker) {
+    shiftDatePicker.addEventListener("change", () => {
+      console.log("Shift date changed, refreshing transactions");
+      // Clear cache when date changes to ensure fresh data for new date
+      shiftManager.cachedShiftTransactions = null;
+      shiftManager.cachedShiftDate = null;
+      shiftManager.shiftETag = null;
+      shiftManager.renderShiftTransactions(false); // Use cache if available for new date
+    });
+  }
+
+  if (refreshShiftDataBtn) {
+    refreshShiftDataBtn.addEventListener("click", () => {
+      console.log("Refresh shift data clicked - forcing refresh");
+      shiftManager.renderShiftTransactions(true); // Force refresh bypasses cache
+    });
+  }
+
+  // Initial load of shift transactions
+  shiftManager.renderShiftTransactions(false);
 });

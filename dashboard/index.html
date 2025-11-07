@@ -222,8 +222,8 @@
       </section>
 
       <!-- Charts -->
-      <section class="grid lg:grid-cols-3 gap-4">
-        <div class="card p-4 lg:col-span-2">
+      <section class="grid lg:grid-cols-1 gap-4">
+        <div class="card p-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-slate-900 font-bold">Omzet Harian</h3>
             <div class="text-xs text-slate-500">
@@ -232,13 +232,6 @@
             </div>
           </div>
           <canvas id="chartDaily" height="120"></canvas>
-        </div>
-        <div class="card p-4">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-slate-900 font-bold">Distribusi Nominal</h3>
-            <div class="text-xs text-slate-500">Bucket harga (IDR)</div>
-          </div>
-          <canvas id="chartTicket" height="120"></canvas>
         </div>
       </section>
 
@@ -292,7 +285,7 @@
         </div>
       </section>
 
-      <section class="grid lg:grid-cols-2 gap-4">
+      <section class="grid lg:grid-cols-1 gap-4">
         <div class="card p-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-slate-900 font-bold">Transaksi per Jam</h3>
@@ -336,6 +329,76 @@
             </thead>
             <tbody id="txBody"></tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- Shift Transaction Card -->
+      <section class="card p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-slate-900 font-bold">Transaksi per Shift</h3>
+          <button
+            id="refreshShiftData"
+            class="btn btn-secondary btn-small"
+            style="padding: 0.5rem 1rem; font-size: 0.9rem"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              style="margin-right: 0.5rem"
+            >
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+              />
+            </svg>
+            Refresh Shift
+          </button>
+        </div>
+
+        <div class="shift-filter-section" style="margin-bottom: 1.5rem">
+          <div class="filter-group">
+            <label for="shiftDatePicker" style="font-size: 0.9rem; font-weight: 500; color: #64748b; margin-bottom: 0.5rem; display: block">
+              Tanggal:
+            </label>
+            <input
+              type="date"
+              id="shiftDatePicker"
+              class="shift-date-input"
+              style="padding: 0.5rem 0.75rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; background: white; color: #1e293b; transition: border-color 0.2s ease; width: 100%; max-width: 200px"
+            />
+          </div>
+        </div>
+
+        <div class="shift-transactions-display">
+          <div class="shift-item">
+            <div class="shift-header">
+              <span class="shift-label">Shift 1</span>
+              <span class="shift-time">06:00 - 14:00</span>
+            </div>
+            <div class="shift-count" id="shift1Count">0 transaksi</div>
+            <div class="shift-revenue" id="shift1Revenue">Rp 0</div>
+          </div>
+          <div class="shift-item">
+            <div class="shift-header">
+              <span class="shift-label">Shift 2</span>
+              <span class="shift-time">14:01 - 21:59</span>
+            </div>
+            <div class="shift-count" id="shift2Count">0 transaksi</div>
+            <div class="shift-revenue" id="shift2Revenue">Rp 0</div>
+          </div>
+          <div class="shift-item">
+            <div class="shift-header">
+              <span class="shift-label">Shift 3</span>
+              <span class="shift-time">22:00 - 05:59</span>
+            </div>
+            <div class="shift-count" id="shift3Count">0 transaksi</div>
+            <div class="shift-revenue" id="shift3Revenue">Rp 0</div>
+          </div>
+        </div>
+        <div class="shift-loading" id="shiftLoading" style="display: none; text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem">
+          Memuat data...
         </div>
       </section>
 
