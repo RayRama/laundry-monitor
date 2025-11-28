@@ -9,7 +9,7 @@ class DashboardAPI {
     this.lastETag = null;
   }
 
-  async fetchWithTimeout(url, options = {}, timeout = 10000) {
+  async fetchWithTimeout(url, options = {}, timeout = 30000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -22,6 +22,17 @@ class DashboardAPI {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
+      // Provide more informative error message for timeout
+      if (error.name === "AbortError" || error.name === "TimeoutError") {
+        const timeoutError = new Error(
+          `Request timeout setelah ${
+            timeout / 1000
+          } detik. Server mungkin sedang sibuk atau koneksi lambat.`
+        );
+        timeoutError.name = "TimeoutError";
+        timeoutError.originalError = error;
+        throw timeoutError;
+      }
       throw error;
     }
   }
@@ -67,6 +78,12 @@ class DashboardAPI {
       return data;
     } catch (error) {
       console.error("❌ Error fetching transaction summary:", error);
+      // Provide user-friendly error message
+      if (error.name === "TimeoutError") {
+        throw new Error(
+          "Waktu tunggu habis saat mengambil ringkasan transaksi. Silakan coba lagi atau periksa koneksi internet Anda."
+        );
+      }
       throw error;
     }
   }
@@ -114,6 +131,12 @@ class DashboardAPI {
       return data;
     } catch (error) {
       console.error("❌ Error fetching transactions:", error);
+      // Provide user-friendly error message
+      if (error.name === "TimeoutError") {
+        throw new Error(
+          "Waktu tunggu habis saat mengambil data transaksi. Silakan coba lagi atau periksa koneksi internet Anda."
+        );
+      }
       throw error;
     }
   }
@@ -481,6 +504,286 @@ class DashboardDataManager {
     }
 
     return "Filter tidak dikenal";
+  }
+
+  async exportExcel(renderer) {
+    if (!window.XLSX) {
+      throw new Error("SheetJS library tidak dimuat");
+    }
+
+    const transactions = this.filteredData || [];
+    const summary = this.summary;
+    const stats = renderer.computeStats(transactions);
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Helper function to format date
+    const formatDate = (date) => {
+      if (!date) return "-";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "-";
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+
+    // Helper function to format time
+    const formatTime = (date) => {
+      if (!date) return "-";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "-";
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      return `${hours}:${minutes}`;
+    };
+
+    // Helper function to get day name
+    const getDayName = (date) => {
+      if (!date) return "-";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "-";
+      const days = [
+        "Minggu",
+        "Senin",
+        "Selasa",
+        "Rabu",
+        "Kamis",
+        "Jumat",
+        "Sabtu",
+      ];
+      return days[d.getDay()];
+    };
+
+    // Helper function to get month name
+    const getMonthName = (date) => {
+      if (!date) return "-";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "-";
+      const months = [
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember",
+      ];
+      return months[d.getMonth()];
+    };
+
+    // Helper function to determine shift
+    const getShift = (date) => {
+      if (!date) return "-";
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "-";
+      const hour = d.getHours();
+      const minutes = d.getMinutes();
+      const totalMinutes = hour * 60 + minutes;
+
+      if (totalMinutes >= 360 && totalMinutes <= 840) {
+        // 06:00 - 14:00
+        return "Shift 1";
+      } else if (totalMinutes >= 841 && totalMinutes <= 1319) {
+        // 14:01 - 21:59
+        return "Shift 2";
+      } else {
+        // 22:00 - 05:59
+        return "Shift 3";
+      }
+    };
+
+    // Helper function to format IDR
+    const formatIDR = (amount) => {
+      return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        maximumFractionDigits: 0,
+      }).format(amount);
+    };
+
+    // Sheet 1: Transaksi Detail
+    const detailData = transactions.map((r) => {
+      const time = r.dt ? new Date(r.dt) : null;
+      const paid = +r.status_lunas === 1;
+      const done = +r.status_selesai === 2;
+
+      return {
+        Tanggal: formatDate(time),
+        Jam: formatTime(time),
+        "ID Transaksi": r.idtransaksi || "-",
+        "Jenis Transaksi": r.jenis_transaksi_formated || "-",
+        "Nama Customer": r.nama_customer || "-",
+        Nominal: r.total_harga || 0,
+        "Status Paid": paid ? "Ya" : "Tidak",
+        "Status Selesai": done ? "Selesai" : "Proses",
+        Shift: getShift(time),
+        Hari: getDayName(time),
+        Bulan: getMonthName(time),
+        Tahun: time ? time.getFullYear() : "-",
+      };
+    });
+
+    const wsDetail = XLSX.utils.json_to_sheet(detailData);
+    XLSX.utils.book_append_sheet(wb, wsDetail, "Transaksi Detail");
+
+    // Sheet 2: Summary
+    const dateRange = this.getFilterDescription();
+    const exportDate = new Date().toLocaleString("id-ID");
+    const paidRate = stats.tx ? (stats.paid / stats.tx) * 100 : 0;
+
+    const summaryData = [
+      { Metrik: "Total Omzet (IDR)", Nilai: stats.rev },
+      { Metrik: "Total Transaksi", Nilai: stats.tx },
+      { Metrik: "AOV (Average Order Value) (IDR)", Nilai: stats.aov },
+      { Metrik: "Paid Rate (%)", Nilai: paidRate },
+      { Metrik: "Jumlah Paid", Nilai: stats.paid },
+      { Metrik: "Jumlah Selesai", Nilai: stats.finished },
+      { Metrik: "Omzet per Hari (IDR)", Nilai: stats.perday },
+      { Metrik: "Pertumbuhan d/d", Nilai: stats.growthText || "-" },
+      { Metrik: "Periode Filter", Nilai: dateRange },
+      { Metrik: "Tanggal Export", Nilai: exportDate },
+    ];
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+    // Sheet 3: Transaksi per Shift
+    const shiftMap = new Map();
+    transactions.forEach((r) => {
+      const time = r.dt ? new Date(r.dt) : null;
+      if (!time) return;
+
+      const shift = getShift(time);
+      const dateStr = formatDate(time);
+
+      const key = `${dateStr}_${shift}`;
+      if (!shiftMap.has(key)) {
+        shiftMap.set(key, {
+          Tanggal: dateStr,
+          Shift: shift,
+          "Waktu Shift":
+            shift === "Shift 1"
+              ? "06:00-14:00"
+              : shift === "Shift 2"
+              ? "14:01-21:59"
+              : "22:00-05:59",
+          "Jumlah Transaksi": 0,
+          "Total Omzet": 0,
+          "Rata-rata per Transaksi": 0,
+        });
+      }
+
+      const shiftData = shiftMap.get(key);
+      shiftData["Jumlah Transaksi"] += 1;
+      shiftData["Total Omzet"] += r.total_harga || 0;
+    });
+
+    // Calculate average (keep as number for Excel calculation)
+    shiftMap.forEach((data) => {
+      data["Rata-rata per Transaksi"] =
+        data["Jumlah Transaksi"] > 0
+          ? data["Total Omzet"] / data["Jumlah Transaksi"]
+          : 0;
+    });
+
+    const shiftData = Array.from(shiftMap.values()).sort((a, b) => {
+      const dateA = new Date(a.Tanggal.split("/").reverse().join("-"));
+      const dateB = new Date(b.Tanggal.split("/").reverse().join("-"));
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateA - dateB;
+      }
+      const shiftOrder = { "Shift 1": 1, "Shift 2": 2, "Shift 3": 3 };
+      return (shiftOrder[a.Shift] || 0) - (shiftOrder[b.Shift] || 0);
+    });
+
+    const wsShift = XLSX.utils.json_to_sheet(shiftData);
+    XLSX.utils.book_append_sheet(wb, wsShift, "Transaksi per Shift");
+
+    // Sheet 4: Omzet Harian
+    const dailyMap = new Map();
+    transactions.forEach((r) => {
+      if (!r.dt) return;
+      const dateStr = formatDate(r.dt);
+
+      if (!dailyMap.has(dateStr)) {
+        dailyMap.set(dateStr, {
+          Tanggal: dateStr,
+          Omzet: 0,
+          "Jumlah Transaksi": 0,
+          AOV: 0,
+        });
+      }
+
+      const dailyData = dailyMap.get(dateStr);
+      dailyData.Omzet += r.total_harga || 0;
+      dailyData["Jumlah Transaksi"] += 1;
+    });
+
+    // Calculate AOV (keep as number for Excel calculation)
+    dailyMap.forEach((data) => {
+      data.AOV =
+        data["Jumlah Transaksi"] > 0
+          ? data.Omzet / data["Jumlah Transaksi"]
+          : 0;
+    });
+
+    const dailyData = Array.from(dailyMap.values()).sort((a, b) => {
+      const dateA = new Date(a.Tanggal.split("/").reverse().join("-"));
+      const dateB = new Date(b.Tanggal.split("/").reverse().join("-"));
+      return dateA - dateB;
+    });
+
+    const wsDaily = XLSX.utils.json_to_sheet(dailyData);
+    XLSX.utils.book_append_sheet(wb, wsDaily, "Omzet Harian");
+
+    // Sheet 5: Transaksi per Jam
+    const hourlyMap = new Map();
+    transactions.forEach((r) => {
+      if (!r.dt) return;
+      const d = new Date(r.dt);
+      const hour = d.getHours();
+
+      if (!hourlyMap.has(hour)) {
+        hourlyMap.set(hour, {
+          Jam: `${String(hour).padStart(2, "0")}:00`,
+          "Jumlah Transaksi": 0,
+          "Total Omzet": 0,
+        });
+      }
+
+      const hourlyData = hourlyMap.get(hour);
+      hourlyData["Jumlah Transaksi"] += 1;
+      hourlyData["Total Omzet"] += r.total_harga || 0;
+    });
+
+    const hourlyData = Array.from(hourlyMap.values()).sort((a, b) => {
+      const hourA = parseInt(a.Jam.split(":")[0]);
+      const hourB = parseInt(b.Jam.split(":")[0]);
+      return hourA - hourB;
+    });
+
+    const wsHourly = XLSX.utils.json_to_sheet(hourlyData);
+    XLSX.utils.book_append_sheet(wb, wsHourly, "Transaksi per Jam");
+
+    // Generate filename
+    const filterDesc = this.getFilterDescription().replace(
+      /[^a-zA-Z0-9]/g,
+      "_"
+    );
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const filename = `Dashboard_Export_${filterDesc}_${timestamp}.xlsx`;
+
+    // Write file
+    XLSX.writeFile(wb, filename);
+
+    console.log("✅ Excel file exported:", filename);
   }
 }
 
@@ -1213,6 +1516,14 @@ class DashboardController {
       this.refreshData();
     });
 
+    // Export Excel button
+    const exportBtn = document.getElementById("exportExcel");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => {
+        this.exportToExcel();
+      });
+    }
+
     // Filter controls
     document.getElementById("filterBy").addEventListener("change", (e) => {
       this.updateFilterType(e.target.value);
@@ -1340,6 +1651,17 @@ class DashboardController {
       this.dataManager.showSuccess("Data berhasil diperbarui!");
     } catch (error) {
       console.error("Failed to refresh data:", error);
+
+      // Show user-friendly error message
+      let errorMessage = "Gagal memuat data. Silakan coba lagi.";
+      if (error.name === "TimeoutError" || error.message?.includes("timeout")) {
+        errorMessage =
+          "Waktu tunggu habis. Server mungkin sedang sibuk atau koneksi lambat. Silakan coba lagi dalam beberapa saat.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      this.dataManager.showError(errorMessage);
     }
   }
 
@@ -1348,6 +1670,37 @@ class DashboardController {
       await this.refreshData();
     } catch (error) {
       console.error("Failed to initialize dashboard:", error);
+    }
+  }
+
+  async exportToExcel() {
+    try {
+      const exportBtn = document.getElementById("exportExcel");
+      if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.textContent = "Mengekspor...";
+      }
+
+      await this.dataManager.exportExcel(this.renderer);
+
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        const svg = exportBtn.querySelector("svg");
+        exportBtn.innerHTML = svg
+          ? svg.outerHTML + '<span class="hidden sm:inline">Export Excel</span>'
+          : "Export Excel";
+      }
+    } catch (error) {
+      console.error("Failed to export Excel:", error);
+      alert("Gagal mengekspor data ke Excel. Silakan coba lagi.");
+      const exportBtn = document.getElementById("exportExcel");
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        const svg = exportBtn.querySelector("svg");
+        exportBtn.innerHTML = svg
+          ? svg.outerHTML + '<span class="hidden sm:inline">Export Excel</span>'
+          : "Export Excel";
+      }
     }
   }
 }
@@ -1447,14 +1800,24 @@ class ShiftTransactionManager {
       return transactions;
     } catch (error) {
       console.error("❌ Error fetching shift transactions:", error);
-      // Return cached data if available on error
+
+      // Return cached data if available on error (except for timeout)
       if (
+        error.name !== "TimeoutError" &&
         this.cachedShiftTransactions &&
         this.cachedShiftDate === `${tanggalAwal}_${tanggalAkhir}`
       ) {
         console.log("📦 Returning cached data due to error");
         return this.cachedShiftTransactions;
       }
+
+      // For timeout errors, provide better error message
+      if (error.name === "TimeoutError" || error.message?.includes("timeout")) {
+        throw new Error(
+          "Waktu tunggu habis saat mengambil data shift. Silakan coba lagi."
+        );
+      }
+
       throw error;
     }
   }
@@ -1622,12 +1985,21 @@ class ShiftTransactionManager {
       console.log("✅ Shift transactions rendered:", shiftTotals);
     } catch (error) {
       console.error("❌ Error rendering shift transactions:", error);
-      shift1CountEl.textContent = "Error";
-      shift2CountEl.textContent = "Error";
-      shift3CountEl.textContent = "Error";
-      shift1RevenueEl.textContent = "Error";
-      shift2RevenueEl.textContent = "Error";
-      shift3RevenueEl.textContent = "Error";
+
+      // Show more informative error message
+      let errorText = "Error";
+      if (error.name === "TimeoutError" || error.message?.includes("timeout")) {
+        errorText = "Timeout";
+      } else if (error.message) {
+        errorText = "Error";
+      }
+
+      shift1CountEl.textContent = errorText;
+      shift2CountEl.textContent = errorText;
+      shift3CountEl.textContent = errorText;
+      shift1RevenueEl.textContent = errorText;
+      shift2RevenueEl.textContent = errorText;
+      shift3RevenueEl.textContent = errorText;
     } finally {
       shiftLoadingEl.style.display = "none";
     }
