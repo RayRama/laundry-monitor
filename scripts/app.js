@@ -52,6 +52,7 @@ const MACHINE_ID_MAPPING = {
   "5CCF3FDBB498": "W08",
   "483FDA6AFDC7": "W10",
   "8CAAB556EF34": "W09",
+  "500291EB8F36": "W09_OLD",
   A4CF12F307D1: "W11",
   "68C63AFC1863": "W12",
 };
@@ -113,6 +114,7 @@ async function loadMachineConfig() {
         W07: "LG20",
         W08: "LG20",
         W09: "LG20",
+        W09_OLD: "LG20",
         W10: "NTG",
         W11: "BEKO",
         W12: "BEKO",
@@ -139,6 +141,7 @@ async function loadMachineConfig() {
         W07: 10,
         W08: 10,
         W09: 10,
+        W09_OLD: 10,
         W10: 10,
         W11: 10,
         W12: 10,
