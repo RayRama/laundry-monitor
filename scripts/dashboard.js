@@ -506,7 +506,7 @@ class DashboardDataManager {
     return "Filter tidak dikenal";
   }
 
-  async enrichTransactionsWithDetails(transactions, progressCallback = null) {
+  async enrichTransactionsWithDetails(transactions, progressCallback = null, abortSignal = null) {
     const ids = transactions
       .map((t) => t.idtransaksi)
       .filter((id) => id);
@@ -583,10 +583,25 @@ class DashboardDataManager {
       // Add buffer: multiply by 2 for safety
       const timeoutMs = Math.max(120000, estimatedSeconds * 2000); // Min 120s (2 minutes), or 2s per batch
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      // Use provided abort signal or create new one
+      let controller = null;
+      let timeoutId = null;
+      
+      if (abortSignal) {
+        // Use provided abort signal
+        controller = { signal: abortSignal };
+      } else {
+        // Create new abort controller for timeout
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      }
 
       try {
+        // Check if already aborted
+        if (abortSignal?.aborted) {
+          throw new Error("Export dibatalkan");
+        }
+
         const response = await fetch(
           `${this.api.apiBase}/api/transactions/batch-details`,
           {
@@ -596,14 +611,21 @@ class DashboardDataManager {
               ...Auth.getAuthHeaders(),
             },
             body: JSON.stringify({ ids }),
-            signal: controller.signal,
+            signal: abortSignal || controller.signal,
           }
         );
 
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         // Stop progress interval
         if (progressInterval) {
           clearInterval(progressInterval);
+        }
+        
+        // Check if aborted
+        if (abortSignal?.aborted) {
+          throw new Error("Export dibatalkan");
         }
 
         if (!response.ok) {
@@ -641,12 +663,23 @@ class DashboardDataManager {
           };
         });
       } catch (fetchError) {
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         // Stop progress interval on error
         if (progressInterval) {
           clearInterval(progressInterval);
         }
-        if (fetchError.name === "AbortError") {
+        
+        // Check if cancelled by user
+        if (abortSignal?.aborted || fetchError.name === "AbortError") {
+          if (fetchError.message?.includes("dibatalkan")) {
+            throw fetchError;
+          }
+          throw new Error("Export dibatalkan");
+        }
+        
+        if (fetchError.message?.includes("Timeout")) {
           throw new Error(
             `Timeout: Proses terlalu lama untuk ${ids.length} transaksi. Silakan coba dengan periode yang lebih kecil.`
           );
@@ -654,6 +687,10 @@ class DashboardDataManager {
         throw fetchError;
       }
     } catch (error) {
+      // Re-throw cancellation errors
+      if (error.message?.includes("dibatalkan") || error.message?.includes("Export dibatalkan")) {
+        throw error;
+      }
       console.error("Error enriching transactions:", error);
       // Return original transactions if enrichment fails
       return transactions.map((t) => ({
@@ -664,9 +701,14 @@ class DashboardDataManager {
     }
   }
 
-  async exportExcel(renderer, progressCallback = null) {
+  async exportExcel(renderer, progressCallback = null, abortSignal = null) {
     if (!window.XLSX) {
       throw new Error("SheetJS library tidak dimuat");
+    }
+
+    // Check if aborted before starting
+    if (abortSignal?.aborted) {
+      throw new Error("Export dibatalkan");
     }
 
     const transactions = this.filteredData || [];
@@ -684,8 +726,14 @@ class DashboardDataManager {
 
     const enrichedTransactions = await this.enrichTransactionsWithDetails(
       transactions,
-      progressCallback
+      progressCallback,
+      abortSignal
     );
+
+    // Check if aborted after enrichment
+    if (abortSignal?.aborted) {
+      throw new Error("Export dibatalkan");
+    }
 
     if (progressCallback) {
       progressCallback("Menyusun data Excel...", transactions.length, transactions.length);
@@ -1872,11 +1920,29 @@ class DashboardController {
   async exportToExcel() {
     const exportBtn = document.getElementById("exportExcel");
     const progressModal = document.getElementById("exportProgressModal");
+    const cancelBtn = document.getElementById("exportCancelBtn");
     const progressText = document.getElementById("exportProgressText");
     const progressDetail = document.getElementById("exportProgressDetail");
     const progressBar = document.getElementById("exportProgressBar");
     const totalTransactionsEl = document.getElementById("exportTotalTransactions");
     const detailsFetchedEl = document.getElementById("exportDetailsFetched");
+
+    // AbortController untuk membatalkan export
+    let exportAbortController = null;
+    let isCancelled = false;
+
+    // Cleanup function
+    const cleanup = () => {
+      if (progressModal) {
+        progressModal.style.display = "none";
+      }
+      if (exportBtn) {
+        exportBtn.disabled = false;
+      }
+      if (cancelBtn) {
+        cancelBtn.onclick = null;
+      }
+    };
 
     try {
       // Disable export button
@@ -1889,8 +1955,27 @@ class DashboardController {
         progressModal.style.display = "flex";
       }
 
+      // Setup cancel button
+      if (cancelBtn) {
+        cancelBtn.onclick = () => {
+          isCancelled = true;
+          if (exportAbortController) {
+            exportAbortController.abort();
+          }
+          cleanup();
+          if (progressText) {
+            progressText.textContent = "Export dibatalkan";
+          }
+          if (progressDetail) {
+            progressDetail.textContent = "Proses export telah dibatalkan";
+          }
+        };
+      }
+
       // Progress callback function
       const updateProgress = (step, current, total, detail = "") => {
+        if (isCancelled) return; // Don't update if cancelled
+        
         const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
         
         if (progressText) {
@@ -1913,32 +1998,35 @@ class DashboardController {
       // Initial progress
       updateProgress("Mempersiapkan data...", 0, 0);
 
-      // Export with progress updates
-      await this.dataManager.exportExcel(this.renderer, updateProgress);
+      // Export with progress updates and abort controller
+      exportAbortController = new AbortController();
+      await this.dataManager.exportExcel(
+        this.renderer,
+        updateProgress,
+        exportAbortController.signal
+      );
+
+      if (isCancelled) {
+        return; // Don't proceed if cancelled
+      }
 
       // Hide progress modal
-      if (progressModal) {
-        progressModal.style.display = "none";
+      cleanup();
+    } catch (error) {
+      if (isCancelled || error.message?.includes("dibatalkan")) {
+        console.log("Export cancelled by user");
+        cleanup();
+        return;
       }
 
-      // Re-enable export button
-      if (exportBtn) {
-        exportBtn.disabled = false;
-      }
-    } catch (error) {
       console.error("Failed to export Excel:", error);
       
       // Hide progress modal
-      if (progressModal) {
-        progressModal.style.display = "none";
-      }
+      cleanup();
 
-      // Show error
-      alert("Gagal mengekspor data ke Excel. Silakan coba lagi.");
-
-      // Re-enable export button
-      if (exportBtn) {
-        exportBtn.disabled = false;
+      // Show error (but not for cancellation)
+      if (error.name !== "AbortError" && !error.message?.includes("dibatalkan")) {
+        alert("Gagal mengekspor data ke Excel. Silakan coba lagi.");
       }
     }
   }

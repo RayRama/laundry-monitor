@@ -48,10 +48,16 @@
 
           <!-- Navigation Menu (Admin Only) -->
           <div class="hidden admin-nav flex items-center gap-1 sm:gap-2 mr-2">
-            <a href="/monitor" class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+            <a
+              href="/monitor"
+              class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
+            >
               Monitor
             </a>
-            <a href="/leaderboard" class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+            <a
+              href="/leaderboard"
+              class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
+            >
               Leaderboard
             </a>
           </div>
@@ -79,9 +85,7 @@
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
-                <path
-                  d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"
-                />
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
               </svg>
               <span class="hidden sm:inline">Export Excel</span>
             </button>
@@ -379,14 +383,33 @@
 
         <div class="shift-filter-section" style="margin-bottom: 1.5rem">
           <div class="filter-group">
-            <label for="shiftDatePicker" style="font-size: 0.9rem; font-weight: 500; color: #64748b; margin-bottom: 0.5rem; display: block">
+            <label
+              for="shiftDatePicker"
+              style="
+                font-size: 0.9rem;
+                font-weight: 500;
+                color: #64748b;
+                margin-bottom: 0.5rem;
+                display: block;
+              "
+            >
               Tanggal:
             </label>
             <input
               type="date"
               id="shiftDatePicker"
               class="shift-date-input"
-              style="padding: 0.5rem 0.75rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; background: white; color: #1e293b; transition: border-color 0.2s ease; width: 100%; max-width: 200px"
+              style="
+                padding: 0.5rem 0.75rem;
+                border: 2px solid #e2e8f0;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                background: white;
+                color: #1e293b;
+                transition: border-color 0.2s ease;
+                width: 100%;
+                max-width: 200px;
+              "
             />
           </div>
         </div>
@@ -417,7 +440,17 @@
             <div class="shift-revenue" id="shift3Revenue">Rp 0</div>
           </div>
         </div>
-        <div class="shift-loading" id="shiftLoading" style="display: none; text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem">
+        <div
+          class="shift-loading"
+          id="shiftLoading"
+          style="
+            display: none;
+            text-align: center;
+            padding: 1rem;
+            color: #64748b;
+            font-size: 0.9rem;
+          "
+        >
           Memuat data...
         </div>
       </section>
@@ -475,7 +508,11 @@
               </p>
             </div>
             <div class="progress-bar-container">
-              <div id="exportProgressBar" class="progress-bar" style="width: 0%"></div>
+              <div
+                id="exportProgressBar"
+                class="progress-bar"
+                style="width: 0%"
+              ></div>
             </div>
             <div class="progress-stats">
               <div class="stat-item">
@@ -490,13 +527,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button
-            id="exportCancelBtn"
-            class="btn btn-secondary"
-            style="display: none"
-          >
-            Batal
-          </button>
+          <button id="exportCancelBtn" class="btn btn-secondary">Batal</button>
         </div>
       </div>
     </div>
@@ -505,16 +536,16 @@
     <script src="/scripts/dashboard.js"></script>
     <script>
       // Require admin access and show navigation menu
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener("DOMContentLoaded", function () {
         // Check admin access first
         if (!Auth.requireAdmin()) {
           return; // Will redirect if not admin
         }
 
         // Show admin navigation menu
-        const adminNav = document.querySelector('.admin-nav');
+        const adminNav = document.querySelector(".admin-nav");
         if (adminNav) {
-          adminNav.classList.remove('hidden');
+          adminNav.classList.remove("hidden");
         }
       });
     </script>
