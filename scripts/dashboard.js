@@ -506,7 +506,165 @@ class DashboardDataManager {
     return "Filter tidak dikenal";
   }
 
-  async exportExcel(renderer) {
+  async enrichTransactionsWithDetails(transactions, progressCallback = null) {
+    const ids = transactions
+      .map((t) => t.idtransaksi)
+      .filter((id) => id);
+
+    if (ids.length === 0) {
+      return transactions;
+    }
+
+    try {
+      if (progressCallback) {
+        progressCallback(
+          "Mengambil detail transaksi (mesin & layanan)...",
+          0,
+          ids.length,
+          "Memulai fetch batch..."
+        );
+      }
+
+      // Calculate batch count and time estimates
+      const batchCount = Math.ceil(ids.length / 50);
+      // Estimate: ~1 second per batch (50 transactions)
+      const estimatedSeconds = batchCount * 1;
+      const estimatedMinutes = Math.floor(estimatedSeconds / 60);
+      const estimatedSecondsRemainder = estimatedSeconds % 60;
+      const timeEstimate =
+        estimatedMinutes > 0
+          ? `Estimasi waktu: ~${estimatedMinutes}m ${Math.round(estimatedSecondsRemainder)}s`
+          : `Estimasi waktu: ~${Math.round(estimatedSeconds)}s`;
+
+      // Start progress simulation with interval timer
+      let progressInterval = null;
+      const startTime = Date.now();
+      let currentProgress = 0;
+
+      if (progressCallback) {
+        progressCallback(
+          `Memproses ${ids.length} transaksi dalam batch...`,
+          0,
+          ids.length,
+          timeEstimate
+        );
+
+        // Update progress every 500ms based on elapsed time
+        progressInterval = setInterval(() => {
+          const elapsed = (Date.now() - startTime) / 1000; // seconds
+          // Estimate progress: assume linear progress over estimated time
+          // Use 80% of estimated time to account for variability and show progress faster
+          const estimatedTotalTime = Math.max(estimatedSeconds * 0.8, 1); // At least 1 second
+          const progressRatio = Math.min(elapsed / estimatedTotalTime, 0.95); // Cap at 95% until done
+          currentProgress = Math.min(
+            Math.floor(progressRatio * ids.length),
+            ids.length
+          );
+
+          const elapsedMinutes = Math.floor(elapsed / 60);
+          const elapsedSeconds = Math.floor(elapsed % 60);
+          const elapsedTime =
+            elapsedMinutes > 0
+              ? `${elapsedMinutes}m ${elapsedSeconds}s`
+              : `${elapsedSeconds}s`;
+
+          const batchProgress = Math.floor((currentProgress / ids.length) * batchCount);
+          progressCallback(
+            `Memproses ${ids.length} transaksi dalam batch...`,
+            currentProgress,
+            ids.length,
+            `Batch ${batchProgress}/${batchCount} • ${currentProgress} dari ${ids.length} (${elapsedTime})`
+          );
+        }, 500); // Update every 500ms
+      }
+
+      // Fetch batch details from API with increased timeout
+      // For large batches, we need more time
+      // Add buffer: multiply by 2 for safety
+      const timeoutMs = Math.max(120000, estimatedSeconds * 2000); // Min 120s (2 minutes), or 2s per batch
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(
+          `${this.api.apiBase}/api/transactions/batch-details`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...Auth.getAuthHeaders(),
+            },
+            body: JSON.stringify({ ids }),
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
+        // Stop progress interval
+        if (progressInterval) {
+          clearInterval(progressInterval);
+        }
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const detailsMap = new Map(
+          (result.data || []).map((d) => [d.idtransaksi, d])
+        );
+
+        // Count successful vs failed
+        const successful = result.data?.filter(
+          (d) => d.mesin !== null || d.nama_layanan !== null
+        ).length || 0;
+        const failed = result.data?.filter((d) => d.error).length || 0;
+
+        if (progressCallback) {
+          // Final update with actual count
+          progressCallback(
+            "Detail transaksi berhasil diambil",
+            ids.length,
+            ids.length,
+            `${ids.length} dari ${ids.length} detail terambil (${successful} berhasil${failed > 0 ? `, ${failed} gagal` : ""})`
+          );
+        }
+
+        // Merge details with transactions
+        return transactions.map((t) => {
+          const detail = detailsMap.get(t.idtransaksi);
+          return {
+            ...t,
+            mesin: detail?.mesin || "-",
+            nama_layanan: detail?.nama_layanan || "-",
+          };
+        });
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // Stop progress interval on error
+        if (progressInterval) {
+          clearInterval(progressInterval);
+        }
+        if (fetchError.name === "AbortError") {
+          throw new Error(
+            `Timeout: Proses terlalu lama untuk ${ids.length} transaksi. Silakan coba dengan periode yang lebih kecil.`
+          );
+        }
+        throw fetchError;
+      }
+    } catch (error) {
+      console.error("Error enriching transactions:", error);
+      // Return original transactions if enrichment fails
+      return transactions.map((t) => ({
+        ...t,
+        mesin: "-",
+        nama_layanan: "-",
+      }));
+    }
+  }
+
+  async exportExcel(renderer, progressCallback = null) {
     if (!window.XLSX) {
       throw new Error("SheetJS library tidak dimuat");
     }
@@ -514,6 +672,24 @@ class DashboardDataManager {
     const transactions = this.filteredData || [];
     const summary = this.summary;
     const stats = renderer.computeStats(transactions);
+
+    // Fetch transaction details with progress
+    if (progressCallback) {
+      progressCallback(
+        "Mengambil detail transaksi (mesin & layanan)...",
+        0,
+        transactions.length
+      );
+    }
+
+    const enrichedTransactions = await this.enrichTransactionsWithDetails(
+      transactions,
+      progressCallback
+    );
+
+    if (progressCallback) {
+      progressCallback("Menyusun data Excel...", transactions.length, transactions.length);
+    }
 
     // Create workbook
     const wb = XLSX.utils.book_new();
@@ -609,7 +785,7 @@ class DashboardDataManager {
     };
 
     // Sheet 1: Transaksi Detail
-    const detailData = transactions.map((r) => {
+    const detailData = enrichedTransactions.map((r) => {
       const time = r.dt ? new Date(r.dt) : null;
       const paid = +r.status_lunas === 1;
       const done = +r.status_selesai === 2;
@@ -620,6 +796,8 @@ class DashboardDataManager {
         "ID Transaksi": r.idtransaksi || "-",
         "Jenis Transaksi": r.jenis_transaksi_formated || "-",
         "Nama Customer": r.nama_customer || "-",
+        Mesin: r.mesin || "-",
+        "Nama Layanan": r.nama_layanan || "-",
         Nominal: r.total_harga || 0,
         "Status Paid": paid ? "Ya" : "Tidak",
         "Status Selesai": done ? "Selesai" : "Proses",
@@ -780,8 +958,26 @@ class DashboardDataManager {
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const filename = `Dashboard_Export_${filterDesc}_${timestamp}.xlsx`;
 
+    if (progressCallback) {
+      progressCallback(
+        "Menyimpan file Excel...",
+        enrichedTransactions.length,
+        enrichedTransactions.length,
+        "Hampir selesai..."
+      );
+    }
+
     // Write file
     XLSX.writeFile(wb, filename);
+
+    if (progressCallback) {
+      progressCallback(
+        "Export selesai!",
+        enrichedTransactions.length,
+        enrichedTransactions.length,
+        "File berhasil dibuat"
+      );
+    }
 
     console.log("✅ Excel file exported:", filename);
   }
@@ -1674,32 +1870,75 @@ class DashboardController {
   }
 
   async exportToExcel() {
+    const exportBtn = document.getElementById("exportExcel");
+    const progressModal = document.getElementById("exportProgressModal");
+    const progressText = document.getElementById("exportProgressText");
+    const progressDetail = document.getElementById("exportProgressDetail");
+    const progressBar = document.getElementById("exportProgressBar");
+    const totalTransactionsEl = document.getElementById("exportTotalTransactions");
+    const detailsFetchedEl = document.getElementById("exportDetailsFetched");
+
     try {
-      const exportBtn = document.getElementById("exportExcel");
+      // Disable export button
       if (exportBtn) {
         exportBtn.disabled = true;
-        exportBtn.textContent = "Mengekspor...";
       }
 
-      await this.dataManager.exportExcel(this.renderer);
+      // Show progress modal
+      if (progressModal) {
+        progressModal.style.display = "flex";
+      }
 
+      // Progress callback function
+      const updateProgress = (step, current, total, detail = "") => {
+        const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+        
+        if (progressText) {
+          progressText.textContent = step;
+        }
+        if (progressDetail) {
+          progressDetail.textContent = detail || `${current} dari ${total}`;
+        }
+        if (progressBar) {
+          progressBar.style.width = `${percentage}%`;
+        }
+        if (totalTransactionsEl) {
+          totalTransactionsEl.textContent = total;
+        }
+        if (detailsFetchedEl) {
+          detailsFetchedEl.textContent = current;
+        }
+      };
+
+      // Initial progress
+      updateProgress("Mempersiapkan data...", 0, 0);
+
+      // Export with progress updates
+      await this.dataManager.exportExcel(this.renderer, updateProgress);
+
+      // Hide progress modal
+      if (progressModal) {
+        progressModal.style.display = "none";
+      }
+
+      // Re-enable export button
       if (exportBtn) {
         exportBtn.disabled = false;
-        const svg = exportBtn.querySelector("svg");
-        exportBtn.innerHTML = svg
-          ? svg.outerHTML + '<span class="hidden sm:inline">Export Excel</span>'
-          : "Export Excel";
       }
     } catch (error) {
       console.error("Failed to export Excel:", error);
+      
+      // Hide progress modal
+      if (progressModal) {
+        progressModal.style.display = "none";
+      }
+
+      // Show error
       alert("Gagal mengekspor data ke Excel. Silakan coba lagi.");
-      const exportBtn = document.getElementById("exportExcel");
+
+      // Re-enable export button
       if (exportBtn) {
         exportBtn.disabled = false;
-        const svg = exportBtn.querySelector("svg");
-        exportBtn.innerHTML = svg
-          ? svg.outerHTML + '<span class="hidden sm:inline">Export Excel</span>'
-          : "Export Excel";
       }
     }
   }

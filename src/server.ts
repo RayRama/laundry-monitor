@@ -730,6 +730,194 @@ app.get("/api/transactions", async (c) => {
   }
 });
 
+// API untuk batch detail transaksi (mengambil mesin dan layanan)
+app.post("/api/transactions/batch-details", async (c) => {
+  try {
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+    const base = process.env.UPSTREAM_BASE!;
+
+    // Get request body
+    const body = await c.req.json();
+    const { ids } = body; // Array of idtransaksi
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message: "ids must be a non-empty array",
+        },
+        400
+      );
+    }
+
+    console.log(
+      `📊 Fetching batch transaction details for ${ids.length} transactions`
+    );
+
+    // Batch processing configuration
+    const BATCH_SIZE = 50; // Process 50 requests at a time
+    const MAX_RETRIES = 2; // Retry failed requests up to 2 times
+    const REQUEST_TIMEOUT = 30000; // 30 seconds timeout per request
+
+    // Helper function to fetch single transaction detail with retry
+    const fetchDetailWithRetry = async (
+      idtransaksi: string,
+      retryCount = 0
+    ): Promise<{
+      idtransaksi: string;
+      mesin: string | null;
+      nama_layanan: string | null;
+      error?: string;
+    }> => {
+      try {
+        const baseUrl = base.replace(/\/+$/, "");
+        const url = `${baseUrl}/data_detail_transaksi_snap?idtransaksi=${encodeURIComponent(
+          idtransaksi
+        )}`;
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+          "User-Agent": "dashboard/1.0",
+        };
+        if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
+
+        const res = await fetchWithTimeout(url, REQUEST_TIMEOUT, { headers });
+        if (!res.ok) {
+          // Retry on server errors (5xx) but not on client errors (4xx)
+          if (res.status >= 500 && retryCount < MAX_RETRIES) {
+            console.log(
+              `Retrying ${idtransaksi} (attempt ${
+                retryCount + 1
+              }/${MAX_RETRIES}) due to ${res.status}`
+            );
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1000 * (retryCount + 1))
+            ); // Exponential backoff
+            return fetchDetailWithRetry(idtransaksi, retryCount + 1);
+          }
+          console.error(
+            `Failed to fetch detail for ${idtransaksi}: ${res.status}`
+          );
+          return {
+            idtransaksi,
+            mesin: null,
+            nama_layanan: null,
+            error: `HTTP ${res.status}`,
+          };
+        }
+
+        const json = await res.json();
+        const rincianLayanan = json.data?.rincian_layanan || [];
+
+        // Extract mesin and nama_layanan from rincian_layanan
+        const mesinList: string[] = [];
+        const layananList: string[] = [];
+
+        if (Array.isArray(rincianLayanan)) {
+          rincianLayanan.forEach((rincian: any) => {
+            if (rincian.mesin) {
+              mesinList.push(String(rincian.mesin));
+            }
+            if (rincian.nama_layanan) {
+              layananList.push(String(rincian.nama_layanan));
+            }
+          });
+        }
+
+        return {
+          idtransaksi,
+          mesin: mesinList.length > 0 ? mesinList.join(", ") : null,
+          nama_layanan: layananList.length > 0 ? layananList.join(", ") : null,
+        };
+      } catch (error: any) {
+        // Retry on network errors or timeouts
+        if (
+          (error.name === "AbortError" ||
+            error.message?.includes("aborted") ||
+            error.message?.includes("timeout")) &&
+          retryCount < MAX_RETRIES
+        ) {
+          console.log(
+            `Retrying ${idtransaksi} (attempt ${
+              retryCount + 1
+            }/${MAX_RETRIES}) due to ${error.message}`
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * (retryCount + 1))
+          ); // Exponential backoff
+          return fetchDetailWithRetry(idtransaksi, retryCount + 1);
+        }
+        console.error(`Error fetching detail for ${idtransaksi}:`, error);
+        return {
+          idtransaksi,
+          mesin: null,
+          nama_layanan: null,
+          error: error.message || "Unknown error",
+        };
+      }
+    };
+
+    // Process in batches to avoid overwhelming the server
+    const details: Array<{
+      idtransaksi: string;
+      mesin: string | null;
+      nama_layanan: string | null;
+      error?: string;
+    }> = [];
+
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(ids.length / BATCH_SIZE);
+
+      console.log(
+        `📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} transactions)`
+      );
+
+      // Process batch in parallel
+      const batchPromises = batch.map((idtransaksi) =>
+        fetchDetailWithRetry(idtransaksi)
+      );
+      const batchResults = await Promise.all(batchPromises);
+      details.push(...batchResults);
+
+      // Small delay between batches to avoid overwhelming the server
+      // Reduced delay for better performance on large datasets
+      if (i + BATCH_SIZE < ids.length) {
+        await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms delay between batches
+      }
+    }
+
+    // Count successful vs failed
+    const successful = details.filter(
+      (d) => d.mesin !== null || d.nama_layanan !== null
+    ).length;
+    const failed = details.filter((d) => d.error).length;
+
+    console.log(
+      `✅ Batch transaction details fetched: ${details.length} records (${successful} successful, ${failed} failed)`
+    );
+
+    return c.json({
+      success: true,
+      data: details,
+      total: details.length,
+      successful,
+      failed,
+    });
+  } catch (error: any) {
+    console.error("❌ Error fetching batch transaction details:", error);
+    return c.json(
+      {
+        error: "Failed to fetch batch transaction details",
+        message: error.message,
+        data: [],
+      },
+      500
+    );
+  }
+});
+
 // Leaderboard API endpoints
 app.get("/api/leaderboard/frequency", async (c) => {
   try {
