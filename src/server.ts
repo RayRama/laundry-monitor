@@ -918,6 +918,54 @@ app.post("/api/transactions/batch-details", async (c) => {
   }
 });
 
+// API untuk detail transaksi berdasarkan idtransaksi
+app.get("/api/transaction-detail", async (c) => {
+  try {
+    const bearer =
+      process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "";
+    const base = process.env.UPSTREAM_BASE!;
+    const idtransaksi = c.req.query("idtransaksi");
+
+    if (!idtransaksi) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message: "idtransaksi parameter is required",
+        },
+        400
+      );
+    }
+
+    const baseUrl = base.replace(/\/+$/, "");
+    const url = `${baseUrl}/data_detail_transaksi_snap?idtransaksi=${encodeURIComponent(
+      idtransaksi
+    )}`;
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": "dashboard/1.0",
+    };
+    if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
+
+    const res = await fetchWithTimeout(url, 10000, { headers });
+    if (!res.ok) {
+      throw new Error(`API returned ${res.status}`);
+    }
+
+    const json = await res.json();
+    return c.json(json);
+  } catch (error: any) {
+    console.error("❌ Error fetching transaction detail:", error);
+    return c.json(
+      {
+        error: "Failed to fetch transaction detail",
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
 // Leaderboard API endpoints
 app.get("/api/leaderboard/frequency", async (c) => {
   try {

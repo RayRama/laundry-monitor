@@ -11,6 +11,102 @@
   margin-top: 2rem;
 }
 
+/* Status Legend Row Styles (below title, above grid) */
+.mobile-grid-section .status-legend-row {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  align-items: flex-start;
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--panel);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-grid-section .legend-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mobile-grid-section .legend-items {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.mobile-grid-section .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-grid-section .legend-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-grid-section .legend-icon.ready {
+  background: #76c19e; /* Greenish-blue */
+}
+
+.mobile-grid-section .legend-icon.running {
+  background: #fac686; /* Orange */
+}
+
+.mobile-grid-section .legend-icon.offline {
+  background: #d9d9d9; /* Light gray */
+}
+
+.mobile-grid-section .legend-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-grid-section .legend-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* Responsive adjustments for status legend */
+@media (max-width: 768px) {
+  .mobile-grid-section .status-legend-row {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+  }
+
+  .mobile-grid-section .legend-items {
+    gap: 1rem;
+  }
+
+  .mobile-grid-section .legend-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mobile-grid-section .legend-count {
+    font-size: 0.8rem;
+  }
+
+  .mobile-grid-section .legend-label {
+    font-size: 0.8rem;
+  }
+}
+
 /* Dashboard specific styles */
 .dashboard-view .eta-card {
   grid-column: 1;

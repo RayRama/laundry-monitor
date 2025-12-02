@@ -26,7 +26,7 @@
 }
 
 .machine {
-  position: relative;
+  position: relative; /* Required for absolute positioning of badge */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -206,6 +206,7 @@ body {
   transition: all 150ms ease-in-out;
   cursor: default;
   position: relative;
+  overflow: visible; /* Allow badge to be visible outside machine bounds */
 }
 
 .machine-status {
@@ -1277,4 +1278,126 @@ body {
   .donut-label {
     font-size: 1rem;
   }
+}
+
+/* Machine Badge Styles */
+.machine-badge {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  background: #9333ea; /* Purple for QR */
+  color: white !important;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+  white-space: nowrap;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.machine-badge:not(.machine-badge-clickable) {
+  background: #6b7280 !important; /* Gray for DO */
+}
+
+.machine-badge-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.machine-badge-clickable:hover {
+  background: #7c3aed;
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Prevent badge hover from affecting card mesin */
+.machine-badge {
+  pointer-events: auto;
+}
+
+.machine:hover .machine-badge {
+  /* Badge tetap terlihat saat card di-hover */
+}
+
+/* Transaction Tooltip Styles */
+.transaction-tooltip {
+  position: fixed;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 250px;
+  max-width: 400px;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-content {
+  padding: 1rem;
+}
+
+.tooltip-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.tooltip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.tooltip-item:last-child {
+  margin-bottom: 0;
+}
+
+.tooltip-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tooltip-value {
+  font-size: 0.85rem;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.tooltip-loading {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.tooltip-error {
+  font-size: 0.85rem;
+  color: #ef4444;
+  margin-bottom: 0.5rem;
 }

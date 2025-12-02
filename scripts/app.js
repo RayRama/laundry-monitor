@@ -182,6 +182,7 @@ async function init() {
   renderGrid();
   renderEta();
   renderSummary();
+  renderStatusLegend();
   renderUpdatedAt();
 
   // Fetch pertama langsung agar tidak menunggu jitter
@@ -279,12 +280,31 @@ function renderSingleGrid() {
     machineElement.dataset.machineId = machine.id;
 
     // Add click handler for READY and RUNNING machines
+    // Use event delegation to check if click is on badge
     if (machine.status === "READY") {
       machineElement.style.cursor = "pointer";
-      machineElement.addEventListener("click", () => openMachineModal(machine));
+      machineElement.addEventListener("click", (e) => {
+        // Don't trigger if click is on badge
+        if (
+          e.target.classList.contains("machine-badge") ||
+          e.target.closest(".machine-badge")
+        ) {
+          return;
+        }
+        openMachineModal(machine);
+      });
     } else if (machine.status === "RUNNING") {
       machineElement.style.cursor = "pointer";
-      machineElement.addEventListener("click", () => openStopModal(machine));
+      machineElement.addEventListener("click", (e) => {
+        // Don't trigger if click is on badge
+        if (
+          e.target.classList.contains("machine-badge") ||
+          e.target.closest(".machine-badge")
+        ) {
+          return;
+        }
+        openStopModal(machine);
+      });
     }
 
     // Create machine content with new layout
@@ -307,6 +327,64 @@ function renderSingleGrid() {
       timeElement.className = "machine-time";
       timeElement.textContent = getStatusText(machine);
       statusInfo.appendChild(timeElement);
+
+      // Add badge (QR or DO) for RUNNING machines
+      // DO for aid === "BOS", QR for other aid values
+      const badge = document.createElement("div");
+      badge.className = "machine-badge";
+
+      // Check if aid is "BOS" or undefined (case-insensitive, trimmed)
+      // undefined/null means it's not a QR payment (BOS = Boss/Manual)
+      const aidValue = machine.aid
+        ? String(machine.aid).trim().toUpperCase()
+        : "";
+
+      // Debug log for all RUNNING machines
+      console.log(
+        `[Badge Debug] Machine ${machine.label}: aid="${
+          machine.aid
+        }", aidValue="${aidValue}", type=${typeof machine.aid}`
+      );
+
+      // DO badge: aid is "BOS" or undefined/null (not a QR payment)
+      // QR badge: aid exists and is not "UNKNOWN" and not "BOS"
+      if (
+        aidValue === "BOS" ||
+        !machine.aid ||
+        machine.aid === null ||
+        machine.aid === undefined
+      ) {
+        badge.textContent = "DO";
+        // DO badge is not clickable
+      } else if (aidValue !== "UNKNOWN" && machine.aid) {
+        badge.textContent = "QR";
+        // QR badge is clickable
+        badge.classList.add("machine-badge-clickable");
+        badge.addEventListener("click", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click
+          e.preventDefault(); // Prevent default behavior
+          showTransactionTooltip(badge, machine.aid);
+        });
+        badge.addEventListener("mousedown", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click on mousedown
+        });
+        badge.addEventListener("mouseup", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click on mouseup
+        });
+      } else {
+        // UNKNOWN or other cases - show QR but not clickable
+        badge.textContent = "QR";
+      }
+
+      // Prevent badge from triggering hover on card mesin
+      badge.addEventListener("mouseenter", (e) => {
+        e.stopPropagation();
+      });
+      badge.addEventListener("mouseleave", (e) => {
+        e.stopPropagation();
+      });
+
+      machineElement.appendChild(badge); // Append to machineElement after content
     }
 
     machineContent.appendChild(statusInfo);
@@ -369,12 +447,31 @@ function renderMobileGrids() {
     machineElement.dataset.machineId = machine.id;
 
     // Add click handler for READY and RUNNING machines
+    // Use event delegation to check if click is on badge
     if (machine.status === "READY") {
       machineElement.style.cursor = "pointer";
-      machineElement.addEventListener("click", () => openMachineModal(machine));
+      machineElement.addEventListener("click", (e) => {
+        // Don't trigger if click is on badge
+        if (
+          e.target.classList.contains("machine-badge") ||
+          e.target.closest(".machine-badge")
+        ) {
+          return;
+        }
+        openMachineModal(machine);
+      });
     } else if (machine.status === "RUNNING") {
       machineElement.style.cursor = "pointer";
-      machineElement.addEventListener("click", () => openStopModal(machine));
+      machineElement.addEventListener("click", (e) => {
+        // Don't trigger if click is on badge
+        if (
+          e.target.classList.contains("machine-badge") ||
+          e.target.closest(".machine-badge")
+        ) {
+          return;
+        }
+        openStopModal(machine);
+      });
     }
 
     // Create machine content with new layout
@@ -397,6 +494,64 @@ function renderMobileGrids() {
       timeElement.className = "machine-time";
       timeElement.textContent = getStatusText(machine);
       statusInfo.appendChild(timeElement);
+
+      // Add badge (QR or DO) for RUNNING machines
+      // DO for aid === "BOS", QR for other aid values
+      const badge = document.createElement("div");
+      badge.className = "machine-badge";
+
+      // Check if aid is "BOS" or undefined (case-insensitive, trimmed)
+      // undefined/null means it's not a QR payment (BOS = Boss/Manual)
+      const aidValue = machine.aid
+        ? String(machine.aid).trim().toUpperCase()
+        : "";
+
+      // Debug log for all RUNNING machines
+      console.log(
+        `[Badge Debug] Machine ${machine.label}: aid="${
+          machine.aid
+        }", aidValue="${aidValue}", type=${typeof machine.aid}`
+      );
+
+      // DO badge: aid is "BOS" or undefined/null (not a QR payment)
+      // QR badge: aid exists and is not "UNKNOWN" and not "BOS"
+      if (
+        aidValue === "BOS" ||
+        !machine.aid ||
+        machine.aid === null ||
+        machine.aid === undefined
+      ) {
+        badge.textContent = "DO";
+        // DO badge is not clickable
+      } else if (aidValue !== "UNKNOWN" && machine.aid) {
+        badge.textContent = "QR";
+        // QR badge is clickable
+        badge.classList.add("machine-badge-clickable");
+        badge.addEventListener("click", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click
+          e.preventDefault(); // Prevent default behavior
+          showTransactionTooltip(badge, machine.aid);
+        });
+        badge.addEventListener("mousedown", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click on mousedown
+        });
+        badge.addEventListener("mouseup", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click on mouseup
+        });
+      } else {
+        // UNKNOWN or other cases - show QR but not clickable
+        badge.textContent = "QR";
+      }
+
+      // Prevent badge from triggering hover on card mesin
+      badge.addEventListener("mouseenter", (e) => {
+        e.stopPropagation();
+      });
+      badge.addEventListener("mouseleave", (e) => {
+        e.stopPropagation();
+      });
+
+      machineElement.appendChild(badge); // Append to machineElement after content
     }
 
     machineContent.appendChild(statusInfo);
@@ -429,12 +584,31 @@ function renderMobileGrids() {
     machineElement.dataset.machineId = machine.id;
 
     // Add click handler for READY and RUNNING machines
+    // Use event delegation to check if click is on badge
     if (machine.status === "READY") {
       machineElement.style.cursor = "pointer";
-      machineElement.addEventListener("click", () => openMachineModal(machine));
+      machineElement.addEventListener("click", (e) => {
+        // Don't trigger if click is on badge
+        if (
+          e.target.classList.contains("machine-badge") ||
+          e.target.closest(".machine-badge")
+        ) {
+          return;
+        }
+        openMachineModal(machine);
+      });
     } else if (machine.status === "RUNNING") {
       machineElement.style.cursor = "pointer";
-      machineElement.addEventListener("click", () => openStopModal(machine));
+      machineElement.addEventListener("click", (e) => {
+        // Don't trigger if click is on badge
+        if (
+          e.target.classList.contains("machine-badge") ||
+          e.target.closest(".machine-badge")
+        ) {
+          return;
+        }
+        openStopModal(machine);
+      });
     }
 
     // Create machine content with new layout
@@ -457,6 +631,64 @@ function renderMobileGrids() {
       timeElement.className = "machine-time";
       timeElement.textContent = getStatusText(machine);
       statusInfo.appendChild(timeElement);
+
+      // Add badge (QR or DO) for RUNNING machines
+      // DO for aid === "BOS", QR for other aid values
+      const badge = document.createElement("div");
+      badge.className = "machine-badge";
+
+      // Check if aid is "BOS" or undefined (case-insensitive, trimmed)
+      // undefined/null means it's not a QR payment (BOS = Boss/Manual)
+      const aidValue = machine.aid
+        ? String(machine.aid).trim().toUpperCase()
+        : "";
+
+      // Debug log for all RUNNING machines
+      console.log(
+        `[Badge Debug] Machine ${machine.label}: aid="${
+          machine.aid
+        }", aidValue="${aidValue}", type=${typeof machine.aid}`
+      );
+
+      // DO badge: aid is "BOS" or undefined/null (not a QR payment)
+      // QR badge: aid exists and is not "UNKNOWN" and not "BOS"
+      if (
+        aidValue === "BOS" ||
+        !machine.aid ||
+        machine.aid === null ||
+        machine.aid === undefined
+      ) {
+        badge.textContent = "DO";
+        // DO badge is not clickable
+      } else if (aidValue !== "UNKNOWN" && machine.aid) {
+        badge.textContent = "QR";
+        // QR badge is clickable
+        badge.classList.add("machine-badge-clickable");
+        badge.addEventListener("click", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click
+          e.preventDefault(); // Prevent default behavior
+          showTransactionTooltip(badge, machine.aid);
+        });
+        badge.addEventListener("mousedown", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click on mousedown
+        });
+        badge.addEventListener("mouseup", (e) => {
+          e.stopPropagation(); // Prevent triggering machine click on mouseup
+        });
+      } else {
+        // UNKNOWN or other cases - show QR but not clickable
+        badge.textContent = "QR";
+      }
+
+      // Prevent badge from triggering hover on card mesin
+      badge.addEventListener("mouseenter", (e) => {
+        e.stopPropagation();
+      });
+      badge.addEventListener("mouseleave", (e) => {
+        e.stopPropagation();
+      });
+
+      machineElement.appendChild(badge); // Append to machineElement after content
     }
 
     machineContent.appendChild(statusInfo);
@@ -476,6 +708,148 @@ function renderMobileGrids() {
 
     dryerGrid.appendChild(machineWrapper);
   });
+}
+
+/**
+ * Fetch transaction detail by idtransaksi (aid)
+ */
+async function fetchTransactionDetail(idtransaksi) {
+  try {
+    const url = `${API_BASE}/api/transaction-detail?idtransaksi=${encodeURIComponent(
+      idtransaksi
+    )}`;
+
+    // Use Auth.getAuthHeaders() if available, otherwise use manual token
+    const headers = {
+      "Content-Type": "application/json",
+      ...(typeof Auth !== "undefined" ? Auth.getAuthHeaders() : {}),
+    };
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error("Error fetching transaction detail:", error);
+    throw error;
+  }
+}
+
+/**
+ * Show transaction tooltip when QR badge is clicked
+ */
+async function showTransactionTooltip(badgeElement, idtransaksi) {
+  // Remove existing tooltip if any
+  const existingTooltip = document.getElementById("transaction-tooltip");
+  if (existingTooltip) {
+    existingTooltip.remove();
+  }
+
+  // Create tooltip element
+  const tooltip = document.createElement("div");
+  tooltip.id = "transaction-tooltip";
+  tooltip.className = "transaction-tooltip";
+  tooltip.innerHTML = `
+    <div class="tooltip-content">
+      <div class="tooltip-loading">Memuat data...</div>
+    </div>
+  `;
+
+  // Position tooltip relative to badge
+  const badgeRect = badgeElement.getBoundingClientRect();
+  document.body.appendChild(tooltip);
+
+  // Position tooltip
+  const tooltipRect = tooltip.getBoundingClientRect();
+  let top = badgeRect.bottom + 8;
+  let left = badgeRect.left + badgeRect.width / 2 - tooltipRect.width / 2;
+
+  // Adjust if tooltip goes off screen
+  if (left < 8) left = 8;
+  if (left + tooltipRect.width > window.innerWidth - 8) {
+    left = window.innerWidth - tooltipRect.width - 8;
+  }
+  if (top + tooltipRect.height > window.innerHeight - 8) {
+    top = badgeRect.top - tooltipRect.height - 8;
+  }
+
+  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${left}px`;
+
+  // Close tooltip when clicking outside
+  const closeTooltip = (e) => {
+    if (!tooltip.contains(e.target) && e.target !== badgeElement) {
+      tooltip.remove();
+      document.removeEventListener("click", closeTooltip);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener("click", closeTooltip);
+  }, 100);
+
+  // Fetch transaction detail
+  try {
+    const detail = await fetchTransactionDetail(idtransaksi);
+    const rincianLayanan = detail.data?.rincian_layanan || [];
+
+    // Extract layanan names
+    const layananList = [];
+    if (Array.isArray(rincianLayanan)) {
+      rincianLayanan.forEach((rincian) => {
+        if (rincian.nama_layanan) {
+          layananList.push(String(rincian.nama_layanan));
+        }
+      });
+    }
+
+    const layananText =
+      layananList.length > 0 ? layananList.join(", ") : "Tidak ada layanan";
+
+    // Update tooltip content
+    tooltip.innerHTML = `
+      <div class="tooltip-content">
+        <div class="tooltip-header">Detail Transaksi</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Layanan:</span>
+          <span class="tooltip-value">${layananText}</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">ID Transaksi:</span>
+          <span class="tooltip-value">${idtransaksi}</span>
+        </div>
+      </div>
+    `;
+
+    // Reposition after content update
+    const updatedTooltipRect = tooltip.getBoundingClientRect();
+    let updatedTop = badgeRect.bottom + 8;
+    let updatedLeft =
+      badgeRect.left + badgeRect.width / 2 - updatedTooltipRect.width / 2;
+
+    if (updatedLeft < 8) updatedLeft = 8;
+    if (updatedLeft + updatedTooltipRect.width > window.innerWidth - 8) {
+      updatedLeft = window.innerWidth - updatedTooltipRect.width - 8;
+    }
+    if (updatedTop + updatedTooltipRect.height > window.innerHeight - 8) {
+      updatedTop = badgeRect.top - updatedTooltipRect.height - 8;
+    }
+
+    tooltip.style.top = `${updatedTop}px`;
+    tooltip.style.left = `${updatedLeft}px`;
+  } catch (error) {
+    tooltip.innerHTML = `
+      <div class="tooltip-content">
+        <div class="tooltip-error">Gagal memuat data transaksi</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">ID Transaksi:</span>
+          <span class="tooltip-value">${idtransaksi}</span>
+        </div>
+      </div>
+    `;
+  }
 }
 
 /**
@@ -698,6 +1072,45 @@ function renderSummary() {
 }
 
 /**
+ * Render status legend with separate counts for washer and dryer
+ */
+function renderStatusLegend() {
+  // Calculate washer counts
+  const washers = machines.filter((m) => m.type === MACHINE_TYPE.WASHER);
+  const washerReady = washers.filter((m) => m.status === STATUS.READY).length;
+  const washerRunning = washers.filter(
+    (m) => m.status === STATUS.RUNNING
+  ).length;
+  const washerOffline = washers.filter(
+    (m) => m.status === STATUS.OFFLINE
+  ).length;
+
+  // Calculate dryer counts
+  const dryers = machines.filter((m) => m.type === MACHINE_TYPE.DRYER);
+  const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
+  const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
+  const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
+
+  // Update washer counts
+  const washerReadyEl = document.getElementById("washer-ready-count");
+  const washerRunningEl = document.getElementById("washer-running-count");
+  const washerOfflineEl = document.getElementById("washer-offline-count");
+
+  if (washerReadyEl) washerReadyEl.textContent = washerReady;
+  if (washerRunningEl) washerRunningEl.textContent = washerRunning;
+  if (washerOfflineEl) washerOfflineEl.textContent = washerOffline;
+
+  // Update dryer counts
+  const dryerReadyEl = document.getElementById("dryer-ready-count");
+  const dryerRunningEl = document.getElementById("dryer-running-count");
+  const dryerOfflineEl = document.getElementById("dryer-offline-count");
+
+  if (dryerReadyEl) dryerReadyEl.textContent = dryerReady;
+  if (dryerRunningEl) dryerRunningEl.textContent = dryerRunning;
+  if (dryerOfflineEl) dryerOfflineEl.textContent = dryerOffline;
+}
+
+/**
  * Update donut chart with conic gradient
  */
 function updateDonutChart(element, ready, running, offline, total) {
@@ -862,6 +1275,7 @@ async function fetchFromBackend() {
       status: m.status, // Keep original status (READY, RUNNING, OFFLINE)
       elapsed_ms: m.elapsed_ms || null,
       updated_at: m.updated_at,
+      aid: m.aid || null, // Include aid field for badge logic
     }));
 
     // Update lastETag from response
@@ -876,6 +1290,7 @@ async function fetchFromBackend() {
     renderGrid();
     renderEta();
     renderSummary();
+    renderStatusLegend();
     renderUpdatedAt();
   } catch (err) {
     console.error("Fetch backend gagal:", err);
@@ -894,6 +1309,7 @@ function startPolling() {
     renderGrid();
     renderEta();
     renderSummary();
+    renderStatusLegend();
     renderUpdatedAt();
   });
 }

@@ -43,7 +43,7 @@
       </header>
 
       <!-- Status Legend Row -->
-      <div class="status-legend-row">
+      <!-- <div class="status-legend-row">
         <div class="legend-item">
           <div class="legend-icon ready"></div>
           <span>Tersedia</span>
@@ -56,7 +56,7 @@
           <div class="legend-icon offline"></div>
           <span>Offline</span>
         </div>
-      </div>
+      </div> -->
 
       <!-- Machine Grid -->
       <div class="machines-section">
@@ -72,10 +72,68 @@
         <div id="mobileGrids" class="mobile-grids">
           <div class="mobile-grid-section">
             <h3 class="mobile-grid-title">Washers</h3>
+            <div class="status-legend-row">
+              <div class="legend-section">
+                <div class="legend-items">
+                  <div class="legend-item">
+                    <div class="legend-icon ready">
+                      <span class="legend-count" id="washer-ready-count"
+                        >0</span
+                      >
+                    </div>
+                    <span class="legend-label">Tersedia</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-icon running">
+                      <span class="legend-count" id="washer-running-count"
+                        >0</span
+                      >
+                    </div>
+                    <span class="legend-label">Berjalan</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-icon offline">
+                      <span class="legend-count" id="washer-offline-count"
+                        >0</span
+                      >
+                    </div>
+                    <span class="legend-label">Offline</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div id="washerGrid" class="parent mobile-grid"></div>
           </div>
           <div class="mobile-grid-section">
             <h3 class="mobile-grid-title">Dryers</h3>
+            <div class="status-legend-row">
+              <div class="legend-section">
+                <div class="legend-items">
+                  <div class="legend-item">
+                    <div class="legend-icon ready">
+                      <span class="legend-count" id="dryer-ready-count">0</span>
+                    </div>
+                    <span class="legend-label">Tersedia</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-icon running">
+                      <span class="legend-count" id="dryer-running-count"
+                        >0</span
+                      >
+                    </div>
+                    <span class="legend-label">Berjalan</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-icon offline">
+                      <span class="legend-count" id="dryer-offline-count"
+                        >0</span
+                      >
+                    </div>
+                    <span class="legend-label">Offline</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div id="dryerGrid" class="parent mobile-grid"></div>
           </div>
         </div>
