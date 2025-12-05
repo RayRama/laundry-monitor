@@ -148,6 +148,8 @@ class DashboardDataManager {
     this.api = new DashboardAPI();
     this.rawData = [];
     this.filteredData = [];
+    this.weeklyData = []; // Data untuk grafik mingguan (selalu minggu ini)
+    this.monthlyData = []; // Data untuk grafik bulanan (selalu bulan ini)
     this.summary = null;
     const currentDate = this.getCurrentDate();
     this.currentFilter = {
@@ -237,6 +239,119 @@ class DashboardDataManager {
     }
   }
 
+  // Helper: Calculate days difference between two dates
+  getDaysDifference(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
+
+  // Helper: Check if filter period is suitable for weekly chart (>= 7 days or spans multiple weeks)
+  isFilterSuitableForWeekly() {
+    const filter = this.currentFilter;
+    
+    // If filter is "hari_ini" or "kemarin", not suitable
+    if (filter.filterBy === "hari_ini" || filter.filterBy === "kemarin") {
+      return false;
+    }
+
+    // If filter is "bulan" or "tahun", suitable
+    if (filter.filterBy === "bulan" || filter.filterBy === "tahun") {
+      return true;
+    }
+
+    // If filter is "periode", check date range
+    if (filter.filterBy === "periode" && filter.tanggalAwal && filter.tanggalAkhir) {
+      const days = this.getDaysDifference(filter.tanggalAwal, filter.tanggalAkhir);
+      // Suitable if >= 7 days
+      return days >= 7;
+    }
+
+    // If filter is "minggu_ini" or "bulan_ini", suitable
+    if (filter.filterBy === "minggu_ini" || filter.filterBy === "bulan_ini") {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Helper: Check if filter period is suitable for monthly chart (>= 30 days or spans multiple months)
+  isFilterSuitableForMonthly() {
+    const filter = this.currentFilter;
+    
+    // If filter is "hari_ini" or "kemarin", not suitable
+    if (filter.filterBy === "hari_ini" || filter.filterBy === "kemarin") {
+      return false;
+    }
+
+    // If filter is "bulan" or "tahun", suitable
+    if (filter.filterBy === "bulan" || filter.filterBy === "tahun") {
+      return true;
+    }
+
+    // If filter is "periode", check date range
+    if (filter.filterBy === "periode" && filter.tanggalAwal && filter.tanggalAkhir) {
+      const days = this.getDaysDifference(filter.tanggalAwal, filter.tanggalAkhir);
+      // Suitable if >= 30 days
+      return days >= 30;
+    }
+
+    // If filter is "bulan_ini", suitable
+    if (filter.filterBy === "bulan_ini") {
+      return true;
+    }
+
+    // If filter is "minggu_ini", check if it spans multiple months
+    if (filter.filterBy === "minggu_ini") {
+      const dateRange = this.getDateRangeForFilter("minggu_ini");
+      if (dateRange) {
+        const start = new Date(dateRange.tanggalAwal);
+        const end = new Date(dateRange.tanggalAkhir);
+        // Check if spans multiple months
+        return start.getMonth() !== end.getMonth() || start.getFullYear() !== end.getFullYear();
+      }
+    }
+
+    return false;
+  }
+
+  // Get date range from current filter
+  getCurrentFilterDateRange() {
+    const filter = this.currentFilter;
+    
+    if (filter.filterBy === "periode" && filter.tanggalAwal && filter.tanggalAkhir) {
+      return {
+        tanggalAwal: filter.tanggalAwal,
+        tanggalAkhir: filter.tanggalAkhir,
+      };
+    }
+    
+    if (filter.filterBy === "bulan" && filter.bulan) {
+      // Parse bulan (format: YYYY-MM)
+      const [year, month] = filter.bulan.split("-");
+      const firstDay = new Date(year, parseInt(month) - 1, 1);
+      const lastDay = new Date(year, parseInt(month), 0);
+      
+      return {
+        tanggalAwal: `${year}-${String(month).padStart(2, "0")}-01`,
+        tanggalAkhir: `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`,
+      };
+    }
+    
+    if (filter.filterBy === "tahun" && filter.tahun) {
+      return {
+        tanggalAwal: `${filter.tahun}-01-01`,
+        tanggalAkhir: `${filter.tahun}-12-31`,
+      };
+    }
+    
+    // For "minggu_ini", "bulan_ini", etc., use getDateRangeForFilter
+    const dateRange = this.getDateRangeForFilter(filter.filterBy);
+    return dateRange || null;
+  }
+
   async loadData() {
     this.setLoading(true);
 
@@ -298,6 +413,124 @@ class DashboardDataManager {
       throw error;
     } finally {
       this.setLoading(false);
+    }
+  }
+
+  async loadWeeklyData(useFilter = false) {
+    try {
+      let tanggalAwal, tanggalAkhir;
+      
+      if (useFilter && this.isFilterSuitableForWeekly()) {
+        // Use filter date range
+        const dateRange = this.getCurrentFilterDateRange();
+        if (dateRange) {
+          tanggalAwal = dateRange.tanggalAwal;
+          tanggalAkhir = dateRange.tanggalAkhir;
+          console.log("📅 Using filter date range for weekly chart:", tanggalAwal, "to", tanggalAkhir);
+        } else {
+          // Fallback to current week
+          tanggalAwal = this.getWeekStartDate();
+          tanggalAkhir = this.getCurrentDate();
+        }
+      } else {
+        // Use current week (independent from filter)
+        tanggalAwal = this.getWeekStartDate();
+        tanggalAkhir = this.getCurrentDate();
+        console.log("📅 Using current week for weekly chart (filter not suitable):", tanggalAwal, "to", tanggalAkhir);
+      }
+      
+      // Get total count first
+      const summaryParams = {
+        filter_by: "periode",
+        tanggal_awal: tanggalAwal,
+        tanggal_akhir: tanggalAkhir,
+        limit: "20",
+        offset: "0",
+      };
+      const summaryData = await this.api.getTransactionSummary(summaryParams);
+      
+      const params = {
+        filter_by: "periode",
+        tanggal_awal: tanggalAwal,
+        tanggal_akhir: tanggalAkhir,
+        offset: "0",
+      };
+
+      // Use total_nota from summary if available, otherwise use a large number
+      if (summaryData?.data?.total_nota) {
+        params.limit = summaryData.data.total_nota.toString();
+      } else {
+        params.limit = "10000"; // Fallback to large number
+      }
+
+      const transactionData = await this.api.getTransactions(params);
+      
+      if (transactionData) {
+        this.weeklyData = this.normalizeData(transactionData.data || []);
+        console.log("✅ Weekly data loaded:", this.weeklyData.length, "records");
+      }
+    } catch (error) {
+      console.error("❌ Failed to load weekly data:", error);
+      this.weeklyData = [];
+    }
+  }
+
+  async loadMonthlyData(useFilter = false) {
+    try {
+      let tanggalAwal, tanggalAkhir;
+      
+      if (useFilter && this.isFilterSuitableForMonthly()) {
+        // Use filter date range
+        const dateRange = this.getCurrentFilterDateRange();
+        if (dateRange) {
+          tanggalAwal = dateRange.tanggalAwal;
+          tanggalAkhir = dateRange.tanggalAkhir;
+          console.log("📅 Using filter date range for monthly chart:", tanggalAwal, "to", tanggalAkhir);
+        } else {
+          // Fallback to current month
+          tanggalAwal = this.getMonthStartDate();
+          tanggalAkhir = this.getCurrentDate();
+        }
+      } else {
+        // Use current month (independent from filter)
+        tanggalAwal = this.getMonthStartDate();
+        tanggalAkhir = this.getCurrentDate();
+        console.log("📅 Using current month for monthly chart (filter not suitable):", tanggalAwal, "to", tanggalAkhir);
+      }
+      
+      // Get total count first
+      const summaryParams = {
+        filter_by: "periode",
+        tanggal_awal: tanggalAwal,
+        tanggal_akhir: tanggalAkhir,
+        limit: "20",
+        offset: "0",
+      };
+      const summaryData = await this.api.getTransactionSummary(summaryParams);
+      
+      const params = {
+        filter_by: "periode",
+        tanggal_awal: tanggalAwal,
+        tanggal_akhir: tanggalAkhir,
+        offset: "0",
+      };
+
+      // Use total_nota from summary if available, otherwise use a large number
+      if (summaryData?.data?.total_nota) {
+        params.limit = summaryData.data.total_nota.toString();
+      } else {
+        params.limit = "10000"; // Fallback to large number
+      }
+
+      const transactionData = await this.api.getTransactions(params);
+      
+      if (transactionData) {
+        this.monthlyData = this.normalizeData(transactionData.data || []);
+        console.log("✅ Monthly data loaded:", this.monthlyData.length, "records");
+      }
+    } catch (error) {
+      console.error("❌ Failed to load monthly data:", error);
+      this.monthlyData = [];
     }
   }
 
@@ -1270,16 +1503,22 @@ class DashboardRenderer {
   renderCharts(data) {
     const stats = this.computeStats(data.transactions);
 
+    // Use main data for daily charts
     this.renderDailyChart(stats);
-    // this.renderTicketChart(stats); // Chart removed from UI
-    this.renderWeeklyChart(stats);
-    this.renderTransactionWeeklyChart(stats);
-    this.renderMonthlyRevenueChart(stats);
-    this.renderTransactionMonthlyChart(stats);
     this.renderCombinedChart(stats);
     this.renderHourlyChart(stats);
     this.renderHeatMap(stats);
     this.renderTransactionDailyChart(stats);
+
+    // Use weekly data for weekly charts (always shows current week)
+    const weeklyStats = this.computeStats(this.dataManager.weeklyData);
+    this.renderWeeklyChart(weeklyStats);
+    this.renderTransactionWeeklyChart(weeklyStats);
+
+    // Use monthly data for monthly charts (always shows current month)
+    const monthlyStats = this.computeStats(this.dataManager.monthlyData);
+    this.renderMonthlyRevenueChart(monthlyStats);
+    this.renderTransactionMonthlyChart(monthlyStats);
   }
 
   renderDailyChart(stats) {
@@ -2092,8 +2331,19 @@ class DashboardController {
   async refreshData() {
     try {
       this.dataManager.showSuccess("Memuat data terbaru...");
-      const data = await this.dataManager.loadData();
-      this.renderer.render(data);
+      
+      // Determine if filter is suitable for weekly and monthly charts
+      const useFilterForWeekly = this.dataManager.isFilterSuitableForWeekly();
+      const useFilterForMonthly = this.dataManager.isFilterSuitableForMonthly();
+      
+      // Load main data, weekly data, and monthly data in parallel
+      const [mainData] = await Promise.all([
+        this.dataManager.loadData(),
+        this.dataManager.loadWeeklyData(useFilterForWeekly),
+        this.dataManager.loadMonthlyData(useFilterForMonthly),
+      ]);
+      
+      this.renderer.render(mainData);
       this.dataManager.showSuccess("Data berhasil diperbarui!");
     } catch (error) {
       console.error("Failed to refresh data:", error);
