@@ -150,7 +150,8 @@
           <div class="filter-group">
             <label for="filterBy">Jenis Filter</label>
             <select id="filterBy" class="w-40">
-              <option value="hari_ini">Hari Ini</option>
+              <option value="hari_ini" selected>Hari Ini</option>
+              <option value="kemarin">Kemarin</option>
               <option value="minggu_ini">Minggu Ini</option>
               <option value="bulan_ini">Bulan Ini</option>
               <option value="bulan">Bulan (Custom)</option>
@@ -273,13 +274,37 @@
         </div>
         <div class="card p-4">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-slate-900 font-bold">Transaksi Harian</h3>
+            <h3 class="text-slate-900 font-bold">Transaksi Mingguan</h3>
             <div class="text-xs text-slate-500">
               <span class="legend-dot" style="background: var(--accent)"></span>
               Jumlah Transaksi
             </div>
           </div>
-          <canvas id="chartTransactionDaily" height="120"></canvas>
+          <canvas id="chartTransactionWeekly" height="120"></canvas>
+        </div>
+      </section>
+
+      <!-- Monthly Charts -->
+      <section class="grid lg:grid-cols-2 gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-slate-900 font-bold">Omzet Bulanan</h3>
+            <div class="text-xs text-slate-500">
+              <span class="legend-dot" style="background: var(--brand)"></span>
+              Omzet per Bulan (IDR)
+            </div>
+          </div>
+          <canvas id="chartMonthlyRevenue" height="120"></canvas>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-slate-900 font-bold">Transaksi Bulanan</h3>
+            <div class="text-xs text-slate-500">
+              <span class="legend-dot" style="background: var(--accent)"></span>
+              Jumlah Transaksi
+            </div>
+          </div>
+          <canvas id="chartTransactionMonthly" height="120"></canvas>
         </div>
       </section>
 
@@ -306,6 +331,20 @@
             </div>
           </div>
           <canvas id="chartCombined" height="120"></canvas>
+        </div>
+      </section>
+
+      <!-- Daily Transaction Chart (Moved Down) -->
+      <section class="grid lg:grid-cols-1 gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-slate-900 font-bold">Transaksi Harian</h3>
+            <div class="text-xs text-slate-500">
+              <span class="legend-dot" style="background: var(--accent)"></span>
+              Jumlah Transaksi
+            </div>
+          </div>
+          <canvas id="chartTransactionDaily" height="120"></canvas>
         </div>
       </section>
 
