@@ -345,7 +345,7 @@ app.post("/api/machines/:id/start", async (c) => {
       "5CCF3FDBB498": "W08",
       "483FDA6AFDC7": "W10",
       "8CAAB556EF34": "W09",
-      "500291EB8F36": "W09_OLD",
+      "500291EB8F36": "W09 testing",
       A4CF12F307D1: "W11",
       "68C63AFC1863": "W12",
     };
@@ -449,7 +449,7 @@ app.post("/api/machines/:id/stop", async (c) => {
       "5CCF3FDBB498": "W08",
       "483FDA6AFDC7": "W10",
       "8CAAB556EF34": "W09",
-      "500291EB8F36": "W09_OLD",
+      "500291EB8F36": "W09 testing",
       A4CF12F307D1: "W11",
       "68C63AFC1863": "W12",
     };
