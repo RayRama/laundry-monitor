@@ -1,47 +1,76 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
   "builds": [
     {
-      "src": "src/server.ts",
+      "src": "dist/server.js",
       "use": "@vercel/node"
     },
     {
+      "src": "login/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "dashboard/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "monitor/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "leaderboard/index.html",
+      "use": "@vercel/static"
+    },
+    {
       "src": "public/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "styles/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "scripts/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "assets/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "src/server.ts"
+      "dest": "dist/server.js"
     },
     {
       "src": "/dashboard",
-      "dest": "src/server.ts"
+      "dest": "dist/server.js"
     },
     {
       "src": "/leaderboard",
-      "dest": "src/server.ts"
+      "dest": "dist/server.js"
     },
     {
       "src": "/monitor",
-      "dest": "src/server.ts"
+      "dest": "dist/server.js"
     },
     {
       "src": "/login",
-      "dest": "src/server.ts"
+      "dest": "login/index.html"
     },
     {
       "src": "/styles/(.*)",
-      "dest": "src/server.ts"
+      "dest": "styles/$1"
     },
     {
       "src": "/scripts/(.*)",
-      "dest": "src/server.ts"
+      "dest": "scripts/$1"
     },
     {
       "src": "/assets/(.*)",
-      "dest": "src/server.ts"
+      "dest": "assets/$1"
     },
     {
       "src": "/",
