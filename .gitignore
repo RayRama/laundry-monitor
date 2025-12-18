@@ -3,7 +3,6 @@
 node_modules
 .vercel
 .env.*
-dist/
 
 # Google Sheets credentials (SENSITIVE - DO NOT COMMIT)
 credentials/

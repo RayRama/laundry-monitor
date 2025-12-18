@@ -1,9 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
   "builds": [
     {
-      "src": "dist/server.js",
+      "src": "src/**/*.ts",
       "use": "@vercel/node"
     },
     {
@@ -42,35 +41,23 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "dist/server.js"
-    },
-    {
-      "src": "/dashboard",
-      "dest": "dist/server.js"
-    },
-    {
-      "src": "/leaderboard",
-      "dest": "dist/server.js"
-    },
-    {
-      "src": "/monitor",
-      "dest": "dist/server.js"
+      "dest": "src/server.ts"
     },
     {
       "src": "/login",
       "dest": "login/index.html"
     },
     {
-      "src": "/styles/(.*)",
-      "dest": "styles/$1"
+      "src": "/dashboard",
+      "dest": "dashboard/index.html"
     },
     {
-      "src": "/scripts/(.*)",
-      "dest": "scripts/$1"
+      "src": "/monitor",
+      "dest": "monitor/index.html"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "assets/$1"
+      "src": "/leaderboard",
+      "dest": "leaderboard/index.html"
     },
     {
       "src": "/",
