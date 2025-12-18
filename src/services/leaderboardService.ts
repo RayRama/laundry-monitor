@@ -77,7 +77,7 @@ export async function generateFrequencyLeaderboard(params: {
       if (frequency > 0) {
         leaderboard.push({
           machineId,
-          machineLabel: controllersMap[machineId] || machineId,
+          machineLabel: (controllersMap[machineId as keyof typeof controllersMap] as string) || machineId,
           frequency,
           totalRevenue: transactions.reduce(
             (sum: number, t: any) => sum + (t.total_harga || 0),
@@ -161,7 +161,7 @@ export async function generateRevenueLeaderboard(params: {
       if (totalRevenue > 0) {
         leaderboard.push({
           machineId,
-          machineLabel: controllersMap[machineId] || machineId,
+          machineLabel: (controllersMap[machineId as keyof typeof controllersMap] as string) || machineId,
           frequency: transactions.length,
           totalRevenue,
           lastTransaction: transactions[0]?.waktu_diterima_raw || null,

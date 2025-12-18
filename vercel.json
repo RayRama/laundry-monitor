@@ -2,39 +2,11 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/**/*.ts",
+      "src": "src/server.ts",
       "use": "@vercel/node"
     },
     {
-      "src": "login/index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "dashboard/index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "monitor/index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "leaderboard/index.html",
-      "use": "@vercel/static"
-    },
-    {
       "src": "public/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "styles/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "scripts/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "assets/**",
       "use": "@vercel/static"
     }
   ],
@@ -44,20 +16,32 @@
       "dest": "src/server.ts"
     },
     {
-      "src": "/login",
-      "dest": "login/index.html"
-    },
-    {
       "src": "/dashboard",
-      "dest": "dashboard/index.html"
-    },
-    {
-      "src": "/monitor",
-      "dest": "monitor/index.html"
+      "dest": "src/server.ts"
     },
     {
       "src": "/leaderboard",
-      "dest": "leaderboard/index.html"
+      "dest": "src/server.ts"
+    },
+    {
+      "src": "/monitor",
+      "dest": "src/server.ts"
+    },
+    {
+      "src": "/login",
+      "dest": "src/server.ts"
+    },
+    {
+      "src": "/styles/(.*)",
+      "dest": "src/server.ts"
+    },
+    {
+      "src": "/scripts/(.*)",
+      "dest": "src/server.ts"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "src/server.ts"
     },
     {
       "src": "/",

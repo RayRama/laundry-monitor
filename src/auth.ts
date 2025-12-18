@@ -7,12 +7,20 @@ dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 // Secret key untuk JWT - dalam production gunakan environment variable
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET =
+  process.env.JWT_SECRET || "default-secret-key-change-in-production";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
 
 // User credentials - dalam production sebaiknya disimpan di database
 // Load users from environment variables
-const USERS = [
+interface UserCredential {
+  id: number;
+  username: string | undefined;
+  password: string | undefined;
+  role: string;
+}
+
+const USERS: UserCredential[] = [
   {
     id: 1,
     username: process.env.ADMIN_USERNAME,
@@ -57,8 +65,18 @@ export function generateToken(user: User): string {
  */
 export function verifyToken(token: string): AuthPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
-    return decoded;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (typeof decoded === "object" && decoded !== null) {
+      const payload = decoded as jwt.JwtPayload;
+      if (payload.userId && payload.username && payload.role) {
+        return {
+          userId: payload.userId as number,
+          username: payload.username as string,
+          role: payload.role as string,
+        };
+      }
+    }
+    return null;
   } catch (error) {
     console.error("Token verification failed:", error);
     return null;
@@ -74,7 +92,7 @@ export async function authenticateUser(
 ): Promise<User | null> {
   const user = USERS.find((u) => u.username === username);
 
-  if (!user) {
+  if (!user || !user.username || !user.password) {
     return null;
   }
 

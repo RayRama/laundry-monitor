@@ -39,11 +39,14 @@ staticFiles.get("/assets/*", async (c) => {
     const ext = path.split(".").pop();
     const contentType =
       ext === "svg" ? "image/svg+xml" : "application/octet-stream";
-    return new Response(content, { headers: { "Content-Type": contentType } });
+    // Convert Buffer to Uint8Array for Response compatibility
+    const uint8Array = new Uint8Array(content);
+    return new Response(uint8Array, {
+      headers: { "Content-Type": contentType },
+    });
   } catch (error) {
     return c.text("File not found", 404);
   }
 });
 
 export default staticFiles;
-
