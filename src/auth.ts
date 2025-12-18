@@ -51,6 +51,10 @@ export interface AuthPayload {
  * Generate JWT token untuk user
  */
 export function generateToken(user: User): string {
+  if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
   const payload: AuthPayload = {
     userId: user.id,
     username: user.username,
@@ -64,6 +68,11 @@ export function generateToken(user: User): string {
  * Verify JWT token dan return payload
  */
 export function verifyToken(token: string): AuthPayload | null {
+  if (!JWT_SECRET) {
+    console.error("JWT_SECRET is not configured");
+    return null;
+  }
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     if (typeof decoded === "object" && decoded !== null) {
