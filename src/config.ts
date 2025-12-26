@@ -12,6 +12,9 @@ export const config = {
     bearer: process.env.UPSTREAM_BEARER || process.env.BEARER_TOKEN || "",
     timeout: Number(process.env.UPSTREAM_TIMEOUT_MS || 2000),
   },
+  eventGateway: {
+    base: process.env.EVENT_GATEWAY_BASE || "http://localhost:54990",
+  },
   refresh: {
     interval: 180000, // 3 menit
     staleThreshold: 2 * 60 * 1000, // 2 menit

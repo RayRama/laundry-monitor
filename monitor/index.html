@@ -239,6 +239,104 @@
             </div>
           </div>
 
+          <!-- Event Selection -->
+          <div class="event-selection">
+            <label for="eventTypeSelect" class="event-selection-label">Catat Event (Opsional):</label>
+            <select id="eventTypeSelect" class="event-select-field">
+              <option value="">Tidak ada event</option>
+              <option value="drop-off">Drop-off</option>
+              <option value="error-payment">Error Payment</option>
+              <option value="employee-quota">Employee Quota</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </div>
+
+          <!-- Event Form Fields (Conditional) -->
+          <!-- Drop-off Fields -->
+          <div id="eventFormDropOff" class="event-form-section" style="display: none">
+            <div class="event-form-field">
+              <label for="customerName">Nama Pelanggan <span class="required">*</span>:</label>
+              <input
+                type="text"
+                id="customerName"
+                class="event-input-field"
+                placeholder="Masukkan nama pelanggan"
+              />
+            </div>
+            <div class="event-form-field">
+              <label for="customerPhone">Nomor Telepon:</label>
+              <input
+                type="text"
+                id="customerPhone"
+                class="event-input-field"
+                placeholder="Masukkan nomor telepon (opsional)"
+              />
+            </div>
+          </div>
+
+          <!-- Error Payment Fields -->
+          <div id="eventFormErrorPayment" class="event-form-section" style="display: none">
+            <div class="event-form-field">
+              <label for="errorDescription">Keterangan Error <span class="required">*</span>:</label>
+              <input
+                type="text"
+                id="errorDescription"
+                class="event-input-field"
+                placeholder="Masukkan keterangan error"
+              />
+            </div>
+          </div>
+
+          <!-- Employee Quota Fields -->
+          <div id="eventFormEmployeeQuota" class="event-form-section" style="display: none">
+            <div class="event-form-field">
+              <label for="employeeName">Nama Karyawan <span class="required">*</span>:</label>
+              <input
+                type="text"
+                id="employeeName"
+                class="event-input-field"
+                placeholder="Masukkan nama karyawan"
+              />
+            </div>
+          </div>
+
+          <!-- Maintenance Fields -->
+          <div id="eventFormMaintenance" class="event-form-section" style="display: none">
+            <div class="event-form-field">
+              <label>Jenis Maintenance <span class="required">*</span>:</label>
+              <div class="maintenance-type-group">
+                <label class="event-radio-option">
+                  <input
+                    type="radio"
+                    name="maintenanceType"
+                    value="cuci_kering"
+                    id="maintenanceTypeCuciKering"
+                    checked
+                  />
+                  <span>Cuci Kering</span>
+                </label>
+                <label class="event-radio-option">
+                  <input
+                    type="radio"
+                    name="maintenanceType"
+                    value="tube_clean"
+                    id="maintenanceTypeTubeClean"
+                  />
+                  <span>Tube Clean</span>
+                </label>
+              </div>
+            </div>
+            <div class="event-form-field">
+              <label for="maintenanceNote">Catatan:</label>
+              <textarea
+                id="maintenanceNote"
+                class="event-input-field"
+                rows="3"
+                placeholder="Masukkan catatan maintenance (opsional)"
+              ></textarea>
+            </div>
+          </div>
+
           <div class="duration-input">
             <label for="durationInput">Durasi (menit):</label>
             <input

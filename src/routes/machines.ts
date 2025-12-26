@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { machineCache } from "../utils/cache.js";
 import { calculateMachineETag } from "../utils/etag.js";
 import { isDataStale, refreshMachines, getMachineLabel } from "../services/machineService.js";
+import { createEvent, type EventData } from "../services/eventService.js";
 import { config } from "../config.js";
 import { MACHINE_CONFIG } from "../constants.js";
 
@@ -96,7 +97,7 @@ machines.post("/:id/start", async (c) => {
   try {
     const machineId = c.req.param("id");
     const body = await c.req.json();
-    const { duration, program = "normal" } = body;
+    const { duration, program = "normal", event } = body;
 
     if (!duration || duration < 1 || duration > 180) {
       return c.json(
@@ -159,6 +160,37 @@ machines.post("/:id/start", async (c) => {
 
     const machineLabel = getMachineLabel(machineId);
 
+    // Record event if provided (non-blocking)
+    let eventResult = null;
+    if (event && typeof event === "object" && event.type && event.data) {
+      try {
+        // Get machine label for event (use machine_uid format if available)
+        const eventData: EventData = {
+          type: event.type,
+          data: {
+            ...event.data,
+            machine_id: machineLabel, // Use machine label as machine_id for event gateway
+          },
+        };
+
+        console.log(`📝 Recording event: ${event.type} for machine ${machineLabel}`);
+        eventResult = await createEvent(eventData);
+
+        if (!eventResult.success) {
+          console.error(
+            `⚠️ Failed to record event (non-blocking):`,
+            eventResult.message || eventResult.error
+          );
+        }
+      } catch (error: any) {
+        console.error("⚠️ Error recording event (non-blocking):", error);
+        eventResult = {
+          success: false,
+          error: error.message || "Unknown error",
+        };
+      }
+    }
+
     return c.json({
       success: true,
       message: `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit`,
@@ -169,6 +201,8 @@ machines.post("/:id/start", async (c) => {
         program,
         startedAt: new Date().toISOString(),
         apiResponse: result,
+        eventRecorded: eventResult?.success || false,
+        eventError: eventResult?.success === false ? eventResult.message : undefined,
       },
     });
   } catch (error: any) {

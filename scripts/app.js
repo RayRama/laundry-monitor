@@ -1381,6 +1381,9 @@ function openMachineModal(machine) {
   // Reset duration input
   document.getElementById("durationInput").value = "1";
 
+  // Reset event form
+  resetEventForm();
+
   // Show modal
   document.getElementById("machineModal").style.display = "flex";
 
@@ -1396,6 +1399,196 @@ function openMachineModal(machine) {
 function closeMachineModal() {
   document.getElementById("machineModal").style.display = "none";
   currentMachine = null;
+  resetEventForm();
+}
+
+/**
+ * Update event form fields based on selected event type
+ */
+function updateEventFormFields() {
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  const eventType = eventTypeSelect?.value || "";
+
+  // Hide all event form sections
+  document.getElementById("eventFormDropOff").style.display = "none";
+  document.getElementById("eventFormErrorPayment").style.display = "none";
+  document.getElementById("eventFormEmployeeQuota").style.display = "none";
+  document.getElementById("eventFormMaintenance").style.display = "none";
+
+  // Show relevant form section based on event type
+  const durationInput = document.getElementById("durationInput");
+
+  switch (eventType) {
+    case "drop-off":
+      document.getElementById("eventFormDropOff").style.display = "block";
+      // Reset duration to default if not maintenance
+      if (durationInput) durationInput.value = "1";
+      break;
+    case "error-payment":
+      document.getElementById("eventFormErrorPayment").style.display = "block";
+      // Reset duration to default if not maintenance
+      if (durationInput) durationInput.value = "1";
+      break;
+    case "employee-quota":
+      document.getElementById("eventFormEmployeeQuota").style.display = "block";
+      // Reset duration to default if not maintenance
+      if (durationInput) durationInput.value = "1";
+      break;
+    case "maintenance":
+      document.getElementById("eventFormMaintenance").style.display = "block";
+      // Set default maintenance type to cuci_kering if not set
+      const maintenanceTypeCuciKering = document.getElementById(
+        "maintenanceTypeCuciKering"
+      );
+      const maintenanceTypeTubeClean = document.getElementById(
+        "maintenanceTypeTubeClean"
+      );
+      if (maintenanceTypeCuciKering && maintenanceTypeTubeClean) {
+        if (
+          !maintenanceTypeCuciKering.checked &&
+          !maintenanceTypeTubeClean.checked
+        ) {
+          maintenanceTypeCuciKering.checked = true;
+        }
+        // Update duration based on selected maintenance type
+        updateDurationForMaintenance();
+      }
+      break;
+    default:
+      // No event type selected, reset duration to default
+      if (durationInput) durationInput.value = "1";
+      break;
+  }
+}
+
+/**
+ * Update duration based on selected maintenance type
+ */
+function updateDurationForMaintenance() {
+  const maintenanceType = document.querySelector(
+    'input[name="maintenanceType"]:checked'
+  )?.value;
+  const durationInput = document.getElementById("durationInput");
+
+  if (!durationInput) return;
+
+  if (maintenanceType === "cuci_kering") {
+    durationInput.value = "90";
+  } else if (maintenanceType === "tube_clean") {
+    durationInput.value = "180";
+  }
+}
+
+/**
+ * Reset event form to default state
+ */
+function resetEventForm() {
+  // Reset dropdown to default
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  if (eventTypeSelect) {
+    eventTypeSelect.value = "";
+  }
+
+  // Clear all input fields
+  document.getElementById("customerName").value = "";
+  document.getElementById("customerPhone").value = "";
+  document.getElementById("errorDescription").value = "";
+  document.getElementById("employeeName").value = "";
+  // Reset maintenance type to default (cuci_kering)
+  document.getElementById("maintenanceTypeCuciKering").checked = true;
+  document.getElementById("maintenanceTypeTubeClean").checked = false;
+  document.getElementById("maintenanceNote").value = "";
+
+  // Hide all form sections
+  updateEventFormFields();
+}
+
+/**
+ * Collect event data from form
+ * Returns null if no event type selected or event data object
+ */
+function collectEventData(machineId, duration) {
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  const eventType = eventTypeSelect?.value || "";
+
+  if (!eventType) {
+    return null;
+  }
+
+  const baseData = {
+    machine_id: machineId,
+    duration_minutes: duration,
+  };
+
+  switch (eventType) {
+    case "drop-off": {
+      const customerName = document.getElementById("customerName").value.trim();
+      if (!customerName) {
+        alert("Nama pelanggan harus diisi untuk event drop-off");
+        return null;
+      }
+      return {
+        type: "drop-off",
+        data: {
+          ...baseData,
+          customer_name: customerName,
+          customer_phone:
+            document.getElementById("customerPhone").value.trim() || undefined,
+        },
+      };
+    }
+    case "error-payment": {
+      const description = document
+        .getElementById("errorDescription")
+        .value.trim();
+      if (!description) {
+        alert("Keterangan error harus diisi untuk event error payment");
+        return null;
+      }
+      return {
+        type: "error-payment",
+        data: {
+          ...baseData,
+          description: description,
+        },
+      };
+    }
+    case "employee-quota": {
+      const employeeName = document.getElementById("employeeName").value.trim();
+      if (!employeeName) {
+        alert("Nama karyawan harus diisi untuk event employee quota");
+        return null;
+      }
+      return {
+        type: "employee-quota",
+        data: {
+          ...baseData,
+          employee_name: employeeName,
+        },
+      };
+    }
+    case "maintenance": {
+      const maintenanceType = document.querySelector(
+        'input[name="maintenanceType"]:checked'
+      )?.value;
+      if (!maintenanceType) {
+        alert("Jenis maintenance harus dipilih");
+        return null;
+      }
+      return {
+        type: "maintenance",
+        data: {
+          ...baseData,
+          mtype: maintenanceType,
+          note:
+            document.getElementById("maintenanceNote").value.trim() ||
+            undefined,
+        },
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 /**
@@ -1465,11 +1658,20 @@ async function startMachine() {
     return;
   }
 
+  // Collect event data if event type is selected
+  const eventData = collectEventData(currentMachine.id, duration);
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  if (eventData === null && eventTypeSelect?.value) {
+    // Event type selected but validation failed
+    return;
+  }
+
   // Get machine label from mapping
   const machineLabel =
     MACHINE_ID_MAPPING[currentMachine.id] || currentMachine.label;
   console.log(
-    `Starting machine ${currentMachine.id} (${machineLabel}) for ${duration} minutes`
+    `Starting machine ${currentMachine.id} (${machineLabel}) for ${duration} minutes`,
+    eventData ? `with event: ${eventData.type}` : "without event"
   );
 
   try {
@@ -1484,6 +1686,17 @@ async function startMachine() {
     `;
     startBtn.disabled = true;
 
+    // Prepare request body
+    const requestBody = {
+      duration: duration,
+      program: "normal",
+    };
+
+    // Add event data if available
+    if (eventData) {
+      requestBody.event = eventData;
+    }
+
     // Make API call to start machine
     const response = await fetch(
       `${API_BASE}/api/machines/${currentMachine.id}/start`,
@@ -1493,10 +1706,7 @@ async function startMachine() {
           "Content-Type": "application/json",
           ...Auth.getAuthHeaders(),
         },
-        body: JSON.stringify({
-          duration: duration,
-          program: "normal",
-        }),
+        body: JSON.stringify(requestBody),
       }
     );
 
@@ -1635,6 +1845,19 @@ document.addEventListener("DOMContentLoaded", () => {
       startMachine();
     }
   });
+
+  // Event type dropdown listener
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  if (eventTypeSelect) {
+    eventTypeSelect.addEventListener("change", updateEventFormFields);
+  }
+
+  // Maintenance type radio button listeners
+  document
+    .querySelectorAll('input[name="maintenanceType"]')
+    .forEach((radio) => {
+      radio.addEventListener("change", updateDurationForMaintenance);
+    });
 
   // Close stop modal buttons
   document
