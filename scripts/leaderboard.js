@@ -62,8 +62,8 @@ async function loadMachineConfig() {
         W07: "LG20",
         W08: "LG20",
         W09: "LG20",
-        "W09 testing": "LG20",
-        W10: "NTG",
+        W10: "LG20",
+        W10_OLD: "NTG",
         W11: "BEKO",
         W12: "BEKO",
       },
@@ -92,8 +92,8 @@ async function loadMachineConfig() {
         W07: 6,
         W08: 6,
         W09: 6,
-        "W09 testing": 6,
-        W10: 5,
+        W10: 6,
+        W10_OLD: 5,
         W11: 5,
         W12: 5,
       },
@@ -355,7 +355,7 @@ class LeaderboardDataManager {
   setLoading(loading) {
     this.isLoading = loading;
     const overlay = document.getElementById("loadingOverlay");
-    
+
     // Show/hide loading overlay
     if (overlay) {
       if (loading) {
@@ -364,7 +364,7 @@ class LeaderboardDataManager {
         overlay.style.display = "none";
       }
     }
-    
+
     // Also handle refresh button
     const refreshBtn = document.getElementById("refreshLeaderboard");
     if (refreshBtn) {

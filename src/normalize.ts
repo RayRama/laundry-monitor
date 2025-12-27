@@ -86,7 +86,7 @@ function normalizeLabel(raw: string): string {
   if (raw && raw.includes(" ")) {
     return raw;
   }
-  
+
   // terima variasi "W7"/"W07"/"Washer 7", "D10"/"Dryer 10" -> jadi W07/D10
   const m = (raw || "").match(/(w|washer|d|dryer)\s*0?(\d{1,2})/i);
   if (!m) return raw; // biarkan; nanti jatuh ke div0
@@ -189,8 +189,8 @@ const SLOT_BY_LABEL: Record<string, string> = {
   W07: "div20",
   W08: "div21",
   W09: "div22",
-  "W09 testing": "div26",
   W10: "div23",
+  W10_OLD: "div26",
   W11: "div24",
   W12: "div25",
 };
