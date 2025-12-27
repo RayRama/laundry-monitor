@@ -1,8 +1,25 @@
 import { config } from "../config.js";
 import { fetchWithTimeout } from "../utils/fetch.js";
 
-// Hardcoded event gateway URL - mudah diganti
-const EVENT_GATEWAY_BASE_URL = config.eventGateway?.base || "http://localhost:54990";
+// Event gateway configuration from config
+const EVENT_GATEWAY_BASE_URL =
+  config.eventGateway?.base || "http://localhost:54990";
+const EVENT_GATEWAY_ENABLED = config.eventGateway?.enabled !== false;
+const EVENT_GATEWAY_TIMEOUT = config.eventGateway?.timeout || 15000;
+
+// Log event gateway configuration on module load
+console.log("🔧 Event Gateway Configuration:", {
+  base: EVENT_GATEWAY_BASE_URL,
+  enabled: EVENT_GATEWAY_ENABLED,
+  timeout: EVENT_GATEWAY_TIMEOUT,
+});
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Event data types based on API documentation
@@ -44,7 +61,7 @@ export type EventData =
   | { type: "maintenance"; data: MaintenanceEventData };
 
 /**
- * Create event via event gateway API
+ * Create event via event gateway API with retry mechanism
  * Returns success status and response data
  */
 export async function createEvent(eventData: EventData): Promise<{
@@ -53,6 +70,18 @@ export async function createEvent(eventData: EventData): Promise<{
   data?: any;
   error?: string;
 }> {
+  // Check if event gateway is disabled
+  if (!EVENT_GATEWAY_ENABLED) {
+    console.log(
+      `⚠️ Event gateway is disabled, skipping ${eventData.type} event`
+    );
+    return {
+      success: false,
+      error: "Event gateway disabled",
+      message: "Event gateway is disabled via configuration",
+    };
+  }
+
   const { type, data } = eventData;
 
   // Build endpoint URL based on event type
@@ -79,62 +108,134 @@ export async function createEvent(eventData: EventData): Promise<{
   }
 
   const url = `${EVENT_GATEWAY_BASE_URL}${endpoint}`;
+  const maxRetries = 3;
+  const baseTimeout = EVENT_GATEWAY_TIMEOUT;
 
-  try {
-    console.log(`📝 Creating ${type} event:`, data);
+  // Log URL being used (without sensitive data)
+  console.log(`📝 Creating ${type} event to: ${url}`);
+  console.log(`📝 Event data:`, {
+    ...data,
+    // Don't log full data if it's too large
+  });
 
-    const response = await fetchWithTimeout(
-      url,
-      10000, // 10 second timeout
-      {
+  // Retry logic with exponential backoff
+  let lastError: any = null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Increase timeout slightly for retries
+      const timeout = baseTimeout + (attempt - 1) * 5000;
+
+      const response = await fetchWithTimeout(url, timeout, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          "User-Agent": "laundry-monitor/1.0",
         },
         body: JSON.stringify(data),
-      }
-    );
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorJson;
-      try {
-        errorJson = JSON.parse(errorText);
-      } catch {
-        errorJson = { message: errorText };
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorJson;
+        try {
+          errorJson = JSON.parse(errorText);
+        } catch {
+          errorJson = { message: errorText };
+        }
+
+        // Don't retry on 4xx errors (client errors)
+        if (response.status >= 400 && response.status < 500) {
+          console.error(
+            `❌ Failed to create ${type} event (client error, no retry):`,
+            response.status,
+            errorJson
+          );
+
+          return {
+            success: false,
+            error: `HTTP ${response.status}`,
+            message:
+              errorJson.message || errorJson.error || "Failed to create event",
+          };
+        }
+
+        // Retry on 5xx errors
+        throw new Error(
+          `HTTP ${response.status}: ${errorJson.message || errorText}`
+        );
       }
 
-      console.error(
-        `❌ Failed to create ${type} event:`,
-        response.status,
-        errorJson
+      const result = await response.json();
+
+      console.log(
+        `✅ ${type} event created successfully (attempt ${attempt}):`,
+        {
+          id: result.data?.id,
+          message: result.message,
+        }
       );
 
       return {
-        success: false,
-        error: `HTTP ${response.status}`,
-        message: errorJson.message || errorJson.error || "Failed to create event",
+        success: true,
+        message: result.message || "Event created successfully",
+        data: result.data,
       };
+    } catch (error: any) {
+      lastError = error;
+
+      // Check error type
+      const isNetworkError =
+        error.code === "UND_ERR_SOCKET" ||
+        error.message?.includes("fetch failed") ||
+        error.message?.includes("ECONNREFUSED") ||
+        error.message?.includes("ETIMEDOUT") ||
+        error.message?.includes("ENOTFOUND");
+
+      const isTimeoutError =
+        error.name === "AbortError" || error.message?.includes("timeout");
+
+      console.error(
+        `❌ Error creating ${type} event (attempt ${attempt}/${maxRetries}):`,
+        {
+          error: error.message,
+          code: error.code,
+          isNetworkError,
+          isTimeoutError,
+          url,
+        }
+      );
+
+      // Don't retry on last attempt
+      if (attempt === maxRetries) {
+        break;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      console.log(`⏳ Retrying in ${delay}ms...`);
+      await sleep(delay);
     }
-
-    const result = await response.json();
-
-    console.log(`✅ ${type} event created successfully:`, result);
-
-    return {
-      success: true,
-      message: result.message || "Event created successfully",
-      data: result.data,
-    };
-  } catch (error: any) {
-    console.error(`❌ Error creating ${type} event:`, error);
-
-    return {
-      success: false,
-      error: error.message || "Unknown error",
-      message: `Failed to create event: ${error.message}`,
-    };
   }
-}
 
+  // All retries failed
+  const errorMessage =
+    lastError?.code === "UND_ERR_SOCKET"
+      ? "Event gateway connection closed unexpectedly. Check if event gateway is accessible and running."
+      : lastError?.message || "Unknown error";
+
+  console.error(
+    `❌ Failed to create ${type} event after ${maxRetries} attempts:`,
+    {
+      error: errorMessage,
+      url,
+      eventGatewayBase: EVENT_GATEWAY_BASE_URL,
+    }
+  );
+
+  return {
+    success: false,
+    error: lastError?.code || "NETWORK_ERROR",
+    message: `Failed to create event after ${maxRetries} attempts: ${errorMessage}`,
+  };
+}

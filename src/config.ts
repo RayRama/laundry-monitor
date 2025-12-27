@@ -14,6 +14,8 @@ export const config = {
   },
   eventGateway: {
     base: process.env.EVENT_GATEWAY_BASE || "http://localhost:54990",
+    enabled: process.env.EVENT_GATEWAY_ENABLED !== "false",
+    timeout: Number(process.env.EVENT_GATEWAY_TIMEOUT_MS || 15000),
   },
   refresh: {
     interval: 180000, // 3 menit
