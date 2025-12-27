@@ -1384,6 +1384,12 @@ function openMachineModal(machine) {
   // Reset event form
   resetEventForm();
 
+  // Setup maintenance radio buttons if maintenance is selected
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  if (eventTypeSelect && eventTypeSelect.value === "maintenance") {
+    setupMaintenanceRadioButtons();
+  }
+
   // Show modal
   document.getElementById("machineModal").style.display = "flex";
 
@@ -1436,28 +1442,66 @@ function updateEventFormFields() {
       break;
     case "maintenance":
       document.getElementById("eventFormMaintenance").style.display = "block";
-      // Set default maintenance type to cuci_kering if not set
-      const maintenanceTypeCuciKering = document.getElementById(
-        "maintenanceTypeCuciKering"
-      );
-      const maintenanceTypeTubeClean = document.getElementById(
-        "maintenanceTypeTubeClean"
-      );
-      if (maintenanceTypeCuciKering && maintenanceTypeTubeClean) {
-        if (
-          !maintenanceTypeCuciKering.checked &&
-          !maintenanceTypeTubeClean.checked
-        ) {
-          maintenanceTypeCuciKering.checked = true;
-        }
-        // Update duration based on selected maintenance type
-        updateDurationForMaintenance();
-      }
+      // Setup maintenance radio buttons based on machine type
+      setupMaintenanceRadioButtons();
+      // Update duration based on selected maintenance type
+      updateDurationForMaintenance();
       break;
     default:
       // No event type selected, reset duration to default
       if (durationInput) durationInput.value = "1";
       break;
+  }
+}
+
+/**
+ * Setup maintenance radio buttons based on machine type
+ */
+function setupMaintenanceRadioButtons() {
+  if (!currentMachine) return;
+
+  const maintenanceTypeCuciKosong = document.getElementById(
+    "maintenanceTypeCuciKosong"
+  );
+  const maintenanceTypeTubeClean = document.getElementById(
+    "maintenanceTypeTubeClean"
+  );
+  const maintenanceTypeOther = document.getElementById("maintenanceTypeOther");
+
+  if (
+    !maintenanceTypeCuciKosong ||
+    !maintenanceTypeTubeClean ||
+    !maintenanceTypeOther
+  ) {
+    return;
+  }
+
+  const isDryer = currentMachine.type === "D";
+  const isWasher = currentMachine.type === "W";
+
+  if (isDryer) {
+    // Dryer: default = other, disable cuci_kosong and tube_clean
+    maintenanceTypeCuciKosong.disabled = true;
+    maintenanceTypeTubeClean.disabled = true;
+    maintenanceTypeOther.disabled = false;
+
+    // Set other as default if nothing is checked
+    if (!maintenanceTypeOther.checked) {
+      maintenanceTypeOther.checked = true;
+    }
+  } else if (isWasher) {
+    // Washer: default = cuci_kosong, disable other
+    maintenanceTypeCuciKosong.disabled = false;
+    maintenanceTypeTubeClean.disabled = false;
+    maintenanceTypeOther.disabled = true;
+
+    // Set cuci_kosong as default if nothing is checked
+    if (
+      !maintenanceTypeCuciKosong.checked &&
+      !maintenanceTypeTubeClean.checked
+    ) {
+      maintenanceTypeCuciKosong.checked = true;
+    }
   }
 }
 
@@ -1472,10 +1516,15 @@ function updateDurationForMaintenance() {
 
   if (!durationInput) return;
 
-  if (maintenanceType === "cuci_kering") {
+  if (maintenanceType === "cuci_kosong") {
     durationInput.value = "90";
   } else if (maintenanceType === "tube_clean") {
     durationInput.value = "180";
+  } else if (maintenanceType === "other") {
+    // For "other", keep current value or default to 1
+    if (!durationInput.value || durationInput.value === "1") {
+      durationInput.value = "1";
+    }
   }
 }
 
@@ -1494,9 +1543,25 @@ function resetEventForm() {
   document.getElementById("customerPhone").value = "";
   document.getElementById("errorDescription").value = "";
   document.getElementById("employeeName").value = "";
-  // Reset maintenance type to default (cuci_kering)
-  document.getElementById("maintenanceTypeCuciKering").checked = true;
-  document.getElementById("maintenanceTypeTubeClean").checked = false;
+
+  // Reset maintenance type radio buttons
+  const maintenanceTypeCuciKosong = document.getElementById(
+    "maintenanceTypeCuciKosong"
+  );
+  const maintenanceTypeTubeClean = document.getElementById(
+    "maintenanceTypeTubeClean"
+  );
+  const maintenanceTypeOther = document.getElementById("maintenanceTypeOther");
+
+  if (maintenanceTypeCuciKosong) maintenanceTypeCuciKosong.checked = false;
+  if (maintenanceTypeTubeClean) maintenanceTypeTubeClean.checked = false;
+  if (maintenanceTypeOther) maintenanceTypeOther.checked = false;
+
+  // Re-enable all radio buttons (will be disabled/enabled by setupMaintenanceRadioButtons)
+  if (maintenanceTypeCuciKosong) maintenanceTypeCuciKosong.disabled = false;
+  if (maintenanceTypeTubeClean) maintenanceTypeTubeClean.disabled = false;
+  if (maintenanceTypeOther) maintenanceTypeOther.disabled = false;
+
   document.getElementById("maintenanceNote").value = "";
 
   // Hide all form sections
@@ -1524,7 +1589,11 @@ function collectEventData(machineId, duration) {
     case "drop-off": {
       const customerName = document.getElementById("customerName").value.trim();
       if (!customerName) {
-        alert("Nama pelanggan harus diisi untuk event drop-off");
+        alert(
+          "⚠️ Field Wajib Kosong\n\nNama Pelanggan harus diisi untuk event Drop-off.\n\nSilakan isi nama pelanggan terlebih dahulu sebelum menyalakan mesin."
+        );
+        // Focus ke input field yang kosong
+        document.getElementById("customerName").focus();
         return null;
       }
       return {
@@ -1542,7 +1611,11 @@ function collectEventData(machineId, duration) {
         .getElementById("errorDescription")
         .value.trim();
       if (!description) {
-        alert("Keterangan error harus diisi untuk event error payment");
+        alert(
+          "⚠️ Field Wajib Kosong\n\nKeterangan Error harus diisi untuk event Error Payment.\n\nSilakan isi keterangan error terlebih dahulu sebelum menyalakan mesin."
+        );
+        // Focus ke input field yang kosong
+        document.getElementById("errorDescription").focus();
         return null;
       }
       return {
@@ -1556,7 +1629,11 @@ function collectEventData(machineId, duration) {
     case "employee-quota": {
       const employeeName = document.getElementById("employeeName").value.trim();
       if (!employeeName) {
-        alert("Nama karyawan harus diisi untuk event employee quota");
+        alert(
+          "⚠️ Field Wajib Kosong\n\nNama Karyawan harus diisi untuk event Employee Quota.\n\nSilakan isi nama karyawan terlebih dahulu sebelum menyalakan mesin."
+        );
+        // Focus ke input field yang kosong
+        document.getElementById("employeeName").focus();
         return null;
       }
       return {
@@ -1572,7 +1649,9 @@ function collectEventData(machineId, duration) {
         'input[name="maintenanceType"]:checked'
       )?.value;
       if (!maintenanceType) {
-        alert("Jenis maintenance harus dipilih");
+        alert(
+          "⚠️ Field Wajib Kosong\n\nJenis Maintenance harus dipilih.\n\nSilakan pilih jenis maintenance terlebih dahulu sebelum menyalakan mesin."
+        );
         return null;
       }
       return {

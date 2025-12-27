@@ -666,11 +666,79 @@ textarea.event-input-field {
   line-height: 1.5;
 }
 
+/* Event Radio Option (General) */
+.event-radio-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--background);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  position: relative;
+}
+
+.event-radio-option:hover {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+}
+
+.event-radio-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.event-radio-option input[type="radio"]:checked + span {
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.event-radio-option:has(input[type="radio"]:checked) {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+.event-radio-option span {
+  color: var(--ink);
+  user-select: none;
+  text-align: center;
+  width: 100%;
+}
+
 /* Maintenance Type Group */
 .maintenance-type-group {
   display: flex;
   gap: 1rem;
   margin-top: 0.5rem;
+}
+
+.maintenance-type-group .event-radio-option {
+  flex: 1;
+}
+
+.maintenance-type-group .event-radio-option input[type="radio"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.maintenance-type-group .event-radio-option:has(input[type="radio"]:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--line);
+}
+
+.maintenance-type-group
+  .event-radio-option:has(input[type="radio"]:disabled):hover {
+  border-color: var(--line);
+  background: var(--line);
 }
 
 .modal-footer {

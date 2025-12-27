@@ -251,7 +251,7 @@ class DashboardDataManager {
   // Helper: Check if filter period is suitable for weekly chart (>= 7 days or spans multiple weeks)
   isFilterSuitableForWeekly() {
     const filter = this.currentFilter;
-    
+
     // If filter is "hari_ini" or "kemarin", not suitable
     if (filter.filterBy === "hari_ini" || filter.filterBy === "kemarin") {
       return false;
@@ -263,8 +263,15 @@ class DashboardDataManager {
     }
 
     // If filter is "periode", check date range
-    if (filter.filterBy === "periode" && filter.tanggalAwal && filter.tanggalAkhir) {
-      const days = this.getDaysDifference(filter.tanggalAwal, filter.tanggalAkhir);
+    if (
+      filter.filterBy === "periode" &&
+      filter.tanggalAwal &&
+      filter.tanggalAkhir
+    ) {
+      const days = this.getDaysDifference(
+        filter.tanggalAwal,
+        filter.tanggalAkhir
+      );
       // Suitable if >= 7 days
       return days >= 7;
     }
@@ -280,7 +287,7 @@ class DashboardDataManager {
   // Helper: Check if filter period is suitable for monthly chart (>= 30 days or spans multiple months)
   isFilterSuitableForMonthly() {
     const filter = this.currentFilter;
-    
+
     // If filter is "hari_ini" or "kemarin", not suitable
     if (filter.filterBy === "hari_ini" || filter.filterBy === "kemarin") {
       return false;
@@ -292,8 +299,15 @@ class DashboardDataManager {
     }
 
     // If filter is "periode", check date range
-    if (filter.filterBy === "periode" && filter.tanggalAwal && filter.tanggalAkhir) {
-      const days = this.getDaysDifference(filter.tanggalAwal, filter.tanggalAkhir);
+    if (
+      filter.filterBy === "periode" &&
+      filter.tanggalAwal &&
+      filter.tanggalAkhir
+    ) {
+      const days = this.getDaysDifference(
+        filter.tanggalAwal,
+        filter.tanggalAkhir
+      );
       // Suitable if >= 30 days
       return days >= 30;
     }
@@ -310,7 +324,10 @@ class DashboardDataManager {
         const start = new Date(dateRange.tanggalAwal);
         const end = new Date(dateRange.tanggalAkhir);
         // Check if spans multiple months
-        return start.getMonth() !== end.getMonth() || start.getFullYear() !== end.getFullYear();
+        return (
+          start.getMonth() !== end.getMonth() ||
+          start.getFullYear() !== end.getFullYear()
+        );
       }
     }
 
@@ -320,33 +337,39 @@ class DashboardDataManager {
   // Get date range from current filter
   getCurrentFilterDateRange() {
     const filter = this.currentFilter;
-    
-    if (filter.filterBy === "periode" && filter.tanggalAwal && filter.tanggalAkhir) {
+
+    if (
+      filter.filterBy === "periode" &&
+      filter.tanggalAwal &&
+      filter.tanggalAkhir
+    ) {
       return {
         tanggalAwal: filter.tanggalAwal,
         tanggalAkhir: filter.tanggalAkhir,
       };
     }
-    
+
     if (filter.filterBy === "bulan" && filter.bulan) {
       // Parse bulan (format: YYYY-MM)
       const [year, month] = filter.bulan.split("-");
       const firstDay = new Date(year, parseInt(month) - 1, 1);
       const lastDay = new Date(year, parseInt(month), 0);
-      
+
       return {
         tanggalAwal: `${year}-${String(month).padStart(2, "0")}-01`,
-        tanggalAkhir: `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`,
+        tanggalAkhir: `${year}-${String(month).padStart(2, "0")}-${String(
+          lastDay.getDate()
+        ).padStart(2, "0")}`,
       };
     }
-    
+
     if (filter.filterBy === "tahun" && filter.tahun) {
       return {
         tanggalAwal: `${filter.tahun}-01-01`,
         tanggalAkhir: `${filter.tahun}-12-31`,
       };
     }
-    
+
     // For "minggu_ini", "bulan_ini", etc., use getDateRangeForFilter
     const dateRange = this.getDateRangeForFilter(filter.filterBy);
     return dateRange || null;
@@ -419,14 +442,19 @@ class DashboardDataManager {
   async loadWeeklyData(useFilter = false) {
     try {
       let tanggalAwal, tanggalAkhir;
-      
+
       if (useFilter && this.isFilterSuitableForWeekly()) {
         // Use filter date range
         const dateRange = this.getCurrentFilterDateRange();
         if (dateRange) {
           tanggalAwal = dateRange.tanggalAwal;
           tanggalAkhir = dateRange.tanggalAkhir;
-          console.log("📅 Using filter date range for weekly chart:", tanggalAwal, "to", tanggalAkhir);
+          console.log(
+            "📅 Using filter date range for weekly chart:",
+            tanggalAwal,
+            "to",
+            tanggalAkhir
+          );
         } else {
           // Fallback to current week
           tanggalAwal = this.getWeekStartDate();
@@ -436,9 +464,14 @@ class DashboardDataManager {
         // Use current week (independent from filter)
         tanggalAwal = this.getWeekStartDate();
         tanggalAkhir = this.getCurrentDate();
-        console.log("📅 Using current week for weekly chart (filter not suitable):", tanggalAwal, "to", tanggalAkhir);
+        console.log(
+          "📅 Using current week for weekly chart (filter not suitable):",
+          tanggalAwal,
+          "to",
+          tanggalAkhir
+        );
       }
-      
+
       // Get total count first
       const summaryParams = {
         filter_by: "periode",
@@ -448,7 +481,7 @@ class DashboardDataManager {
         offset: "0",
       };
       const summaryData = await this.api.getTransactionSummary(summaryParams);
-      
+
       const params = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
@@ -464,10 +497,14 @@ class DashboardDataManager {
       }
 
       const transactionData = await this.api.getTransactions(params);
-      
+
       if (transactionData) {
         this.weeklyData = this.normalizeData(transactionData.data || []);
-        console.log("✅ Weekly data loaded:", this.weeklyData.length, "records");
+        console.log(
+          "✅ Weekly data loaded:",
+          this.weeklyData.length,
+          "records"
+        );
       }
     } catch (error) {
       console.error("❌ Failed to load weekly data:", error);
@@ -478,14 +515,19 @@ class DashboardDataManager {
   async loadMonthlyData(useFilter = false) {
     try {
       let tanggalAwal, tanggalAkhir;
-      
+
       if (useFilter && this.isFilterSuitableForMonthly()) {
         // Use filter date range
         const dateRange = this.getCurrentFilterDateRange();
         if (dateRange) {
           tanggalAwal = dateRange.tanggalAwal;
           tanggalAkhir = dateRange.tanggalAkhir;
-          console.log("📅 Using filter date range for monthly chart:", tanggalAwal, "to", tanggalAkhir);
+          console.log(
+            "📅 Using filter date range for monthly chart:",
+            tanggalAwal,
+            "to",
+            tanggalAkhir
+          );
         } else {
           // Fallback to current month
           tanggalAwal = this.getMonthStartDate();
@@ -495,9 +537,14 @@ class DashboardDataManager {
         // Use current month (independent from filter)
         tanggalAwal = this.getMonthStartDate();
         tanggalAkhir = this.getCurrentDate();
-        console.log("📅 Using current month for monthly chart (filter not suitable):", tanggalAwal, "to", tanggalAkhir);
+        console.log(
+          "📅 Using current month for monthly chart (filter not suitable):",
+          tanggalAwal,
+          "to",
+          tanggalAkhir
+        );
       }
-      
+
       // Get total count first
       const summaryParams = {
         filter_by: "periode",
@@ -507,7 +554,7 @@ class DashboardDataManager {
         offset: "0",
       };
       const summaryData = await this.api.getTransactionSummary(summaryParams);
-      
+
       const params = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
@@ -523,10 +570,14 @@ class DashboardDataManager {
       }
 
       const transactionData = await this.api.getTransactions(params);
-      
+
       if (transactionData) {
         this.monthlyData = this.normalizeData(transactionData.data || []);
-        console.log("✅ Monthly data loaded:", this.monthlyData.length, "records");
+        console.log(
+          "✅ Monthly data loaded:",
+          this.monthlyData.length,
+          "records"
+        );
       }
     } catch (error) {
       console.error("❌ Failed to load monthly data:", error);
@@ -574,8 +625,17 @@ class DashboardDataManager {
       params.filter_by = "bulan";
       params.bulan = this.currentFilter.bulan;
     } else if (this.currentFilter.filterBy === "tahun") {
-      params.filter_by = "tahun";
-      params.tahun = this.currentFilter.tahun;
+      // For tahun filter, use periode with full year range to ensure all data is fetched
+      const yearRange = this.getCurrentFilterDateRange();
+      if (yearRange) {
+        params.tanggal_awal = yearRange.tanggalAwal;
+        params.tanggal_akhir = yearRange.tanggalAkhir;
+      } else {
+        // Fallback: construct year range manually
+        const year = this.currentFilter.tahun || new Date().getFullYear();
+        params.tanggal_awal = `${year}-01-01`;
+        params.tanggal_akhir = `${year}-12-31`;
+      }
     }
 
     console.log("📊 Summary params:", params);
@@ -615,8 +675,17 @@ class DashboardDataManager {
       params.filter_by = "bulan";
       params.bulan = this.currentFilter.bulan;
     } else if (this.currentFilter.filterBy === "tahun") {
-      params.filter_by = "tahun";
-      params.tahun = this.currentFilter.tahun;
+      // For tahun filter, use periode with full year range to ensure all data is fetched
+      const yearRange = this.getCurrentFilterDateRange();
+      if (yearRange) {
+        params.tanggal_awal = yearRange.tanggalAwal;
+        params.tanggal_akhir = yearRange.tanggalAkhir;
+      } else {
+        // Fallback: construct year range manually
+        const year = this.currentFilter.tahun || new Date().getFullYear();
+        params.tanggal_awal = `${year}-01-01`;
+        params.tanggal_akhir = `${year}-12-31`;
+      }
     }
 
     console.log("📊 Transaction params:", params);
@@ -660,6 +729,18 @@ class DashboardDataManager {
 
   setLoading(loading) {
     this.isLoading = loading;
+    const overlay = document.getElementById("loadingOverlay");
+
+    // Show/hide loading overlay
+    if (overlay) {
+      if (loading) {
+        overlay.style.display = "flex";
+      } else {
+        overlay.style.display = "none";
+      }
+    }
+
+    // Also handle existing loading class elements
     const elements = document.querySelectorAll(".loading");
     elements.forEach((el) => {
       if (loading) {
@@ -748,10 +829,12 @@ class DashboardDataManager {
     return "Filter tidak dikenal";
   }
 
-  async enrichTransactionsWithDetails(transactions, progressCallback = null, abortSignal = null) {
-    const ids = transactions
-      .map((t) => t.idtransaksi)
-      .filter((id) => id);
+  async enrichTransactionsWithDetails(
+    transactions,
+    progressCallback = null,
+    abortSignal = null
+  ) {
+    const ids = transactions.map((t) => t.idtransaksi).filter((id) => id);
 
     if (ids.length === 0) {
       return transactions;
@@ -775,7 +858,9 @@ class DashboardDataManager {
       const estimatedSecondsRemainder = estimatedSeconds % 60;
       const timeEstimate =
         estimatedMinutes > 0
-          ? `Estimasi waktu: ~${estimatedMinutes}m ${Math.round(estimatedSecondsRemainder)}s`
+          ? `Estimasi waktu: ~${estimatedMinutes}m ${Math.round(
+              estimatedSecondsRemainder
+            )}s`
           : `Estimasi waktu: ~${Math.round(estimatedSeconds)}s`;
 
       // Start progress simulation with interval timer
@@ -810,7 +895,9 @@ class DashboardDataManager {
               ? `${elapsedMinutes}m ${elapsedSeconds}s`
               : `${elapsedSeconds}s`;
 
-          const batchProgress = Math.floor((currentProgress / ids.length) * batchCount);
+          const batchProgress = Math.floor(
+            (currentProgress / ids.length) * batchCount
+          );
           progressCallback(
             `Memproses ${ids.length} transaksi dalam batch...`,
             currentProgress,
@@ -828,7 +915,7 @@ class DashboardDataManager {
       // Use provided abort signal or create new one
       let controller = null;
       let timeoutId = null;
-      
+
       if (abortSignal) {
         // Use provided abort signal
         controller = { signal: abortSignal };
@@ -864,7 +951,7 @@ class DashboardDataManager {
         if (progressInterval) {
           clearInterval(progressInterval);
         }
-        
+
         // Check if aborted
         if (abortSignal?.aborted) {
           throw new Error("Export dibatalkan");
@@ -880,9 +967,10 @@ class DashboardDataManager {
         );
 
         // Count successful vs failed
-        const successful = result.data?.filter(
-          (d) => d.mesin !== null || d.nama_layanan !== null
-        ).length || 0;
+        const successful =
+          result.data?.filter(
+            (d) => d.mesin !== null || d.nama_layanan !== null
+          ).length || 0;
         const failed = result.data?.filter((d) => d.error).length || 0;
 
         if (progressCallback) {
@@ -891,7 +979,11 @@ class DashboardDataManager {
             "Detail transaksi berhasil diambil",
             ids.length,
             ids.length,
-            `${ids.length} dari ${ids.length} detail terambil (${successful} berhasil${failed > 0 ? `, ${failed} gagal` : ""})`
+            `${ids.length} dari ${
+              ids.length
+            } detail terambil (${successful} berhasil${
+              failed > 0 ? `, ${failed} gagal` : ""
+            })`
           );
         }
 
@@ -912,7 +1004,7 @@ class DashboardDataManager {
         if (progressInterval) {
           clearInterval(progressInterval);
         }
-        
+
         // Check if cancelled by user
         if (abortSignal?.aborted || fetchError.name === "AbortError") {
           if (fetchError.message?.includes("dibatalkan")) {
@@ -920,7 +1012,7 @@ class DashboardDataManager {
           }
           throw new Error("Export dibatalkan");
         }
-        
+
         if (fetchError.message?.includes("Timeout")) {
           throw new Error(
             `Timeout: Proses terlalu lama untuk ${ids.length} transaksi. Silakan coba dengan periode yang lebih kecil.`
@@ -930,7 +1022,10 @@ class DashboardDataManager {
       }
     } catch (error) {
       // Re-throw cancellation errors
-      if (error.message?.includes("dibatalkan") || error.message?.includes("Export dibatalkan")) {
+      if (
+        error.message?.includes("dibatalkan") ||
+        error.message?.includes("Export dibatalkan")
+      ) {
         throw error;
       }
       console.error("Error enriching transactions:", error);
@@ -978,7 +1073,11 @@ class DashboardDataManager {
     }
 
     if (progressCallback) {
-      progressCallback("Menyusun data Excel...", transactions.length, transactions.length);
+      progressCallback(
+        "Menyusun data Excel...",
+        transactions.length,
+        transactions.length
+      );
     }
 
     // Create workbook
@@ -2331,18 +2430,37 @@ class DashboardController {
   async refreshData() {
     try {
       this.dataManager.showSuccess("Memuat data terbaru...");
-      
+
       // Determine if filter is suitable for weekly and monthly charts
       const useFilterForWeekly = this.dataManager.isFilterSuitableForWeekly();
       const useFilterForMonthly = this.dataManager.isFilterSuitableForMonthly();
-      
-      // Load main data, weekly data, and monthly data in parallel
-      const [mainData] = await Promise.all([
-        this.dataManager.loadData(),
-        this.dataManager.loadWeeklyData(useFilterForWeekly),
-        this.dataManager.loadMonthlyData(useFilterForMonthly),
-      ]);
-      
+
+      // Build array of promises - only load charts if filter is suitable
+      const loadPromises = [this.dataManager.loadData()];
+
+      // Only load weekly data if filter is suitable for weekly chart
+      if (useFilterForWeekly) {
+        loadPromises.push(this.dataManager.loadWeeklyData(true));
+      } else {
+        // Skip weekly data loading if filter is not suitable
+        // Reset weekly data to empty array to ensure chart doesn't error
+        this.dataManager.weeklyData = [];
+        console.log("⏭️ Skipping weekly data load (filter not suitable)");
+      }
+
+      // Only load monthly data if filter is suitable for monthly chart
+      if (useFilterForMonthly) {
+        loadPromises.push(this.dataManager.loadMonthlyData(true));
+      } else {
+        // Skip monthly data loading if filter is not suitable
+        // Reset monthly data to empty array to ensure chart doesn't error
+        this.dataManager.monthlyData = [];
+        console.log("⏭️ Skipping monthly data load (filter not suitable)");
+      }
+
+      // Load data in parallel (only for suitable filters)
+      const [mainData] = await Promise.all(loadPromises);
+
       this.renderer.render(mainData);
       this.dataManager.showSuccess("Data berhasil diperbarui!");
     } catch (error) {
@@ -2376,7 +2494,9 @@ class DashboardController {
     const progressText = document.getElementById("exportProgressText");
     const progressDetail = document.getElementById("exportProgressDetail");
     const progressBar = document.getElementById("exportProgressBar");
-    const totalTransactionsEl = document.getElementById("exportTotalTransactions");
+    const totalTransactionsEl = document.getElementById(
+      "exportTotalTransactions"
+    );
     const detailsFetchedEl = document.getElementById("exportDetailsFetched");
 
     // AbortController untuk membatalkan export
@@ -2427,9 +2547,9 @@ class DashboardController {
       // Progress callback function
       const updateProgress = (step, current, total, detail = "") => {
         if (isCancelled) return; // Don't update if cancelled
-        
+
         const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
-        
+
         if (progressText) {
           progressText.textContent = step;
         }
@@ -2472,12 +2592,15 @@ class DashboardController {
       }
 
       console.error("Failed to export Excel:", error);
-      
+
       // Hide progress modal
       cleanup();
 
       // Show error (but not for cancellation)
-      if (error.name !== "AbortError" && !error.message?.includes("dibatalkan")) {
+      if (
+        error.name !== "AbortError" &&
+        !error.message?.includes("dibatalkan")
+      ) {
         alert("Gagal mengekspor data ke Excel. Silakan coba lagi.");
       }
     }

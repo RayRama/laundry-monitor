@@ -354,6 +354,18 @@ class LeaderboardDataManager {
 
   setLoading(loading) {
     this.isLoading = loading;
+    const overlay = document.getElementById("loadingOverlay");
+    
+    // Show/hide loading overlay
+    if (overlay) {
+      if (loading) {
+        overlay.style.display = "flex";
+      } else {
+        overlay.style.display = "none";
+      }
+    }
+    
+    // Also handle refresh button
     const refreshBtn = document.getElementById("refreshLeaderboard");
     if (refreshBtn) {
       refreshBtn.classList.toggle("loading", loading);

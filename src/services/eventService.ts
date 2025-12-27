@@ -31,7 +31,7 @@ export type EmployeeQuotaEventData = {
 
 export type MaintenanceEventData = {
   machine_id: string;
-  mtype: "cuci_kering" | "tube_clean";
+  mtype: "cuci_kosong" | "tube_clean" | "other";
   duration_minutes: number;
   note?: string;
   occurred_at?: string;
