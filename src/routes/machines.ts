@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import { machineCache } from "../utils/cache.js";
 import { calculateMachineETag } from "../utils/etag.js";
-import { isDataStale, refreshMachines, getMachineLabel } from "../services/machineService.js";
+import {
+  isDataStale,
+  refreshMachines,
+  getMachineLabel,
+} from "../services/machineService.js";
 import { createEvent, type EventData } from "../services/eventService.js";
 import { config } from "../config.js";
 import { MACHINE_CONFIG } from "../constants.js";
@@ -164,16 +168,22 @@ machines.post("/:id/start", async (c) => {
     let eventResult = null;
     if (event && typeof event === "object" && event.type && event.data) {
       try {
-        // Get machine label for event (use machine_uid format if available)
+        // Event gateway requires hardware ID (machineId), not label
+        // Frontend already sends machine_id as hardware ID in collectEventData
+        // Ensure we use hardware ID, not label
         const eventData: EventData = {
           type: event.type,
           data: {
             ...event.data,
-            machine_id: machineLabel, // Use machine label as machine_id for event gateway
+            // Use hardware ID (machineId) for event gateway
+            // event.data.machine_id from frontend is already hardware ID
+            machine_id: machineId, // Always use hardware ID for event gateway
           },
         };
 
-        console.log(`📝 Recording event: ${event.type} for machine ${machineLabel}`);
+        console.log(
+          `📝 Recording event: ${event.type} for machine ${machineLabel} (hardware ID: ${machineId})`
+        );
         eventResult = await createEvent(eventData);
 
         if (!eventResult.success) {
@@ -202,7 +212,8 @@ machines.post("/:id/start", async (c) => {
         startedAt: new Date().toISOString(),
         apiResponse: result,
         eventRecorded: eventResult?.success || false,
-        eventError: eventResult?.success === false ? eventResult.message : undefined,
+        eventError:
+          eventResult?.success === false ? eventResult.message : undefined,
       },
     });
   } catch (error: any) {

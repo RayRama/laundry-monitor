@@ -241,10 +241,11 @@
 
           <!-- Event Selection -->
           <div class="event-selection">
-            <label for="eventTypeSelect" class="event-selection-label">Catat Event (Opsional):</label>
-            <select id="eventTypeSelect" class="event-select-field">
-              <option value="">Tidak ada event</option>
-              <option value="drop-off">Drop-off</option>
+            <label for="eventTypeSelect" class="event-selection-label"
+              >Pilih Event <span class="required">*</span>:</label
+            >
+            <select id="eventTypeSelect" class="event-select-field" required>
+              <option value="drop-off" selected>Drop-off</option>
               <option value="error-payment">Error Payment</option>
               <option value="employee-quota">Employee Quota</option>
               <option value="maintenance">Maintenance</option>
@@ -253,9 +254,15 @@
 
           <!-- Event Form Fields (Conditional) -->
           <!-- Drop-off Fields -->
-          <div id="eventFormDropOff" class="event-form-section" style="display: none">
+          <div
+            id="eventFormDropOff"
+            class="event-form-section"
+            style="display: none"
+          >
             <div class="event-form-field">
-              <label for="customerName">Nama Pelanggan <span class="required">*</span>:</label>
+              <label for="customerName"
+                >Nama Pelanggan <span class="required">*</span>:</label
+              >
               <input
                 type="text"
                 id="customerName"
@@ -275,9 +282,15 @@
           </div>
 
           <!-- Error Payment Fields -->
-          <div id="eventFormErrorPayment" class="event-form-section" style="display: none">
+          <div
+            id="eventFormErrorPayment"
+            class="event-form-section"
+            style="display: none"
+          >
             <div class="event-form-field">
-              <label for="errorDescription">Keterangan Error <span class="required">*</span>:</label>
+              <label for="errorDescription"
+                >Keterangan Error <span class="required">*</span>:</label
+              >
               <input
                 type="text"
                 id="errorDescription"
@@ -288,9 +301,15 @@
           </div>
 
           <!-- Employee Quota Fields -->
-          <div id="eventFormEmployeeQuota" class="event-form-section" style="display: none">
+          <div
+            id="eventFormEmployeeQuota"
+            class="event-form-section"
+            style="display: none"
+          >
             <div class="event-form-field">
-              <label for="employeeName">Nama Karyawan <span class="required">*</span>:</label>
+              <label for="employeeName"
+                >Nama Karyawan <span class="required">*</span>:</label
+              >
               <input
                 type="text"
                 id="employeeName"
@@ -301,7 +320,11 @@
           </div>
 
           <!-- Maintenance Fields -->
-          <div id="eventFormMaintenance" class="event-form-section" style="display: none">
+          <div
+            id="eventFormMaintenance"
+            class="event-form-section"
+            style="display: none"
+          >
             <div class="event-form-field">
               <label>Jenis Maintenance <span class="required">*</span>:</label>
               <div class="maintenance-type-group">

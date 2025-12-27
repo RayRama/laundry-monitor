@@ -1386,9 +1386,14 @@ function openMachineModal(machine) {
 
   // Setup maintenance radio buttons if maintenance is selected
   const eventTypeSelect = document.getElementById("eventTypeSelect");
-  if (eventTypeSelect && eventTypeSelect.value === "maintenance") {
-    setupMaintenanceRadioButtons();
+  if (eventTypeSelect) {
+    // Default to drop-off and show form
+    eventTypeSelect.value = "drop-off";
+    updateEventFormFields();
   }
+
+  // Update button state (initially disabled until form is filled)
+  updateStartButtonState();
 
   // Show modal
   document.getElementById("machineModal").style.display = "flex";
@@ -1409,6 +1414,68 @@ function closeMachineModal() {
 }
 
 /**
+ * Check if all mandatory fields are filled
+ * Returns true if form is valid, false otherwise
+ */
+function isFormValid() {
+  const eventTypeSelect = document.getElementById("eventTypeSelect");
+  const eventType = eventTypeSelect?.value || "";
+  const durationInput = document.getElementById("durationInput");
+  const duration = parseInt(durationInput?.value || "0");
+
+  // Check duration (must be between 1-180)
+  if (!duration || duration < 1 || duration > 180) {
+    return false;
+  }
+
+  // Check event type (required)
+  if (!eventType) {
+    return false;
+  }
+
+  // Check mandatory fields based on event type
+  switch (eventType) {
+    case "drop-off": {
+      const customerName =
+        document.getElementById("customerName")?.value.trim() || "";
+      return customerName.length > 0;
+    }
+    case "error-payment": {
+      const errorDescription =
+        document.getElementById("errorDescription")?.value.trim() || "";
+      return errorDescription.length > 0;
+    }
+    case "employee-quota": {
+      const employeeName =
+        document.getElementById("employeeName")?.value.trim() || "";
+      return employeeName.length > 0;
+    }
+    case "maintenance": {
+      const maintenanceType = document.querySelector(
+        'input[name="maintenanceType"]:checked'
+      )?.value;
+      return !!maintenanceType;
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * Update start button state based on form validity
+ */
+function updateStartButtonState() {
+  const startBtn = document.getElementById("modalStartBtn");
+  if (!startBtn) return;
+
+  const isValid = isFormValid();
+  startBtn.disabled = !isValid;
+
+  // CSS already handles disabled state styling via :disabled pseudo-class
+  // No need to manually set opacity/cursor
+}
+
+/**
  * Update event form fields based on selected event type
  */
 function updateEventFormFields() {
@@ -1423,6 +1490,13 @@ function updateEventFormFields() {
 
   // Show relevant form section based on event type
   const durationInput = document.getElementById("durationInput");
+
+  // Event type is required, so we must have a valid selection
+  if (!eventType) {
+    // If no event type, default to drop-off
+    eventTypeSelect.value = "drop-off";
+    eventType = "drop-off";
+  }
 
   switch (eventType) {
     case "drop-off":
@@ -1448,10 +1522,15 @@ function updateEventFormFields() {
       updateDurationForMaintenance();
       break;
     default:
-      // No event type selected, reset duration to default
+      // Fallback to drop-off if invalid
+      eventTypeSelect.value = "drop-off";
+      document.getElementById("eventFormDropOff").style.display = "block";
       if (durationInput) durationInput.value = "1";
       break;
   }
+
+  // Update button state after form fields change
+  updateStartButtonState();
 }
 
 /**
@@ -1526,16 +1605,19 @@ function updateDurationForMaintenance() {
       durationInput.value = "1";
     }
   }
+
+  // Update button state after duration change
+  updateStartButtonState();
 }
 
 /**
  * Reset event form to default state
  */
 function resetEventForm() {
-  // Reset dropdown to default
+  // Reset dropdown to default (drop-off)
   const eventTypeSelect = document.getElementById("eventTypeSelect");
   if (eventTypeSelect) {
-    eventTypeSelect.value = "";
+    eventTypeSelect.value = "drop-off";
   }
 
   // Clear all input fields
@@ -1570,13 +1652,19 @@ function resetEventForm() {
 
 /**
  * Collect event data from form
- * Returns null if no event type selected or event data object
+ * Returns null if validation fails, otherwise returns event data object
+ * Event type is now required, so this will always return data if form is valid
  */
 function collectEventData(machineId, duration) {
   const eventTypeSelect = document.getElementById("eventTypeSelect");
   const eventType = eventTypeSelect?.value || "";
 
+  // Event type is required - show error if not selected
   if (!eventType) {
+    alert(
+      "⚠️ Event Wajib Dipilih\n\nAnda harus memilih jenis event sebelum menyalakan mesin.\n\nSilakan pilih salah satu event terlebih dahulu."
+    );
+    eventTypeSelect.focus();
     return null;
   }
 
@@ -1729,19 +1817,27 @@ async function startMachine() {
     return;
   }
 
+  // Check if button is disabled (form validation)
+  const startBtn = document.getElementById("modalStartBtn");
+  if (startBtn && startBtn.disabled) {
+    // Form is not valid, don't proceed
+    return;
+  }
+
   const durationInput = document.getElementById("durationInput");
   const duration = parseInt(durationInput.value);
 
   if (!duration || duration < 1 || duration > 180) {
     alert("Durasi harus antara 1-180 menit");
+    updateStartButtonState(); // Update button state
     return;
   }
 
-  // Collect event data if event type is selected
+  // Collect event data (required - validation will show alert if failed)
   const eventData = collectEventData(currentMachine.id, duration);
-  const eventTypeSelect = document.getElementById("eventTypeSelect");
-  if (eventData === null && eventTypeSelect?.value) {
-    // Event type selected but validation failed
+  if (eventData === null) {
+    // Validation failed - collectEventData already showed alert
+    updateStartButtonState(); // Update button state
     return;
   }
 
@@ -1928,15 +2024,47 @@ document.addEventListener("DOMContentLoaded", () => {
   // Event type dropdown listener
   const eventTypeSelect = document.getElementById("eventTypeSelect");
   if (eventTypeSelect) {
-    eventTypeSelect.addEventListener("change", updateEventFormFields);
+    eventTypeSelect.addEventListener("change", () => {
+      updateEventFormFields();
+      updateStartButtonState();
+    });
   }
 
   // Maintenance type radio button listeners
   document
     .querySelectorAll('input[name="maintenanceType"]')
     .forEach((radio) => {
-      radio.addEventListener("change", updateDurationForMaintenance);
+      radio.addEventListener("change", () => {
+        updateDurationForMaintenance();
+        updateStartButtonState();
+      });
     });
+
+  // Mandatory field listeners for real-time validation
+  const customerNameInput = document.getElementById("customerName");
+  if (customerNameInput) {
+    customerNameInput.addEventListener("input", updateStartButtonState);
+    customerNameInput.addEventListener("change", updateStartButtonState);
+  }
+
+  const errorDescriptionInput = document.getElementById("errorDescription");
+  if (errorDescriptionInput) {
+    errorDescriptionInput.addEventListener("input", updateStartButtonState);
+    errorDescriptionInput.addEventListener("change", updateStartButtonState);
+  }
+
+  const employeeNameInput = document.getElementById("employeeName");
+  if (employeeNameInput) {
+    employeeNameInput.addEventListener("input", updateStartButtonState);
+    employeeNameInput.addEventListener("change", updateStartButtonState);
+  }
+
+  // Duration input listener
+  const durationInput = document.getElementById("durationInput");
+  if (durationInput) {
+    durationInput.addEventListener("input", updateStartButtonState);
+    durationInput.addEventListener("change", updateStartButtonState);
+  }
 
   // Close stop modal buttons
   document
