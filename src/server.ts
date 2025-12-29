@@ -12,6 +12,7 @@ import {
 import machines from "./routes/machines.js";
 import transactions from "./routes/transactions.js";
 import leaderboard from "./routes/leaderboard.js";
+import leaderboardEvents from "./routes/leaderboardEvents.js";
 import auth from "./routes/auth.js";
 import pages from "./routes/pages.js";
 import staticFiles from "./routes/static.js";
@@ -36,6 +37,7 @@ app.use(
       "ETag",
       "Last-Modified",
     ],
+    exposeHeaders: ["ETag", "Last-Modified", "X-Last-Success", "X-Data-Stale"],
   })
 );
 
@@ -43,6 +45,7 @@ app.use(
 app.route("/api/machines", machines);
 app.route("/api/transactions", transactions);
 app.route("/api/leaderboard", leaderboard);
+app.route("/api/leaderboard-events", leaderboardEvents);
 app.route("/api/auth", auth);
 
 // Manual refresh endpoint (public) - keep at /api/refresh for backward compatibility
@@ -92,6 +95,7 @@ app.get("/api/transaction-detail", async (c) => {
 // Protected routes - require authentication
 app.use("/api/transactions/*", authMiddleware());
 app.use("/api/leaderboard/*", authMiddleware());
+app.use("/api/leaderboard-events/*", authMiddleware());
 app.use("/api/machines/*/start", authMiddleware());
 app.use("/api/machines/*/stop", authMiddleware());
 

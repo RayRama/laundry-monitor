@@ -14,6 +14,7 @@ function buildTransactionSummaryUrl(params: {
   bulan?: string;
   tanggalAwal?: string;
   tanggalAkhir?: string;
+  idmesin?: string;
 }): string {
   const {
     limit = "20",
@@ -23,6 +24,7 @@ function buildTransactionSummaryUrl(params: {
     bulan = "2025-10",
     tanggalAwal,
     tanggalAkhir,
+    idmesin,
   } = params;
 
   const base = config.upstream.base;
@@ -34,6 +36,11 @@ function buildTransactionSummaryUrl(params: {
     url += `&filter_by=bulan&bulan=${bulan}`;
   } else {
     url += `&filter_by=tahun&tahun=${tahun}`;
+  }
+
+  // Add idmesin filter if provided
+  if (idmesin) {
+    url += `&idmesin=${idmesin}`;
   }
 
   return url;
@@ -59,7 +66,9 @@ function buildTransactionListUrl(params: {
     tanggalAkhir,
   } = params;
 
-  const actualLimit = limit === "max" ? "10000" : limit;
+  // For "max", use a very large number to get all transactions
+  // Note: API might have a hard limit, but we try to get as many as possible
+  const actualLimit = limit === "max" ? "99999" : limit;
   const base = config.upstream.base;
   let url = `${base}/list_transaksi_snap_konsumen?sort_by=transaksi&order_by=DESC&limit=${actualLimit}&offset=${offset}`;
 
@@ -83,6 +92,7 @@ export async function fetchTransactionSummary(params: {
   bulan?: string;
   tanggalAwal?: string;
   tanggalAkhir?: string;
+  idmesin?: string;
 }): Promise<TransactionSummary> {
   const url = buildTransactionSummaryUrl(params);
   console.log(`📊 Fetching transaction summary from: ${url}`);
@@ -101,11 +111,15 @@ export async function fetchTransactionSummary(params: {
   console.log(
     `✅ Transaction summary fetched: ${
       json.data?.total_nota || 0
-    } total transactions`
+    } total transactions${
+      params.idmesin ? ` for machine ${params.idmesin}` : ""
+    }`
   );
 
-  // Update cache
-  transactionCache.summary.set(json);
+  // Update cache (only if not filtered by machine)
+  if (!params.idmesin) {
+    transactionCache.summary.set(json);
+  }
   return json;
 }
 

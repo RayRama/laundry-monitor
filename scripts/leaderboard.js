@@ -136,9 +136,9 @@ class LeaderboardAPI {
 
     try {
       const headers = {
-        "cache-control": "no-cache",
         ...Auth.getAuthHeaders(),
       };
+      // Use ETag for conditional requests (allow server to return 304 if unchanged)
       if (this.lastFrequencyETag) {
         headers["If-None-Match"] = this.lastFrequencyETag;
       }
@@ -182,9 +182,9 @@ class LeaderboardAPI {
 
     try {
       const headers = {
-        "cache-control": "no-cache",
         ...Auth.getAuthHeaders(),
       };
+      // Use ETag for conditional requests (allow server to return 304 if unchanged)
       if (this.lastRevenueETag) {
         headers["If-None-Match"] = this.lastRevenueETag;
       }

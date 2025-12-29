@@ -320,3 +320,69 @@
 .frequency {
   font-variant-numeric: tabular-nums;
 }
+
+/* Events Table Styles */
+#eventsTableContainer {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#eventsTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px; /* Ensure table doesn't get too narrow */
+}
+
+#eventsTable thead th {
+  position: sticky;
+  top: 0;
+  background: #f9fafb;
+  z-index: 10;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+#eventsTable tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+#eventsTable tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+#eventsTable tbody tr.bg-gray-50 {
+  background-color: #f9fafb;
+}
+
+#eventsTable tbody tr.bg-gray-50:hover {
+  background-color: #f3f4f6;
+}
+
+/* Responsive table adjustments */
+@media (max-width: 1024px) {
+  #eventsTable {
+    font-size: 0.875rem;
+  }
+
+  #eventsTable th,
+  #eventsTable td {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  #eventsTable {
+    font-size: 0.75rem;
+    min-width: 700px;
+  }
+
+  #eventsTable th,
+  #eventsTable td {
+    padding: 0.375rem 0.5rem;
+  }
+
+  .rank.inline-flex {
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.75rem;
+  }
+}

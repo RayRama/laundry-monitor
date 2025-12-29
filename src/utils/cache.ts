@@ -18,6 +18,10 @@ let frequencyLeaderboardCache: LeaderboardResponse | null = null;
 let revenueLeaderboardCache: LeaderboardResponse | null = null;
 let lastLeaderboardSuccessTime: number | null = null;
 
+// Events leaderboard cache
+let eventsLeaderboardCacheData: any = null;
+let lastEventsLeaderboardSuccessTime: number | null = null;
+
 // Machine snapshot
 export const machineCache = {
   get: () => machineSnapshot,
@@ -67,4 +71,14 @@ export const leaderboardCache = {
     },
   },
   getLastSuccessTime: () => lastLeaderboardSuccessTime,
+};
+
+// Events leaderboard cache
+export const eventsLeaderboardCache = {
+  get: () => eventsLeaderboardCacheData,
+  set: (data: any) => {
+    eventsLeaderboardCacheData = data;
+    lastEventsLeaderboardSuccessTime = Date.now();
+  },
+  getLastSuccessTime: () => lastEventsLeaderboardSuccessTime,
 };

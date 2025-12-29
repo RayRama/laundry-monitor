@@ -18,6 +18,32 @@ leaderboard.get("/frequency", async (c) => {
     const tanggalAwal = c.req.query("tanggal_awal");
     const tanggalAkhir = c.req.query("tanggal_akhir");
 
+    // Check If-None-Match header FIRST (before generating data)
+    const ifNoneMatch = c.req.header("If-None-Match");
+
+    // Try to get cached data first
+    const cached = leaderboardCache.frequency.get();
+    
+    if (cached && ifNoneMatch) {
+      // Calculate ETag from cached data
+      const cachedETag = calculateETag(cached);
+      
+      // If ETag matches, return 304 without generating new data
+      if (ifNoneMatch === cachedETag) {
+        console.log("📦 Frequency leaderboard unchanged (304), using cached data");
+        c.header("ETag", cachedETag);
+        c.header(
+          "X-Last-Success",
+          leaderboardCache.getLastSuccessTime()
+            ? new Date(leaderboardCache.getLastSuccessTime()!).toISOString()
+            : ""
+        );
+        return new Response(null, { status: 304 });
+      }
+    }
+
+    // Data not cached or ETag doesn't match, generate new data
+    console.log("🔄 Generating new frequency leaderboard data...");
     const responseData = await generateFrequencyLeaderboard({
       filterBy,
       bulan,
@@ -25,12 +51,10 @@ leaderboard.get("/frequency", async (c) => {
       tanggalAkhir,
     });
 
-    // Calculate ETag
+    // Calculate ETag from new data
     const currentETag = calculateETag(responseData);
 
-    // Check If-None-Match header
-    const ifNoneMatch = c.req.header("If-None-Match");
-
+    // Check again (in case ETag matches after generation)
     if (ifNoneMatch === currentETag) {
       // Data hasn't changed, return 304
       c.header("ETag", currentETag);
@@ -92,6 +116,32 @@ leaderboard.get("/revenue", async (c) => {
     const tanggalAwal = c.req.query("tanggal_awal");
     const tanggalAkhir = c.req.query("tanggal_akhir");
 
+    // Check If-None-Match header FIRST (before generating data)
+    const ifNoneMatch = c.req.header("If-None-Match");
+
+    // Try to get cached data first
+    const cached = leaderboardCache.revenue.get();
+    
+    if (cached && ifNoneMatch) {
+      // Calculate ETag from cached data
+      const cachedETag = calculateETag(cached);
+      
+      // If ETag matches, return 304 without generating new data
+      if (ifNoneMatch === cachedETag) {
+        console.log("📦 Revenue leaderboard unchanged (304), using cached data");
+        c.header("ETag", cachedETag);
+        c.header(
+          "X-Last-Success",
+          leaderboardCache.getLastSuccessTime()
+            ? new Date(leaderboardCache.getLastSuccessTime()!).toISOString()
+            : ""
+        );
+        return new Response(null, { status: 304 });
+      }
+    }
+
+    // Data not cached or ETag doesn't match, generate new data
+    console.log("🔄 Generating new revenue leaderboard data...");
     const responseData = await generateRevenueLeaderboard({
       filterBy,
       bulan,
@@ -99,12 +149,10 @@ leaderboard.get("/revenue", async (c) => {
       tanggalAkhir,
     });
 
-    // Calculate ETag
+    // Calculate ETag from new data
     const currentETag = calculateETag(responseData);
 
-    // Check If-None-Match header
-    const ifNoneMatch = c.req.header("If-None-Match");
-
+    // Check again (in case ETag matches after generation)
     if (ifNoneMatch === currentETag) {
       // Data hasn't changed, return 304
       c.header("ETag", currentETag);

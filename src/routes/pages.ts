@@ -95,6 +95,28 @@ pages.get("/leaderboard", async (c) => {
 });
 
 /**
+ * GET /leaderboard/events - Leaderboard Events page (admin only)
+ */
+pages.get("/leaderboard/events", async (c) => {
+  const auth = checkAuth(c);
+  if (!auth.valid) {
+    return c.redirect(auth.redirect!);
+  }
+
+  // Check if user has admin role
+  if (auth.payload!.role !== "admin") {
+    return c.html(renderAccessDenied("You need admin privileges to access the leaderboard events.", "/monitor"), 403);
+  }
+
+  try {
+    const html = await fs.readFile("leaderboard/events/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Leaderboard Events not found", 404);
+  }
+});
+
+/**
  * GET /monitor - Monitor page (authenticated users)
  */
 pages.get("/monitor", async (c) => {

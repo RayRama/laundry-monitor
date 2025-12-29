@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leaderboard Events • Whoooshlab Smartlink</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/styles/dashboard.css" />
+    <link rel="stylesheet" href="/styles/leaderboard.css" />
+  </head>
+  <body class="h-full bg-gray-50">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Memuat data...</p>
+      </div>
+    </div>
+
+    <header
+      class="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur"
+    >
+      <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Logo -->
+          <div
+            class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-500 flex items-center justify-center text-white font-black text-sm sm:text-base flex-shrink-0"
+          >
+            WL
+          </div>
+
+          <!-- Title Section -->
+          <div class="flex-1 min-w-0">
+            <h1
+              class="text-sm sm:text-base lg:text-lg font-extrabold tracking-tight text-slate-900 truncate"
+            >
+              <span class="hidden sm:inline"
+                >Leaderboard Events • Whoooshlab Smartlink</span
+              >
+              <span class="sm:hidden">Events</span>
+            </h1>
+            <p class="text-slate-500 text-xs sm:text-sm -mt-0.5 truncate">
+              <span class="hidden sm:inline"
+                >Frequency events per machine breakdown</span
+              >
+              <span class="sm:hidden">Event frequency</span>
+            </p>
+          </div>
+
+          <!-- Navigation Menu (Admin Only) -->
+          <div class="hidden admin-nav flex items-center gap-1 sm:gap-2 mr-2">
+            <a
+              href="/dashboard"
+              class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
+            >
+              Dashboard
+            </a>
+            <a
+              href="/monitor"
+              class="btn btn-outline text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
+            >
+              Monitor
+            </a>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <!-- Live Badge -->
+            <span
+              class="pill pill-amber text-xs sm:text-sm hidden sm:inline-flex"
+              >Live</span
+            >
+            <span class="pill pill-amber text-xs sm:inline-flex md:hidden"
+              >●</span
+            >
+
+            <!-- Refresh Button -->
+            <button
+              id="refreshEvents"
+              class="btn btn-primary refresh-btn text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                />
+              </svg>
+              <span class="hidden sm:inline">Refresh</span>
+            </button>
+
+            <!-- Logout Button -->
+            <button
+              class="logout-btn btn btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
+              title="Logout"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M16 17v-3H9v-4h7V7l5 5-5 5zM14 2c1.1 0 2 .9 2 2v2h-2V4H4v16h10v-2h2v2c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10z"
+                />
+              </svg>
+              <span class="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+      <!-- Filter Section -->
+      <div class="filter-section">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="filterSelect">Filter Data</label>
+            <select id="filterSelect" class="filter-select">
+              <option value="today" selected>Hari Ini</option>
+              <option value="yesterday">Kemarin</option>
+              <option value="this_week">Minggu Ini</option>
+              <option value="last_7_days">7 Hari Terakhir</option>
+              <option value="this_month">Bulan Ini</option>
+              <option value="this_year">Tahun Ini</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          <div class="filter-group" id="customDateGroup" style="display: none">
+            <label for="startDate">Tanggal Awal</label>
+            <input type="date" id="startDate" class="filter-input" />
+          </div>
+
+          <div class="filter-group" id="customDateGroup2" style="display: none">
+            <label for="endDate">Tanggal Akhir</label>
+            <input type="date" id="endDate" class="filter-input" />
+          </div>
+
+          <div class="filter-group">
+            <button id="applyFilter" class="btn btn-primary">
+              Terapkan Filter
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Range Info -->
+      <div id="data-range-info" class="data-range-info">
+        <div class="range-text">Memuat data...</div>
+      </div>
+
+      <!-- Events Table -->
+      <div class="leaderboard-section">
+        <div class="leaderboard-card">
+          <div class="leaderboard-header">
+            <h3 class="leaderboard-subtitle">Frequency Events per Mesin</h3>
+            <div class="leaderboard-stats">
+              <span class="stat-item">
+                <span class="stat-label">Total Mesin:</span>
+                <span id="totalMachines" class="stat-value">-</span>
+              </span>
+            </div>
+          </div>
+          <div id="eventsTableContainer" class="overflow-x-auto">
+            <table id="eventsTable" class="w-full" style="display: none">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th
+                    class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Rank
+                  </th>
+                  <th
+                    class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Mesin
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Transaksi
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Drop Off
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Error Payment
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Cuci Kosong
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Employee Quota
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Tube Clean
+                  </th>
+                  <th
+                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  >
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                id="eventsTableBody"
+                class="bg-white divide-y divide-gray-200"
+              >
+                <!-- Table rows will be inserted here -->
+              </tbody>
+            </table>
+            <div id="eventsTableLoading" class="loading-placeholder">
+              Memuat data...
+            </div>
+            <div
+              id="eventsTableError"
+              class="error-state"
+              style="display: none"
+            ></div>
+            <div
+              id="eventsTableEmpty"
+              class="empty-state"
+              style="display: none"
+            >
+              Tidak ada data untuk periode yang dipilih
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer-note text-center">
+        <p>&copy; 2025 • Whoooshlab Analytics • Powered by Smartlink API</p>
+      </div>
+    </main>
+
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/leaderboardEvents.js"></script>
+    <script>
+      // Require admin access and show navigation menu
+      document.addEventListener("DOMContentLoaded", function () {
+        // Check admin access first
+        if (!Auth.requireAdmin()) {
+          return; // Will redirect if not admin
+        }
+
+        // Show admin navigation menu
+        const adminNav = document.querySelector(".admin-nav");
+        if (adminNav) {
+          adminNav.classList.remove("hidden");
+        }
+      });
+    </script>
+  </body>
+</html>
