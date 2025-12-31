@@ -279,6 +279,30 @@
                 placeholder="Masukkan nomor telepon (opsional)"
               />
             </div>
+            <div class="event-form-field">
+              <label for="employeeSelectDropOff"
+                >Karyawan <span class="required">*</span>:</label
+              >
+              <select id="employeeSelectDropOff" class="event-select-field" required>
+                <option value="">Pilih karyawan...</option>
+                <!-- Options akan di-populate dari JavaScript -->
+              </select>
+            </div>
+            <div
+              id="otherEmployeeNameGroupDropOff"
+              class="event-form-field"
+              style="display: none"
+            >
+              <label for="otherEmployeeNameDropOff"
+                >Nama Karyawan Lainnya <span class="required">*</span>:</label
+              >
+              <input
+                type="text"
+                id="otherEmployeeNameDropOff"
+                class="event-input-field"
+                placeholder="Masukkan nama karyawan lainnya"
+              />
+            </div>
           </div>
 
           <!-- Error Payment Fields -->
@@ -296,6 +320,30 @@
                 id="errorDescription"
                 class="event-input-field"
                 placeholder="Masukkan keterangan error"
+              />
+            </div>
+            <div class="event-form-field">
+              <label for="employeeSelectErrorPayment"
+                >Karyawan <span class="required">*</span>:</label
+              >
+              <select id="employeeSelectErrorPayment" class="event-select-field" required>
+                <option value="">Pilih karyawan...</option>
+                <!-- Options akan di-populate dari JavaScript -->
+              </select>
+            </div>
+            <div
+              id="otherEmployeeNameGroupErrorPayment"
+              class="event-form-field"
+              style="display: none"
+            >
+              <label for="otherEmployeeNameErrorPayment"
+                >Nama Karyawan Lainnya <span class="required">*</span>:</label
+              >
+              <input
+                type="text"
+                id="otherEmployeeNameErrorPayment"
+                class="event-input-field"
+                placeholder="Masukkan nama karyawan lainnya"
               />
             </div>
           </div>
@@ -366,6 +414,30 @@
                 rows="3"
                 placeholder="Masukkan catatan maintenance (opsional)"
               ></textarea>
+            </div>
+            <div class="event-form-field">
+              <label for="employeeSelectMaintenance"
+                >Karyawan <span class="required">*</span>:</label
+              >
+              <select id="employeeSelectMaintenance" class="event-select-field" required>
+                <option value="">Pilih karyawan...</option>
+                <!-- Options akan di-populate dari JavaScript -->
+              </select>
+            </div>
+            <div
+              id="otherEmployeeNameGroupMaintenance"
+              class="event-form-field"
+              style="display: none"
+            >
+              <label for="otherEmployeeNameMaintenance"
+                >Nama Karyawan Lainnya <span class="required">*</span>:</label
+              >
+              <input
+                type="text"
+                id="otherEmployeeNameMaintenance"
+                class="event-input-field"
+                placeholder="Masukkan nama karyawan lainnya"
+              />
             </div>
           </div>
 

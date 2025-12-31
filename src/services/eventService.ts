@@ -13,6 +13,8 @@ export type DropOffEventData = {
   customer_name: string;
   customer_phone?: string;
   duration_minutes: number;
+  employee_id?: number;
+  other_employee_name?: string;
   occurred_at?: string;
 };
 
@@ -20,6 +22,8 @@ export type ErrorPaymentEventData = {
   machine_id: string;
   description: string;
   duration_minutes: number;
+  employee_id?: number;
+  other_employee_name?: string;
   occurred_at?: string;
 };
 
@@ -35,6 +39,8 @@ export type MaintenanceEventData = {
   mtype: "cuci_kosong" | "tube_clean" | "other";
   duration_minutes: number;
   note?: string;
+  employee_id?: number;
+  other_employee_name?: string;
   occurred_at?: string;
 };
 

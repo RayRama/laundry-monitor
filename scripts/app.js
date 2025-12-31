@@ -114,7 +114,7 @@ async function loadMachineConfig() {
         W07: "LG20",
         W08: "LG20",
         W09: "LG20",
-        W10: "LG20",
+        W10: "LG24",
         W10_OLD: "NTG",
         W11: "BEKO",
         W12: "BEKO",
@@ -1348,7 +1348,7 @@ let currentStopMachine = null;
 /**
  * Open machine control modal
  */
-function openMachineModal(machine) {
+async function openMachineModal(machine) {
   if (machine.status !== "READY") {
     console.log("Machine is not ready:", machine.label);
     return;
@@ -1395,8 +1395,18 @@ function openMachineModal(machine) {
   // Update button state (initially disabled until form is filled)
   updateStartButtonState();
 
-  // Show modal
+  // Show modal first so dropdowns are available
   document.getElementById("machineModal").style.display = "flex";
+
+  // Populate employee dropdowns if not already populated
+  // Wait a bit to ensure DOM is ready
+  setTimeout(async () => {
+    if (employeesList.length === 0) {
+      await fetchEmployees();
+    } else {
+      populateEmployeeDropdowns(employeesList);
+    }
+  }, 50);
 
   // Focus on duration input
   setTimeout(() => {
@@ -1438,12 +1448,33 @@ function isFormValid() {
     case "drop-off": {
       const customerName =
         document.getElementById("customerName")?.value.trim() || "";
-      return customerName.length > 0;
+      const employeeId =
+        document.getElementById("employeeSelectDropOff")?.value || "";
+      if (!customerName || !employeeId) return false;
+      // If employee_id is 0, check otherEmployeeName
+      if (employeeId === "0") {
+        const otherEmployeeName =
+          document.getElementById("otherEmployeeNameDropOff")?.value.trim() ||
+          "";
+        return otherEmployeeName.length > 0;
+      }
+      return true;
     }
     case "error-payment": {
       const errorDescription =
         document.getElementById("errorDescription")?.value.trim() || "";
-      return errorDescription.length > 0;
+      const employeeId =
+        document.getElementById("employeeSelectErrorPayment")?.value || "";
+      if (!errorDescription || !employeeId) return false;
+      // If employee_id is 0, check otherEmployeeName
+      if (employeeId === "0") {
+        const otherEmployeeName =
+          document
+            .getElementById("otherEmployeeNameErrorPayment")
+            ?.value.trim() || "";
+        return otherEmployeeName.length > 0;
+      }
+      return true;
     }
     case "employee-quota": {
       const employeeName =
@@ -1454,7 +1485,18 @@ function isFormValid() {
       const maintenanceType = document.querySelector(
         'input[name="maintenanceType"]:checked'
       )?.value;
-      return !!maintenanceType;
+      const employeeId =
+        document.getElementById("employeeSelectMaintenance")?.value || "";
+      if (!maintenanceType || !employeeId) return false;
+      // If employee_id is 0, check otherEmployeeName
+      if (employeeId === "0") {
+        const otherEmployeeName =
+          document
+            .getElementById("otherEmployeeNameMaintenance")
+            ?.value.trim() || "";
+        return otherEmployeeName.length > 0;
+      }
+      return true;
     }
     default:
       return false;
@@ -1503,11 +1545,15 @@ function updateEventFormFields() {
       document.getElementById("eventFormDropOff").style.display = "block";
       // Reset duration to default if not maintenance
       if (durationInput) durationInput.value = "1";
+      // Handle employee dropdown visibility
+      handleEmployeeDropdownChange("drop-off");
       break;
     case "error-payment":
       document.getElementById("eventFormErrorPayment").style.display = "block";
       // Reset duration to default if not maintenance
       if (durationInput) durationInput.value = "1";
+      // Handle employee dropdown visibility
+      handleEmployeeDropdownChange("error-payment");
       break;
     case "employee-quota":
       document.getElementById("eventFormEmployeeQuota").style.display = "block";
@@ -1520,12 +1566,16 @@ function updateEventFormFields() {
       setupMaintenanceRadioButtons();
       // Update duration based on selected maintenance type
       updateDurationForMaintenance();
+      // Handle employee dropdown visibility
+      handleEmployeeDropdownChange("maintenance");
       break;
     default:
       // Fallback to drop-off if invalid
       eventTypeSelect.value = "drop-off";
       document.getElementById("eventFormDropOff").style.display = "block";
       if (durationInput) durationInput.value = "1";
+      // Handle employee dropdown visibility
+      handleEmployeeDropdownChange("drop-off");
       break;
   }
 
@@ -1610,6 +1660,177 @@ function updateDurationForMaintenance() {
   updateStartButtonState();
 }
 
+// Global variable to cache employees list
+let employeesList = [];
+
+/**
+ * Fetch employees from API
+ */
+async function fetchEmployees() {
+  try {
+    const response = await fetch(`${API_BASE}/api/employees?is_active=true`, {
+      headers: {
+        ...Auth.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("📦 Employees API response:", result);
+
+    // Handle different response structures
+    let employees = null;
+    if (result.success && result.data) {
+      // Try result.data.data first (nested structure)
+      if (Array.isArray(result.data.data)) {
+        employees = result.data.data;
+      }
+      // Try result.data if it's an array directly
+      else if (Array.isArray(result.data)) {
+        employees = result.data;
+      }
+    }
+    // Try result directly if it's an array
+    else if (Array.isArray(result)) {
+      employees = result;
+    }
+
+    if (employees && employees.length > 0) {
+      employeesList = employees;
+      console.log(
+        `✅ Loaded ${employeesList.length} employees:`,
+        employeesList
+      );
+      // Populate dropdowns after fetching
+      populateEmployeeDropdowns(employeesList);
+      return employeesList;
+    } else {
+      console.warn("⚠️ Invalid employees response format or empty:", result);
+      employeesList = [];
+      return [];
+    }
+  } catch (error) {
+    console.warn("⚠️ Failed to fetch employees:", error);
+    employeesList = [];
+    return [];
+  }
+}
+
+/**
+ * Populate employee dropdowns with employees list
+ */
+function populateEmployeeDropdowns(employees) {
+  const dropdowns = [
+    "employeeSelectDropOff",
+    "employeeSelectErrorPayment",
+    "employeeSelectMaintenance",
+  ];
+
+  console.log("🔄 Populating employee dropdowns with:", employees);
+
+  dropdowns.forEach((dropdownId) => {
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) {
+      console.warn(`⚠️ Dropdown ${dropdownId} not found`);
+      return;
+    }
+
+    // Clear existing options
+    dropdown.innerHTML = "";
+
+    // Add default option
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Pilih karyawan...";
+    dropdown.appendChild(defaultOption);
+
+    // Separate "Lainnya" (id=0) from other employees
+    const regularEmployees = employees.filter(
+      (emp) => emp.id !== "0" && emp.id !== 0
+    );
+    const lainnyaEmployee = employees.find(
+      (emp) => emp.id === "0" || emp.id === 0
+    );
+
+    // Add regular employees first
+    regularEmployees.forEach((employee) => {
+      const option = document.createElement("option");
+      option.value = String(employee.id); // Ensure it's a string
+      option.textContent = employee.employee_nickname || employee.employee_name;
+      dropdown.appendChild(option);
+      console.log(
+        `  ✓ Added employee: ${option.value} - ${option.textContent}`
+      );
+    });
+
+    // Always add "Lainnya" (id=0) at the end, even if it exists in the list
+    const lainnyaOption = document.createElement("option");
+    lainnyaOption.value = "0";
+    lainnyaOption.textContent = lainnyaEmployee
+      ? lainnyaEmployee.employee_nickname || lainnyaEmployee.employee_name
+      : "Lainnya";
+    dropdown.appendChild(lainnyaOption);
+    console.log(
+      `  ✓ Added Lainnya: ${lainnyaOption.value} - ${lainnyaOption.textContent}`
+    );
+
+    console.log(
+      `✅ Populated ${dropdownId} with ${regularEmployees.length + 1} options`
+    );
+  });
+}
+
+/**
+ * Handle employee dropdown change to show/hide otherEmployeeName field
+ */
+function handleEmployeeDropdownChange(eventType) {
+  let dropdownId, otherNameGroupId, otherNameInputId;
+
+  switch (eventType) {
+    case "drop-off":
+      dropdownId = "employeeSelectDropOff";
+      otherNameGroupId = "otherEmployeeNameGroupDropOff";
+      otherNameInputId = "otherEmployeeNameDropOff";
+      break;
+    case "error-payment":
+      dropdownId = "employeeSelectErrorPayment";
+      otherNameGroupId = "otherEmployeeNameGroupErrorPayment";
+      otherNameInputId = "otherEmployeeNameErrorPayment";
+      break;
+    case "maintenance":
+      dropdownId = "employeeSelectMaintenance";
+      otherNameGroupId = "otherEmployeeNameGroupMaintenance";
+      otherNameInputId = "otherEmployeeNameMaintenance";
+      break;
+    default:
+      return;
+  }
+
+  const dropdown = document.getElementById(dropdownId);
+  const otherNameGroup = document.getElementById(otherNameGroupId);
+  const otherNameInput = document.getElementById(otherNameInputId);
+
+  if (!dropdown || !otherNameGroup || !otherNameInput) return;
+
+  const selectedValue = dropdown.value;
+  if (selectedValue === "0") {
+    // Show otherEmployeeName field when "Lainnya" is selected
+    otherNameGroup.style.display = "block";
+    otherNameInput.required = true;
+  } else {
+    // Hide otherEmployeeName field for regular employees
+    otherNameGroup.style.display = "none";
+    otherNameInput.required = false;
+    otherNameInput.value = ""; // Clear the value
+  }
+
+  // Update button state after change
+  updateStartButtonState();
+}
+
 /**
  * Reset event form to default state
  */
@@ -1625,6 +1846,40 @@ function resetEventForm() {
   document.getElementById("customerPhone").value = "";
   document.getElementById("errorDescription").value = "";
   document.getElementById("employeeName").value = "";
+
+  // Reset employee dropdowns
+  const employeeDropdowns = [
+    "employeeSelectDropOff",
+    "employeeSelectErrorPayment",
+    "employeeSelectMaintenance",
+  ];
+  employeeDropdowns.forEach((id) => {
+    const dropdown = document.getElementById(id);
+    if (dropdown) dropdown.value = "";
+  });
+
+  // Hide and clear otherEmployeeName fields
+  const otherNameGroups = [
+    "otherEmployeeNameGroupDropOff",
+    "otherEmployeeNameGroupErrorPayment",
+    "otherEmployeeNameGroupMaintenance",
+  ];
+  const otherNameInputs = [
+    "otherEmployeeNameDropOff",
+    "otherEmployeeNameErrorPayment",
+    "otherEmployeeNameMaintenance",
+  ];
+  otherNameGroups.forEach((id) => {
+    const group = document.getElementById(id);
+    if (group) group.style.display = "none";
+  });
+  otherNameInputs.forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.value = "";
+      input.required = false;
+    }
+  });
 
   // Reset maintenance type radio buttons
   const maintenanceTypeCuciKosong = document.getElementById(
@@ -1684,6 +1939,27 @@ function collectEventData(machineId, duration) {
         document.getElementById("customerName").focus();
         return null;
       }
+      const employeeId = parseInt(
+        document.getElementById("employeeSelectDropOff").value
+      );
+      if (isNaN(employeeId)) {
+        alert(
+          "⚠️ Field Wajib Kosong\n\nKaryawan harus dipilih untuk event Drop-off.\n\nSilakan pilih karyawan terlebih dahulu sebelum menyalakan mesin."
+        );
+        document.getElementById("employeeSelectDropOff").focus();
+        return null;
+      }
+      const otherEmployeeName =
+        employeeId === 0
+          ? document.getElementById("otherEmployeeNameDropOff").value.trim()
+          : undefined;
+      if (employeeId === 0 && !otherEmployeeName) {
+        alert(
+          "⚠️ Field Wajib Kosong\n\nNama Karyawan Lainnya harus diisi ketika memilih 'Lainnya'.\n\nSilakan isi nama karyawan lainnya terlebih dahulu sebelum menyalakan mesin."
+        );
+        document.getElementById("otherEmployeeNameDropOff").focus();
+        return null;
+      }
       return {
         type: "drop-off",
         data: {
@@ -1691,6 +1967,8 @@ function collectEventData(machineId, duration) {
           customer_name: customerName,
           customer_phone:
             document.getElementById("customerPhone").value.trim() || undefined,
+          employee_id: employeeId,
+          other_employee_name: otherEmployeeName,
         },
       };
     }
@@ -1706,11 +1984,36 @@ function collectEventData(machineId, duration) {
         document.getElementById("errorDescription").focus();
         return null;
       }
+      const employeeId = parseInt(
+        document.getElementById("employeeSelectErrorPayment").value
+      );
+      if (isNaN(employeeId)) {
+        alert(
+          "⚠️ Field Wajib Kosong\n\nKaryawan harus dipilih untuk event Error Payment.\n\nSilakan pilih karyawan terlebih dahulu sebelum menyalakan mesin."
+        );
+        document.getElementById("employeeSelectErrorPayment").focus();
+        return null;
+      }
+      const otherEmployeeName =
+        employeeId === 0
+          ? document
+              .getElementById("otherEmployeeNameErrorPayment")
+              .value.trim()
+          : undefined;
+      if (employeeId === 0 && !otherEmployeeName) {
+        alert(
+          "⚠️ Field Wajib Kosong\n\nNama Karyawan Lainnya harus diisi ketika memilih 'Lainnya'.\n\nSilakan isi nama karyawan lainnya terlebih dahulu sebelum menyalakan mesin."
+        );
+        document.getElementById("otherEmployeeNameErrorPayment").focus();
+        return null;
+      }
       return {
         type: "error-payment",
         data: {
           ...baseData,
           description: description,
+          employee_id: employeeId,
+          other_employee_name: otherEmployeeName,
         },
       };
     }
@@ -1742,6 +2045,27 @@ function collectEventData(machineId, duration) {
         );
         return null;
       }
+      const employeeId = parseInt(
+        document.getElementById("employeeSelectMaintenance").value
+      );
+      if (isNaN(employeeId)) {
+        alert(
+          "⚠️ Field Wajib Kosong\n\nKaryawan harus dipilih untuk event Maintenance.\n\nSilakan pilih karyawan terlebih dahulu sebelum menyalakan mesin."
+        );
+        document.getElementById("employeeSelectMaintenance").focus();
+        return null;
+      }
+      const otherEmployeeName =
+        employeeId === 0
+          ? document.getElementById("otherEmployeeNameMaintenance").value.trim()
+          : undefined;
+      if (employeeId === 0 && !otherEmployeeName) {
+        alert(
+          "⚠️ Field Wajib Kosong\n\nNama Karyawan Lainnya harus diisi ketika memilih 'Lainnya'.\n\nSilakan isi nama karyawan lainnya terlebih dahulu sebelum menyalakan mesin."
+        );
+        document.getElementById("otherEmployeeNameMaintenance").focus();
+        return null;
+      }
       return {
         type: "maintenance",
         data: {
@@ -1750,6 +2074,8 @@ function collectEventData(machineId, duration) {
           note:
             document.getElementById("maintenanceNote").value.trim() ||
             undefined,
+          employee_id: employeeId,
+          other_employee_name: otherEmployeeName,
         },
       };
     }
@@ -2030,6 +2356,71 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Employee dropdown listeners
+  const employeeSelectDropOff = document.getElementById(
+    "employeeSelectDropOff"
+  );
+  if (employeeSelectDropOff) {
+    employeeSelectDropOff.addEventListener("change", () => {
+      handleEmployeeDropdownChange("drop-off");
+    });
+  }
+
+  const employeeSelectErrorPayment = document.getElementById(
+    "employeeSelectErrorPayment"
+  );
+  if (employeeSelectErrorPayment) {
+    employeeSelectErrorPayment.addEventListener("change", () => {
+      handleEmployeeDropdownChange("error-payment");
+    });
+  }
+
+  const employeeSelectMaintenance = document.getElementById(
+    "employeeSelectMaintenance"
+  );
+  if (employeeSelectMaintenance) {
+    employeeSelectMaintenance.addEventListener("change", () => {
+      handleEmployeeDropdownChange("maintenance");
+    });
+  }
+
+  // Other employee name input listeners for real-time validation
+  const otherEmployeeNameDropOff = document.getElementById(
+    "otherEmployeeNameDropOff"
+  );
+  if (otherEmployeeNameDropOff) {
+    otherEmployeeNameDropOff.addEventListener("input", updateStartButtonState);
+    otherEmployeeNameDropOff.addEventListener("change", updateStartButtonState);
+  }
+
+  const otherEmployeeNameErrorPayment = document.getElementById(
+    "otherEmployeeNameErrorPayment"
+  );
+  if (otherEmployeeNameErrorPayment) {
+    otherEmployeeNameErrorPayment.addEventListener(
+      "input",
+      updateStartButtonState
+    );
+    otherEmployeeNameErrorPayment.addEventListener(
+      "change",
+      updateStartButtonState
+    );
+  }
+
+  const otherEmployeeNameMaintenance = document.getElementById(
+    "otherEmployeeNameMaintenance"
+  );
+  if (otherEmployeeNameMaintenance) {
+    otherEmployeeNameMaintenance.addEventListener(
+      "input",
+      updateStartButtonState
+    );
+    otherEmployeeNameMaintenance.addEventListener(
+      "change",
+      updateStartButtonState
+    );
+  }
+
   // Maintenance type radio button listeners
   document
     .querySelectorAll('input[name="maintenanceType"]')
@@ -2097,6 +2488,11 @@ document.addEventListener("DOMContentLoaded", () => {
         closeStopModal();
       }
     }
+  });
+
+  // Initialize employees on page load
+  fetchEmployees().catch((error) => {
+    console.warn("Failed to initialize employees:", error);
   });
 });
 

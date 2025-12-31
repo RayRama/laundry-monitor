@@ -13,6 +13,7 @@ import machines from "./routes/machines.js";
 import transactions from "./routes/transactions.js";
 import leaderboard from "./routes/leaderboard.js";
 import leaderboardEvents from "./routes/leaderboardEvents.js";
+import employees from "./routes/employees.js";
 import auth from "./routes/auth.js";
 import pages from "./routes/pages.js";
 import staticFiles from "./routes/static.js";
@@ -46,6 +47,7 @@ app.route("/api/machines", machines);
 app.route("/api/transactions", transactions);
 app.route("/api/leaderboard", leaderboard);
 app.route("/api/leaderboard-events", leaderboardEvents);
+app.route("/api/employees", employees);
 app.route("/api/auth", auth);
 
 // Manual refresh endpoint (public) - keep at /api/refresh for backward compatibility
