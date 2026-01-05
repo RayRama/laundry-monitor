@@ -846,9 +846,32 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
         `
             : ""
         }
+        ${
+          detail.employee_id && detail.employee_id !== 0
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan ID:</span>
+          <span class="tooltip-value">${detail.employee_id}</span>
+        </div>
+        `
+            : detail.other_employee_name
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
+        `
+            : ""
+        }
         <div class="tooltip-item">
           <span class="tooltip-label">Durasi:</span>
           <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Waktu:</span>
+          <span class="tooltip-value">${new Date(
+            detail.occurred_at
+          ).toLocaleString("id-ID")}</span>
         </div>
       `;
     } else if (eventType === "qe") {
@@ -862,14 +885,45 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
           <span class="tooltip-label">Durasi:</span>
           <span class="tooltip-value">${detail.duration_minutes} menit</span>
         </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Waktu:</span>
+          <span class="tooltip-value">${new Date(
+            detail.occurred_at
+          ).toLocaleString("id-ID")}</span>
+        </div>
       `;
     } else if (eventType === "mt") {
+      // Map mtype to readable text
+      const mtypeMap = {
+        cuci_kosong: "Cuci Kosong",
+        tube_clean: "Tube Clean",
+        other: "Lainnya",
+      };
+      const mtypeText = mtypeMap[detail.mtype] || detail.mtype || "N/A";
+
       content = `
         <div class="tooltip-header">Detail ${eventName}</div>
         <div class="tooltip-item">
           <span class="tooltip-label">Jenis:</span>
-          <span class="tooltip-value">${detail.mtype || "N/A"}</span>
+          <span class="tooltip-value">${mtypeText}</span>
         </div>
+        ${
+          detail.employee_id && detail.employee_id !== 0
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan ID:</span>
+          <span class="tooltip-value">${detail.employee_id}</span>
+        </div>
+        `
+            : detail.other_employee_name
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
+        `
+            : ""
+        }
         ${
           detail.note
             ? `
@@ -884,6 +938,12 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
           <span class="tooltip-label">Durasi:</span>
           <span class="tooltip-value">${detail.duration_minutes} menit</span>
         </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Waktu:</span>
+          <span class="tooltip-value">${new Date(
+            detail.occurred_at
+          ).toLocaleString("id-ID")}</span>
+        </div>
       `;
     } else if (eventType === "ep") {
       content = `
@@ -892,9 +952,32 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
           <span class="tooltip-label">Deskripsi:</span>
           <span class="tooltip-value">${detail.description || "N/A"}</span>
         </div>
+        ${
+          detail.employee_id && detail.employee_id !== 0
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan ID:</span>
+          <span class="tooltip-value">${detail.employee_id}</span>
+        </div>
+        `
+            : detail.other_employee_name
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
+        `
+            : ""
+        }
         <div class="tooltip-item">
           <span class="tooltip-label">Durasi:</span>
           <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Waktu:</span>
+          <span class="tooltip-value">${new Date(
+            detail.occurred_at
+          ).toLocaleString("id-ID")}</span>
         </div>
       `;
     }
