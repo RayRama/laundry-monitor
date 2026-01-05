@@ -633,6 +633,22 @@ async function setupMachineBadge(badge, machine) {
       // Show event type badge (do/qe/mt/ep)
       const badgeText = eventCache.event_type.toUpperCase();
       badge.textContent = badgeText;
+
+      // Add color class based on event type
+      const eventType = eventCache.event_type.toLowerCase();
+      if (eventType === "do") {
+        badge.classList.add("badge-do");
+      } else if (eventType === "qe") {
+        badge.classList.add("badge-qe");
+      } else if (eventType === "mt") {
+        badge.classList.add("badge-mt");
+      } else if (eventType === "ep") {
+        badge.classList.add("badge-ep");
+      } else {
+        // Fallback to DO if unknown event type
+        badge.classList.add("badge-do");
+      }
+
       badge.classList.add("machine-badge-clickable");
       badge.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -652,9 +668,11 @@ async function setupMachineBadge(badge, machine) {
     } else {
       // No valid event cache, show default DO
       badge.textContent = "DO";
+      badge.classList.add("badge-do");
     }
   } else if (aidValue !== "UNKNOWN" && machine.aid) {
     badge.textContent = "QR";
+    badge.classList.add("badge-qr");
     // QR badge is clickable
     badge.classList.add("machine-badge-clickable");
     badge.addEventListener("click", (e) => {
@@ -671,6 +689,7 @@ async function setupMachineBadge(badge, machine) {
   } else {
     // UNKNOWN or other cases - show QR but not clickable
     badge.textContent = "QR";
+    badge.classList.add("badge-qr");
   }
 
   // Prevent badge from triggering hover on card mesin

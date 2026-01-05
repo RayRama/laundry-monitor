@@ -1285,7 +1285,6 @@ body {
   position: absolute;
   top: -0.5rem;
   right: -0.5rem;
-  background: #9333ea; /* Purple for QR */
   color: white !important;
   font-size: 0.65rem;
   font-weight: 700;
@@ -1303,8 +1302,30 @@ body {
   text-align: center;
 }
 
-.machine-badge:not(.machine-badge-clickable) {
-  background: #6b7280 !important; /* Gray for DO */
+/* Badge color variants */
+.machine-badge.badge-qr {
+  background: #9333ea; /* Purple for QR */
+}
+
+.machine-badge.badge-do {
+  background: #3b82f6; /* Blue for Drop-off */
+}
+
+.machine-badge.badge-qe {
+  background: #10b981; /* Green for Employee Quota */
+}
+
+.machine-badge.badge-mt {
+  background: #f59e0b; /* Orange for Maintenance */
+}
+
+.machine-badge.badge-ep {
+  background: #ef4444; /* Red for Error Payment */
+}
+
+/* Default fallback (if no class specified) */
+.machine-badge:not(.badge-qr):not(.badge-do):not(.badge-qe):not(.badge-mt):not(.badge-ep) {
+  background: #9333ea; /* Default to QR purple */
 }
 
 .machine-badge-clickable {
@@ -1313,8 +1334,33 @@ body {
   pointer-events: auto;
 }
 
-.machine-badge-clickable:hover {
-  background: #7c3aed;
+/* Hover states for clickable badges */
+.machine-badge-clickable.badge-qr:hover {
+  background: #7c3aed; /* Darker purple */
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.machine-badge-clickable.badge-do:hover {
+  background: #2563eb; /* Darker blue */
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.machine-badge-clickable.badge-qe:hover {
+  background: #059669; /* Darker green */
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.machine-badge-clickable.badge-mt:hover {
+  background: #d97706; /* Darker orange */
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.machine-badge-clickable.badge-ep:hover {
+  background: #dc2626; /* Darker red */
   transform: scale(1.05);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
