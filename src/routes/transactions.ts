@@ -1,84 +1,80 @@
 import { Hono } from "hono";
-import {
-  fetchTransactionSummary,
-  fetchTransactionList,
-  fetchTransactionDetail,
-  fetchBatchTransactionDetails,
-} from "../services/transactionService.js";
-import { calculateETag } from "../utils/etag.js";
-import { transactionCache } from "../utils/cache.js";
+import type { Context } from "hono";
+import { config } from "../config.js";
+import { fetchWithTimeout } from "../utils/fetch.js";
 
 const transactions = new Hono();
 
 /**
- * GET /api/transactions/summary - Get transaction summary
+ * GET /api/transactions/summary - Proxy to gateway
  */
 transactions.get("/summary", async (c) => {
   try {
-    const limit = c.req.query("limit") || "20";
-    const offset = c.req.query("offset") || "0";
-    const filterBy = c.req.query("filter_by") || "tahun";
-    const tahun = c.req.query("tahun") || "2025";
-    const bulan = c.req.query("bulan") || "2025-10";
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const queryParams = new URLSearchParams();
+
+    // Forward all query parameters
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+    const filterBy = c.req.query("filter_by");
+    const tahun = c.req.query("tahun");
+    const bulan = c.req.query("bulan");
     const tanggalAwal = c.req.query("tanggal_awal");
     const tanggalAkhir = c.req.query("tanggal_akhir");
+    const idmesin = c.req.query("idmesin");
 
-    const json = await fetchTransactionSummary({
-      limit,
-      offset,
-      filterBy,
-      tahun,
-      bulan,
-      tanggalAwal,
-      tanggalAkhir,
-    });
+    if (limit) queryParams.append("limit", limit);
+    if (offset) queryParams.append("offset", offset);
+    if (filterBy) queryParams.append("filter_by", filterBy);
+    if (tahun) queryParams.append("tahun", tahun);
+    if (bulan) queryParams.append("bulan", bulan);
+    if (tanggalAwal) queryParams.append("tanggal_awal", tanggalAwal);
+    if (tanggalAkhir) queryParams.append("tanggal_akhir", tanggalAkhir);
+    if (idmesin) queryParams.append("idmesin", idmesin);
 
-    // Calculate ETag
-    const currentETag = calculateETag(json);
+    const url = `${eventGatewayBase}/api/transactions/summary?${queryParams}`;
 
-    // Check If-None-Match header
+    // Forward If-None-Match header
     const ifNoneMatch = c.req.header("If-None-Match");
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (ifNoneMatch) {
+      headers["If-None-Match"] = ifNoneMatch;
+    }
 
-    if (ifNoneMatch === currentETag) {
-      // Data hasn't changed, return 304
-      c.header("ETag", currentETag);
-      c.header(
-        "X-Last-Success",
-        transactionCache.getLastSuccessTime()
-          ? new Date(transactionCache.getLastSuccessTime()!).toISOString()
-          : ""
-      );
+    const response = await fetchWithTimeout(url, 30000, { headers });
+
+    // Forward status code
+    if (response.status === 304) {
+      // Forward headers
+      const etag = response.headers.get("ETag");
+      const cacheControl = response.headers.get("Cache-Control");
+      const cacheStatus = response.headers.get("X-Cache-Status");
+      if (etag) c.header("ETag", etag);
+      if (cacheControl) c.header("Cache-Control", cacheControl);
+      if (cacheStatus) c.header("X-Cache-Status", cacheStatus);
       return new Response(null, { status: 304 });
     }
 
-    // Data has changed or no If-None-Match, return 200 with full data
-    c.header("ETag", currentETag);
-    c.header(
-      "X-Last-Success",
-      transactionCache.getLastSuccessTime()
-        ? new Date(transactionCache.getLastSuccessTime()!).toISOString()
-        : ""
-    );
+    if (!response.ok) {
+      throw new Error(`Gateway API ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    // Forward headers
+    const etag = response.headers.get("ETag");
+    const cacheControl = response.headers.get("Cache-Control");
+    const cacheStatus = response.headers.get("X-Cache-Status");
+    if (etag) c.header("ETag", etag);
+    if (cacheControl) c.header("Cache-Control", cacheControl);
+    if (cacheStatus) c.header("X-Cache-Status", cacheStatus);
 
     return c.json(json);
   } catch (error: any) {
-    console.error("❌ Error fetching transaction summary:", error);
-
-    // Return cached data if available
-    const cached = transactionCache.summary.get();
-    if (cached) {
-      console.log("📦 Returning cached summary data due to error");
-      const currentETag = calculateETag(cached);
-      c.header("ETag", currentETag);
-      c.header(
-        "X-Last-Success",
-        transactionCache.getLastSuccessTime()
-          ? new Date(transactionCache.getLastSuccessTime()!).toISOString()
-          : ""
-      );
-      return c.json(cached);
-    }
-
+    console.error("❌ Error proxying transaction summary:", error);
     return c.json(
       {
         error: "Failed to fetch transaction summary",
@@ -91,72 +87,73 @@ transactions.get("/summary", async (c) => {
 });
 
 /**
- * GET /api/transactions - Get transaction list
+ * GET /api/transactions - Proxy to gateway
  */
 transactions.get("/", async (c) => {
   try {
-    const limit = c.req.query("limit") || "100";
-    const offset = c.req.query("offset") || "0";
-    const filterBy = c.req.query("filter_by") || "bulan";
-    const bulan = c.req.query("bulan") || "2025-10";
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const queryParams = new URLSearchParams();
+
+    // Forward all query parameters
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+    const filterBy = c.req.query("filter_by");
+    const bulan = c.req.query("bulan");
     const tanggalAwal = c.req.query("tanggal_awal");
     const tanggalAkhir = c.req.query("tanggal_akhir");
+    const idmesin = c.req.query("idmesin");
 
-    const json = await fetchTransactionList({
-      limit,
-      offset,
-      filterBy,
-      bulan,
-      tanggalAwal,
-      tanggalAkhir,
-    });
+    if (limit) queryParams.append("limit", limit);
+    if (offset) queryParams.append("offset", offset);
+    if (filterBy) queryParams.append("filter_by", filterBy);
+    if (bulan) queryParams.append("bulan", bulan);
+    if (tanggalAwal) queryParams.append("tanggal_awal", tanggalAwal);
+    if (tanggalAkhir) queryParams.append("tanggal_akhir", tanggalAkhir);
+    if (idmesin) queryParams.append("idmesin", idmesin);
 
-    // Calculate ETag
-    const currentETag = calculateETag(json);
+    const url = `${eventGatewayBase}/api/transactions?${queryParams}`;
 
-    // Check If-None-Match header
+    // Forward If-None-Match header
     const ifNoneMatch = c.req.header("If-None-Match");
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (ifNoneMatch) {
+      headers["If-None-Match"] = ifNoneMatch;
+    }
 
-    if (ifNoneMatch === currentETag) {
-      // Data hasn't changed, return 304
-      c.header("ETag", currentETag);
-      c.header(
-        "X-Last-Success",
-        transactionCache.getLastSuccessTime()
-          ? new Date(transactionCache.getLastSuccessTime()!).toISOString()
-          : ""
-      );
+    const response = await fetchWithTimeout(url, 30000, { headers });
+
+    // Forward status code
+    if (response.status === 304) {
+      // Forward headers
+      const etag = response.headers.get("ETag");
+      const cacheControl = response.headers.get("Cache-Control");
+      const cacheStatus = response.headers.get("X-Cache-Status");
+      if (etag) c.header("ETag", etag);
+      if (cacheControl) c.header("Cache-Control", cacheControl);
+      if (cacheStatus) c.header("X-Cache-Status", cacheStatus);
       return new Response(null, { status: 304 });
     }
 
-    // Data has changed or no If-None-Match, return 200 with full data
-    c.header("ETag", currentETag);
-    c.header(
-      "X-Last-Success",
-      transactionCache.getLastSuccessTime()
-        ? new Date(transactionCache.getLastSuccessTime()!).toISOString()
-        : ""
-    );
+    if (!response.ok) {
+      throw new Error(`Gateway API ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    // Forward headers
+    const etag = response.headers.get("ETag");
+    const cacheControl = response.headers.get("Cache-Control");
+    const cacheStatus = response.headers.get("X-Cache-Status");
+    if (etag) c.header("ETag", etag);
+    if (cacheControl) c.header("Cache-Control", cacheControl);
+    if (cacheStatus) c.header("X-Cache-Status", cacheStatus);
 
     return c.json(json);
   } catch (error: any) {
-    console.error("❌ Error fetching transactions:", error);
-
-    // Return cached data if available
-    const cached = transactionCache.list.get();
-    if (cached) {
-      console.log("📦 Returning cached transactions data due to error");
-      const currentETag = calculateETag(cached);
-      c.header("ETag", currentETag);
-      c.header(
-        "X-Last-Success",
-        transactionCache.getLastSuccessTime()
-          ? new Date(transactionCache.getLastSuccessTime()!).toISOString()
-          : ""
-      );
-      return c.json(cached);
-    }
-
+    console.error("❌ Error proxying transactions:", error);
     return c.json(
       {
         error: "Failed to fetch transactions",
@@ -170,39 +167,33 @@ transactions.get("/", async (c) => {
 });
 
 /**
- * POST /api/transactions/batch-details - Get batch transaction details
+ * POST /api/transactions/batch-details - Proxy to gateway
  */
 transactions.post("/batch-details", async (c) => {
   try {
-    const body = await c.req.json();
-    const { ids } = body; // Array of idtransaksi
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const url = `${eventGatewayBase}/api/transactions/batch-details`;
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return c.json(
-        {
-          error: "Bad Request",
-          message: "ids must be a non-empty array",
-        },
-        400
-      );
+    const body = await c.req.json();
+
+    const response = await fetchWithTimeout(url, 60000, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gateway API ${response.status}`);
     }
 
-    const details = await fetchBatchTransactionDetails(ids);
-
-    const successful = details.filter(
-      (d) => d.mesin !== null || d.nama_layanan !== null
-    ).length;
-    const failed = details.filter((d) => d.error).length;
-
-    return c.json({
-      success: true,
-      data: details,
-      total: details.length,
-      successful,
-      failed,
-    });
+    const json = await response.json();
+    return c.json(json);
   } catch (error: any) {
-    console.error("❌ Error fetching batch transaction details:", error);
+    console.error("❌ Error proxying batch transaction details:", error);
     return c.json(
       {
         error: "Failed to fetch batch transaction details",
@@ -215,11 +206,18 @@ transactions.post("/batch-details", async (c) => {
 });
 
 /**
- * GET /api/transaction-detail - Get single transaction detail
+ * GET /api/transactions/detail - Proxy to gateway
  */
-transactions.get("/detail", async (c) => {
+export const handleTransactionDetail = async (c: Context) => {
   try {
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const queryParams = new URLSearchParams();
+
     const idtransaksi = c.req.query("idtransaksi");
+    if (idtransaksi) {
+      queryParams.append("idtransaksi", idtransaksi);
+    }
 
     if (!idtransaksi) {
       return c.json(
@@ -231,10 +229,48 @@ transactions.get("/detail", async (c) => {
       );
     }
 
-    const json = await fetchTransactionDetail(idtransaksi);
+    const url = `${eventGatewayBase}/api/transactions/detail?${queryParams}`;
+
+    // Forward If-None-Match header
+    const ifNoneMatch = c.req.header("If-None-Match");
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (ifNoneMatch) {
+      headers["If-None-Match"] = ifNoneMatch;
+    }
+
+    const response = await fetchWithTimeout(url, 30000, { headers });
+
+    // Forward status code
+    if (response.status === 304) {
+      // Forward headers
+      const etag = response.headers.get("ETag");
+      const cacheControl = response.headers.get("Cache-Control");
+      const cacheStatus = response.headers.get("X-Cache-Status");
+      if (etag) c.header("ETag", etag);
+      if (cacheControl) c.header("Cache-Control", cacheControl);
+      if (cacheStatus) c.header("X-Cache-Status", cacheStatus);
+      return new Response(null, { status: 304 });
+    }
+
+    if (!response.ok) {
+      throw new Error(`Gateway API ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    // Forward headers
+    const etag = response.headers.get("ETag");
+    const cacheControl = response.headers.get("Cache-Control");
+    const cacheStatus = response.headers.get("X-Cache-Status");
+    if (etag) c.header("ETag", etag);
+    if (cacheControl) c.header("Cache-Control", cacheControl);
+    if (cacheStatus) c.header("X-Cache-Status", cacheStatus);
+
     return c.json(json);
   } catch (error: any) {
-    console.error("❌ Error fetching transaction detail:", error);
+    console.error("❌ Error proxying transaction detail:", error);
     return c.json(
       {
         error: "Failed to fetch transaction detail",
@@ -243,7 +279,9 @@ transactions.get("/detail", async (c) => {
       500
     );
   }
-});
+};
+
+// Register detail endpoint
+transactions.get("/detail", handleTransactionDetail);
 
 export default transactions;
-

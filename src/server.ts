@@ -50,8 +50,8 @@ app.route("/api/leaderboard-events", leaderboardEvents);
 app.route("/api/employees", employees);
 app.route("/api/auth", auth);
 
-// Manual refresh endpoint (public) - keep at /api/refresh for backward compatibility
-app.post("/api/refresh", async (c) => {
+// Manual refresh endpoint (public) - changed from POST to GET for RESTful compliance
+app.get("/api/refresh", async (c) => {
   const { machineCache } = await import("./utils/cache.js");
   await refreshMachines();
   const snapshot = machineCache.get();
@@ -62,36 +62,11 @@ app.post("/api/refresh", async (c) => {
   });
 });
 
-// Transaction detail endpoint - keep at /api/transaction-detail for backward compatibility
-app.get("/api/transaction-detail", async (c) => {
-  const { fetchTransactionDetail } = await import(
-    "./services/transactionService.js"
-  );
-  try {
-    const idtransaksi = c.req.query("idtransaksi");
-
-    if (!idtransaksi) {
-      return c.json(
-        {
-          error: "Bad Request",
-          message: "idtransaksi parameter is required",
-        },
-        400
-      );
-    }
-
-    const json = await fetchTransactionDetail(idtransaksi);
-    return c.json(json);
-  } catch (error: any) {
-    console.error("❌ Error fetching transaction detail:", error);
-    return c.json(
-      {
-        error: "Failed to fetch transaction detail",
-        message: error.message,
-      },
-      500
-    );
-  }
+// Transaction detail endpoint - backward compatibility for /api/transaction-detail
+// Uses the same handler from transactions route
+app.get("/api/transaction-detail", authMiddleware(), async (c) => {
+  const { handleTransactionDetail } = await import("./routes/transactions.js");
+  return handleTransactionDetail(c);
 });
 
 // Protected routes - require authentication
