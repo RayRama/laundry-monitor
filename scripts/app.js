@@ -2455,13 +2455,19 @@ async function startMachine() {
     `;
     startBtn.disabled = true;
 
-    // Prepare request body - only duration (event creation is handled separately)
+    // Prepare request body - include event data if available
     const requestBody = {
       duration: duration,
       program: "normal",
     };
 
+    // Add event data if available (backend will handle event creation)
+    if (eventData) {
+      requestBody.event = eventData;
+    }
+
     // Make API call to start machine (via frontend API proxy)
+    // Backend will handle both machine start and event creation
     const response = await fetch(
       `${API_BASE}/api/machines/${currentMachine.id}/start`,
       {
@@ -2481,79 +2487,40 @@ async function startMachine() {
     const result = await response.json();
 
     if (result.success) {
-      // Machine started successfully, now create event if eventData exists
-      if (eventData) {
-        console.log(
-          `[Frontend] Machine started, creating event:`,
-          eventData.type,
-          eventData.data
-        );
-        try {
-          // Import createEvent dynamically
-          const { createEvent } = await import(
-            "../src/services/eventService.js"
-          );
-          const eventResult = await createEvent(eventData);
-          console.log(`[Frontend] Event creation result:`, eventResult);
+      // Machine started successfully
+      // Backend has already handled event creation (or saved to retry queue if failed)
+      const eventTypeMap = {
+        "drop-off": "Drop-off",
+        "employee-quota": "Employee Quota",
+        maintenance: "Maintenance",
+        "error-payment": "Error Payment",
+      };
+      const eventTypeLabel = eventData
+        ? eventTypeMap[eventData.type] || eventData.type
+        : null;
 
-          if (eventResult.success) {
-            console.log("✅ Event created successfully after machine start");
-            console.log("✅ Event data:", eventResult.data);
-            // Show success message with event details
-            const eventTypeMap = {
-              "drop-off": "Drop-off",
-              "employee-quota": "Employee Quota",
-              maintenance: "Maintenance",
-              "error-payment": "Error Payment",
-            };
-            const eventTypeLabel =
-              eventTypeMap[eventData.type] || eventData.type;
-            alert(
-              `✅ Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!\n\n` +
-                `✅ Event ${eventTypeLabel} berhasil dicatat!\n` +
-                `Event ID: ${eventResult.data?.id || "N/A"}\n` +
-                `Waktu: ${
-                  eventResult.data?.occurred_at
-                    ? new Date(eventResult.data.occurred_at).toLocaleString(
-                        "id-ID"
-                      )
-                    : "N/A"
-                }`
-            );
-          } else {
-            console.warn(
-              "⚠️ Machine started but event creation failed (will retry):",
-              eventResult.message || eventResult.error
-            );
-            alert(
-              `⚠️ Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!\n\n` +
-                `⚠️ Pencatatan event gagal: ${
-                  eventResult.message || eventResult.error
-                }\n\n` +
-                `Sistem akan mencoba lagi secara otomatis.`
-            );
-          }
-        } catch (eventError) {
-          console.error(
-            "Error creating event after machine start:",
-            eventError
-          );
-          alert(
-            `Mesin ${machineLabel} berhasil dinyalakan, tetapi pencatatan event gagal. Sistem akan mencoba lagi secara otomatis.`
-          );
+      // Build success message
+      let message = `✅ Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!`;
+      if (eventData && result.event) {
+        if (result.event.success) {
+          message += `\n\n✅ Event ${eventTypeLabel} berhasil dicatat!\n`;
+          message += `Event ID: ${result.event.data?.id || "N/A"}\n`;
+          message += `Waktu: ${
+            result.event.data?.occurred_at
+              ? new Date(result.event.data.occurred_at).toLocaleString("id-ID")
+              : "N/A"
+          }`;
+        } else {
+          message += `\n\n⚠️ Pencatatan event gagal: ${
+            result.event.message || result.event.error
+          }\n\nSistem akan mencoba lagi secara otomatis.`;
         }
       }
 
-      // Success - close modal
-      // Note: Alert message is now shown in event creation block above
-      closeMachineModal();
+      alert(message);
 
-      // Only show this alert if no event was created (shouldn't happen, but just in case)
-      if (!eventData) {
-        alert(
-          `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!`
-        );
-      }
+      // Success - close modal
+      closeMachineModal();
 
       // Refresh data to show updated status
       await fetchFromBackend();
