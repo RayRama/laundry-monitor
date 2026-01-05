@@ -177,8 +177,8 @@ const GATEWAY_BASE = onFile
   ? (typeof process !== "undefined" && process.env?.EVENT_GATEWAY_BASE) ||
     (typeof window !== "undefined" && window.location?.hostname === "localhost"
       ? "http://localhost:54990"
-      : "http://194.233.83.134:54990") // Replace with actual gateway URL
-  : "http://194.233.83.134:54990";
+      : "http://194.233.72.89:54990") // Gateway production URL
+  : "http://localhost:54990";
 
 // Hysteresis untuk mencegah "kedip" status
 const hysteresisCache = new Map();
