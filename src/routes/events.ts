@@ -13,7 +13,12 @@ events.get("/:type/:id", async (c) => {
     const eventId = c.req.param("id");
 
     // Map event type to gateway endpoint
-    const validTypes = ["drop-off", "employee-quota", "maintenance", "error-payment"];
+    const validTypes = [
+      "drop-off",
+      "employee-quota",
+      "maintenance",
+      "error-payment",
+    ];
     if (!validTypes.includes(eventType)) {
       return c.json(
         {
@@ -65,7 +70,12 @@ events.post("/:type", async (c) => {
     const body = await c.req.json();
 
     // Map event type to gateway endpoint
-    const validTypes = ["drop-off", "employee-quota", "maintenance", "error-payment"];
+    const validTypes = [
+      "drop-off",
+      "employee-quota",
+      "maintenance",
+      "error-payment",
+    ];
     if (!validTypes.includes(eventType)) {
       return c.json(
         {
@@ -80,6 +90,12 @@ events.post("/:type", async (c) => {
     const eventGatewayBase =
       config.eventGateway?.base || "http://localhost:54990";
     const url = `${eventGatewayBase}/api/events/${eventType}`;
+
+    console.log(`[Frontend API] Proxying event creation to gateway:`, {
+      eventType,
+      url,
+      body: { ...body, machine_id: body.machine_id },
+    });
 
     const response = await fetchWithTimeout(url, 15000, {
       method: "POST",
@@ -96,6 +112,12 @@ events.post("/:type", async (c) => {
     }
 
     const json = await response.json();
+    console.log(`[Frontend API] Event creation response from gateway:`, {
+      success: json.success,
+      hasData: !!json.data,
+      message: json.message,
+      error: json.error,
+    });
     return c.json(json, response.status);
   } catch (error: any) {
     console.error("❌ Error proxying event creation:", error);
@@ -111,4 +133,3 @@ events.post("/:type", async (c) => {
 });
 
 export default events;
-

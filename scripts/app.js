@@ -2483,22 +2483,54 @@ async function startMachine() {
     if (result.success) {
       // Machine started successfully, now create event if eventData exists
       if (eventData) {
+        console.log(
+          `[Frontend] Machine started, creating event:`,
+          eventData.type,
+          eventData.data
+        );
         try {
           // Import createEvent dynamically
           const { createEvent } = await import(
             "../src/services/eventService.js"
           );
           const eventResult = await createEvent(eventData);
+          console.log(`[Frontend] Event creation result:`, eventResult);
 
           if (eventResult.success) {
             console.log("✅ Event created successfully after machine start");
+            console.log("✅ Event data:", eventResult.data);
+            // Show success message with event details
+            const eventTypeMap = {
+              "drop-off": "Drop-off",
+              "employee-quota": "Employee Quota",
+              maintenance: "Maintenance",
+              "error-payment": "Error Payment",
+            };
+            const eventTypeLabel =
+              eventTypeMap[eventData.type] || eventData.type;
+            alert(
+              `✅ Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!\n\n` +
+                `✅ Event ${eventTypeLabel} berhasil dicatat!\n` +
+                `Event ID: ${eventResult.data?.id || "N/A"}\n` +
+                `Waktu: ${
+                  eventResult.data?.occurred_at
+                    ? new Date(eventResult.data.occurred_at).toLocaleString(
+                        "id-ID"
+                      )
+                    : "N/A"
+                }`
+            );
           } else {
             console.warn(
               "⚠️ Machine started but event creation failed (will retry):",
               eventResult.message || eventResult.error
             );
             alert(
-              `Mesin ${machineLabel} berhasil dinyalakan, tetapi pencatatan event gagal. Sistem akan mencoba lagi secara otomatis.`
+              `⚠️ Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!\n\n` +
+                `⚠️ Pencatatan event gagal: ${
+                  eventResult.message || eventResult.error
+                }\n\n` +
+                `Sistem akan mencoba lagi secara otomatis.`
             );
           }
         } catch (eventError) {
@@ -2512,11 +2544,16 @@ async function startMachine() {
         }
       }
 
-      // Success - close modal and show message
+      // Success - close modal
+      // Note: Alert message is now shown in event creation block above
       closeMachineModal();
-      alert(
-        `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!`
-      );
+
+      // Only show this alert if no event was created (shouldn't happen, but just in case)
+      if (!eventData) {
+        alert(
+          `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit!`
+        );
+      }
 
       // Refresh data to show updated status
       await fetchFromBackend();

@@ -96,6 +96,13 @@ export async function createEvent(eventData: EventData): Promise<{
   const baseUrl = getEventBaseUrl();
   const url = `${baseUrl}${endpoint}`;
 
+  console.log(`[EventService] Creating ${type} event:`, {
+    url,
+    endpoint,
+    baseUrl,
+    data: { ...data, machine_id: data.machine_id },
+  });
+
   try {
     const response = await fetchWithTimeout(url, 15000, {
       method: "POST",
@@ -130,7 +137,7 @@ export async function createEvent(eventData: EventData): Promise<{
     }
 
     const result = await response.json();
-    console.log(`✅ ${type} event created successfully`);
+    console.log(`✅ ${type} event created successfully`, result);
 
     return {
       success: true,
