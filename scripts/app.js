@@ -169,13 +169,16 @@ const API_BASE = onFile
   : "http://localhost:3000";
 
 // Gateway base URL - defaults to localhost:54990 (gateway port)
-// For production, this should be configured via environment or config
-// For now, use same logic as API_BASE but with gateway port
+// For production (Vercel), use EVENT_GATEWAY_BASE env var or default gateway URL
+// Gateway runs on different port/host than frontend
 const GATEWAY_BASE = onFile
   ? "http://localhost:54990"
   : onPort3000 || onVercel
-  ? "" // Gateway runs on different port
-  : "http://localhost:54990";
+  ? (typeof process !== "undefined" && process.env?.EVENT_GATEWAY_BASE) ||
+    (typeof window !== "undefined" && window.location?.hostname === "localhost"
+      ? "http://localhost:54990"
+      : "http://194.233.83.134:54990") // Replace with actual gateway URL
+  : "http://194.233.83.134:54990";
 
 // Hysteresis untuk mencegah "kedip" status
 const hysteresisCache = new Map();
