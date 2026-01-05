@@ -1,47 +1,11 @@
 import { config } from "../config.js";
-import { getAllMachineIds, MACHINE_CONFIG } from "../constants.js";
-import { fetchWithTimeout, createUpstreamHeaders } from "../utils/fetch.js";
+import { MACHINE_CONFIG } from "../constants.js";
+import { fetchWithTimeout } from "../utils/fetch.js";
 import { leaderboardCache } from "../utils/cache.js";
-import { fetchTransactionSummary } from "./transactionService.js";
 import type { LeaderboardResponse } from "../types.js";
 
 /**
- * Build URL untuk leaderboard berdasarkan machine ID
- */
-function buildLeaderboardUrl(
-  machineId: string,
-  params: {
-    filterBy?: string;
-    bulan?: string;
-    tanggalAwal?: string;
-    tanggalAkhir?: string;
-    limit?: string;
-  }
-): string {
-  const {
-    filterBy = "bulan",
-    bulan = "2025-10",
-    tanggalAwal,
-    tanggalAkhir,
-    limit = "1000",
-  } = params;
-
-  const base = config.upstream.base;
-  let url = `${base}/list_transaksi_snap_konsumen?sort_by=transaksi&order_by=DESC&limit=${limit}&offset=0&idmesin=${machineId}`;
-
-  if (filterBy === "periode" && tanggalAwal && tanggalAkhir) {
-    url += `&filter_by=periode&tanggal_awal=${tanggalAwal}&tanggal_akhir=${tanggalAkhir}`;
-  } else if (filterBy === "bulan") {
-    url += `&filter_by=bulan&bulan=${bulan}`;
-  } else {
-    url += `&filter_by=tahun&tahun=2025`;
-  }
-
-  return url;
-}
-
-/**
- * Generate frequency leaderboard
+ * Generate frequency leaderboard - now calls gateway instead of SmartLink directly
  */
 export async function generateFrequencyLeaderboard(params: {
   filterBy?: string;
@@ -49,108 +13,81 @@ export async function generateFrequencyLeaderboard(params: {
   tanggalAwal?: string;
   tanggalAkhir?: string;
 }): Promise<LeaderboardResponse> {
-  console.log("📊 Generating frequency leaderboard...");
+  console.log("📊 Generating frequency leaderboard via gateway...");
 
-  const machineIds = getAllMachineIds();
-  const controllersMap = MACHINE_CONFIG.machineLabels;
+  const eventGatewayBase = config.eventGateway?.base || "http://localhost:54990";
+  const urlParams = new URLSearchParams();
 
-  // Fetch all machines in parallel for better performance
-  const fetchMachineData = async (machineId: string) => {
-    try {
-      // First, fetch summary to get total_nota for this machine
-      const summaryParams = {
-        filterBy: params.filterBy || "bulan",
-        bulan: params.bulan,
-        tanggalAwal: params.tanggalAwal,
-        tanggalAkhir: params.tanggalAkhir,
-        idmesin: machineId,
-        limit: "1", // Just need summary
-        offset: "0",
-      };
+  if (params.filterBy) {
+    urlParams.append("filter_by", params.filterBy);
+  }
+  if (params.bulan) {
+    urlParams.append("bulan", params.bulan);
+  }
+  if (params.tanggalAwal) {
+    urlParams.append("tanggal_awal", params.tanggalAwal);
+  }
+  if (params.tanggalAkhir) {
+    urlParams.append("tanggal_akhir", params.tanggalAkhir);
+  }
 
-      let totalNota = 0;
-      try {
-        const summaryData = await fetchTransactionSummary(summaryParams);
-        totalNota = summaryData.data?.total_nota || 0;
-      } catch (error) {
-        console.warn(
-          `Failed to fetch summary for machine ${machineId}, using default limit`
-        );
-      }
+  const url = `${eventGatewayBase}/api/leaderboard/frequency?${urlParams}`;
+  console.log(`📊 Fetching frequency leaderboard from: ${url}`);
 
-      // Use total_nota as limit, with minimum 1000 for safety
-      const limit = totalNota > 0 ? String(Math.max(totalNota, 1000)) : "10000";
+  try {
+    const response = await fetchWithTimeout(url, 30000, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-      // Fetch transactions with dynamic limit
-      const url = buildLeaderboardUrl(machineId, { ...params, limit });
-      const headers = createUpstreamHeaders(
-        config.upstream.bearer,
-        "leaderboard/1.0"
-      );
-      const res = await fetchWithTimeout(url, 10000, { headers });
-
-      if (!res.ok) return null;
-
-      const json = await res.json();
-      const transactions = json.data || [];
-      const frequency = transactions.length;
-
-      if (frequency > 0) {
-        return {
-          machineId,
-          machineLabel:
-            (controllersMap[
-              machineId as keyof typeof controllersMap
-            ] as string) || machineId,
-          frequency,
-          totalRevenue: transactions.reduce(
-            (sum: number, t: any) => sum + (t.total_harga || 0),
-            0
-          ),
-          lastTransaction: transactions[0]?.waktu_diterima_raw || null,
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error(`Error fetching data for machine ${machineId}:`, error);
-      return null;
+    if (!response.ok) {
+      throw new Error(`Gateway API ${response.status}`);
     }
-  };
 
-  // Fetch all machines in parallel
-  const results = await Promise.all(machineIds.map(fetchMachineData));
-  const leaderboard = results.filter(
-    (item): item is NonNullable<typeof item> => item !== null
-  );
+    const json = await response.json();
+    
+    if (!json.success || !json.data) {
+      throw new Error("Invalid response from gateway");
+    }
 
-  // Sort by frequency (descending)
-  leaderboard.sort((a, b) => b.frequency - a.frequency);
+    // Map machine_id to machine_label using MACHINE_CONFIG
+    const controllersMap = MACHINE_CONFIG.machineLabels;
+    const mappedData = json.data.data.map((item: any) => ({
+      ...item,
+      machineLabel:
+        (controllersMap[
+          item.machineId as keyof typeof controllersMap
+        ] as string) || item.machineId,
+    }));
 
-  console.log(
-    `✅ Frequency leaderboard generated: ${leaderboard.length} machines`
-  );
+    const responseData: LeaderboardResponse = {
+      success: true,
+      data: mappedData,
+      total_machines: json.data.total_machines || mappedData.length,
+      period: json.data.period || { filterBy: params.filterBy || "bulan", ...params },
+    };
 
-  const responseData: LeaderboardResponse = {
-    success: true,
-    data: leaderboard.map((item, index) => ({
-      rank: index + 1,
-      machineId: item.machineId,
-      machineLabel: item.machineLabel,
-      frequency: item.frequency,
-      totalRevenue: item.totalRevenue,
-      lastTransaction: item.lastTransaction,
-    })),
-    total_machines: leaderboard.length,
-    period: { filterBy: params.filterBy || "bulan", ...params },
-  };
-
-  // Update cache
-  leaderboardCache.frequency.set(responseData);
-  return responseData;
+    // Update cache
+    leaderboardCache.frequency.set(responseData);
+    return responseData;
+  } catch (error: any) {
+    console.error("❌ Error fetching frequency leaderboard from gateway:", error);
+    
+    // Try to return cached data if available (fallback)
+    const cached = leaderboardCache.frequency.get();
+    if (cached) {
+      console.log("📦 Returning cached frequency leaderboard data due to error");
+      return cached;
+    }
+    
+    throw error;
+  }
 }
 
 /**
- * Generate revenue leaderboard
+ * Generate revenue leaderboard - now calls gateway instead of SmartLink directly
  */
 export async function generateRevenueLeaderboard(params: {
   filterBy?: string;
@@ -158,106 +95,76 @@ export async function generateRevenueLeaderboard(params: {
   tanggalAwal?: string;
   tanggalAkhir?: string;
 }): Promise<LeaderboardResponse> {
-  console.log("💰 Generating revenue leaderboard...");
+  console.log("💰 Generating revenue leaderboard via gateway...");
 
-  const machineIds = getAllMachineIds();
-  const controllersMap = MACHINE_CONFIG.machineLabels;
+  const eventGatewayBase = config.eventGateway?.base || "http://localhost:54990";
+  const urlParams = new URLSearchParams();
 
-  // Fetch all machines in parallel for better performance
-  const fetchMachineData = async (machineId: string) => {
-    try {
-      // First, fetch summary to get total_nota for this machine
-      const summaryParams = {
-        filterBy: params.filterBy || "bulan",
-        bulan: params.bulan,
-        tanggalAwal: params.tanggalAwal,
-        tanggalAkhir: params.tanggalAkhir,
-        idmesin: machineId,
-        limit: "1", // Just need summary
-        offset: "0",
-      };
+  if (params.filterBy) {
+    urlParams.append("filter_by", params.filterBy);
+  }
+  if (params.bulan) {
+    urlParams.append("bulan", params.bulan);
+  }
+  if (params.tanggalAwal) {
+    urlParams.append("tanggal_awal", params.tanggalAwal);
+  }
+  if (params.tanggalAkhir) {
+    urlParams.append("tanggal_akhir", params.tanggalAkhir);
+  }
 
-      let totalNota = 0;
-      try {
-        const summaryData = await fetchTransactionSummary(summaryParams);
-        totalNota = summaryData.data?.total_nota || 0;
-      } catch (error) {
-        console.warn(
-          `Failed to fetch summary for machine ${machineId}, using default limit`
-        );
-      }
+  const url = `${eventGatewayBase}/api/leaderboard/revenue?${urlParams}`;
+  console.log(`💰 Fetching revenue leaderboard from: ${url}`);
 
-      // Use total_nota as limit, with minimum 1000 for safety
-      const limit = totalNota > 0 ? String(Math.max(totalNota, 1000)) : "10000";
+  try {
+    const response = await fetchWithTimeout(url, 30000, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-      // Fetch transactions with dynamic limit
-      const url = buildLeaderboardUrl(machineId, { ...params, limit });
-      const headers = createUpstreamHeaders(
-        config.upstream.bearer,
-        "leaderboard/1.0"
-      );
-      const res = await fetchWithTimeout(url, 10000, { headers });
-
-      if (!res.ok) return null;
-
-      const json = await res.json();
-      const transactions = json.data || [];
-      const totalRevenue = transactions.reduce(
-        (sum: number, t: any) => sum + (t.total_harga || 0),
-        0
-      );
-
-      if (totalRevenue > 0) {
-        return {
-          machineId,
-          machineLabel:
-            (controllersMap[
-              machineId as keyof typeof controllersMap
-            ] as string) || machineId,
-          frequency: transactions.length,
-          totalRevenue,
-          lastTransaction: transactions[0]?.waktu_diterima_raw || null,
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error(`Error fetching data for machine ${machineId}:`, error);
-      return null;
+    if (!response.ok) {
+      throw new Error(`Gateway API ${response.status}`);
     }
-  };
 
-  // Fetch all machines in parallel
-  const results = await Promise.all(machineIds.map(fetchMachineData));
-  const leaderboard = results.filter(
-    (item): item is NonNullable<typeof item> => item !== null
-  );
+    const json = await response.json();
+    
+    if (!json.success || !json.data) {
+      throw new Error("Invalid response from gateway");
+    }
 
-  // Sort by total revenue (descending)
-  leaderboard.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    // Map machine_id to machine_label using MACHINE_CONFIG
+    const controllersMap = MACHINE_CONFIG.machineLabels;
+    const mappedData = json.data.data.map((item: any) => ({
+      ...item,
+      machineLabel:
+        (controllersMap[
+          item.machineId as keyof typeof controllersMap
+        ] as string) || item.machineId,
+    }));
 
-  console.log(
-    `✅ Revenue leaderboard generated: ${leaderboard.length} machines`
-  );
+    const responseData: LeaderboardResponse = {
+      success: true,
+      data: mappedData,
+      total_machines: json.data.total_machines || mappedData.length,
+      total_revenue: json.data.total_revenue,
+      period: json.data.period || { filterBy: params.filterBy || "bulan", ...params },
+    };
 
-  const responseData: LeaderboardResponse = {
-    success: true,
-    data: leaderboard.map((item, index) => ({
-      rank: index + 1,
-      machineId: item.machineId,
-      machineLabel: item.machineLabel,
-      frequency: item.frequency,
-      totalRevenue: item.totalRevenue,
-      lastTransaction: item.lastTransaction,
-    })),
-    total_machines: leaderboard.length,
-    total_revenue: leaderboard.reduce(
-      (sum, item) => sum + item.totalRevenue,
-      0
-    ),
-    period: { filterBy: params.filterBy || "bulan", ...params },
-  };
-
-  // Update cache
-  leaderboardCache.revenue.set(responseData);
-  return responseData;
+    // Update cache
+    leaderboardCache.revenue.set(responseData);
+    return responseData;
+  } catch (error: any) {
+    console.error("❌ Error fetching revenue leaderboard from gateway:", error);
+    
+    // Try to return cached data if available (fallback)
+    const cached = leaderboardCache.revenue.get();
+    if (cached) {
+      console.log("📦 Returning cached revenue leaderboard data due to error");
+      return cached;
+    }
+    
+    throw error;
+  }
 }
