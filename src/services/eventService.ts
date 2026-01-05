@@ -1,9 +1,8 @@
 import { config } from "../config.js";
 import { fetchWithTimeout } from "../utils/fetch.js";
 
-// Event gateway configuration from config
-const EVENT_GATEWAY_BASE_URL =
-  config.eventGateway?.base || "http://localhost:3999";
+// Gateway base URL - use eventGateway.base which should point to the gateway
+const GATEWAY_BASE_URL = config.eventGateway?.base || "http://localhost:54990";
 
 /**
  * Event data types based on API documentation
@@ -85,7 +84,7 @@ export async function createEvent(eventData: EventData): Promise<{
       };
   }
 
-  const url = `${EVENT_GATEWAY_BASE_URL}${endpoint}`;
+  const url = `${GATEWAY_BASE_URL}${endpoint}`;
 
   try {
     const response = await fetchWithTimeout(url, 15000, {

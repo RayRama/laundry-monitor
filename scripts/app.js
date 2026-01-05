@@ -168,6 +168,15 @@ const API_BASE = onFile
   ? ""
   : "http://localhost:3000";
 
+// Gateway base URL - defaults to localhost:54990 (gateway port)
+// For production, this should be configured via environment or config
+// For now, use same logic as API_BASE but with gateway port
+const GATEWAY_BASE = onFile
+  ? "http://localhost:54990"
+  : onPort3000 || onVercel
+  ? "" // Gateway runs on different port
+  : "http://localhost:54990";
+
 // Hysteresis untuk mencegah "kedip" status
 const hysteresisCache = new Map();
 const HYSTERESIS_THRESHOLD = 3000; // 3 detik
@@ -339,50 +348,8 @@ function renderSingleGrid() {
         ? String(machine.aid).trim().toUpperCase()
         : "";
 
-      // Debug log for all RUNNING machines
-      console.log(
-        `[Badge Debug] Machine ${machine.label}: aid="${
-          machine.aid
-        }", aidValue="${aidValue}", type=${typeof machine.aid}`
-      );
-
-      // DO badge: aid is "BOS" or undefined/null (not a QR payment)
-      // QR badge: aid exists and is not "UNKNOWN" and not "BOS"
-      if (
-        aidValue === "BOS" ||
-        !machine.aid ||
-        machine.aid === null ||
-        machine.aid === undefined
-      ) {
-        badge.textContent = "DO";
-        // DO badge is not clickable
-      } else if (aidValue !== "UNKNOWN" && machine.aid) {
-        badge.textContent = "QR";
-        // QR badge is clickable
-        badge.classList.add("machine-badge-clickable");
-        badge.addEventListener("click", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click
-          e.preventDefault(); // Prevent default behavior
-          showTransactionTooltip(badge, machine.aid);
-        });
-        badge.addEventListener("mousedown", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click on mousedown
-        });
-        badge.addEventListener("mouseup", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click on mouseup
-        });
-      } else {
-        // UNKNOWN or other cases - show QR but not clickable
-        badge.textContent = "QR";
-      }
-
-      // Prevent badge from triggering hover on card mesin
-      badge.addEventListener("mouseenter", (e) => {
-        e.stopPropagation();
-      });
-      badge.addEventListener("mouseleave", (e) => {
-        e.stopPropagation();
-      });
+      // Setup badge asynchronously (will update once event cache is fetched)
+      setupMachineBadge(badge, machine);
 
       machineElement.appendChild(badge); // Append to machineElement after content
     }
@@ -506,50 +473,8 @@ function renderMobileGrids() {
         ? String(machine.aid).trim().toUpperCase()
         : "";
 
-      // Debug log for all RUNNING machines
-      console.log(
-        `[Badge Debug] Machine ${machine.label}: aid="${
-          machine.aid
-        }", aidValue="${aidValue}", type=${typeof machine.aid}`
-      );
-
-      // DO badge: aid is "BOS" or undefined/null (not a QR payment)
-      // QR badge: aid exists and is not "UNKNOWN" and not "BOS"
-      if (
-        aidValue === "BOS" ||
-        !machine.aid ||
-        machine.aid === null ||
-        machine.aid === undefined
-      ) {
-        badge.textContent = "DO";
-        // DO badge is not clickable
-      } else if (aidValue !== "UNKNOWN" && machine.aid) {
-        badge.textContent = "QR";
-        // QR badge is clickable
-        badge.classList.add("machine-badge-clickable");
-        badge.addEventListener("click", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click
-          e.preventDefault(); // Prevent default behavior
-          showTransactionTooltip(badge, machine.aid);
-        });
-        badge.addEventListener("mousedown", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click on mousedown
-        });
-        badge.addEventListener("mouseup", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click on mouseup
-        });
-      } else {
-        // UNKNOWN or other cases - show QR but not clickable
-        badge.textContent = "QR";
-      }
-
-      // Prevent badge from triggering hover on card mesin
-      badge.addEventListener("mouseenter", (e) => {
-        e.stopPropagation();
-      });
-      badge.addEventListener("mouseleave", (e) => {
-        e.stopPropagation();
-      });
+      // Setup badge asynchronously (will update once event cache is fetched)
+      setupMachineBadge(badge, machine);
 
       machineElement.appendChild(badge); // Append to machineElement after content
     }
@@ -643,50 +568,8 @@ function renderMobileGrids() {
         ? String(machine.aid).trim().toUpperCase()
         : "";
 
-      // Debug log for all RUNNING machines
-      console.log(
-        `[Badge Debug] Machine ${machine.label}: aid="${
-          machine.aid
-        }", aidValue="${aidValue}", type=${typeof machine.aid}`
-      );
-
-      // DO badge: aid is "BOS" or undefined/null (not a QR payment)
-      // QR badge: aid exists and is not "UNKNOWN" and not "BOS"
-      if (
-        aidValue === "BOS" ||
-        !machine.aid ||
-        machine.aid === null ||
-        machine.aid === undefined
-      ) {
-        badge.textContent = "DO";
-        // DO badge is not clickable
-      } else if (aidValue !== "UNKNOWN" && machine.aid) {
-        badge.textContent = "QR";
-        // QR badge is clickable
-        badge.classList.add("machine-badge-clickable");
-        badge.addEventListener("click", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click
-          e.preventDefault(); // Prevent default behavior
-          showTransactionTooltip(badge, machine.aid);
-        });
-        badge.addEventListener("mousedown", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click on mousedown
-        });
-        badge.addEventListener("mouseup", (e) => {
-          e.stopPropagation(); // Prevent triggering machine click on mouseup
-        });
-      } else {
-        // UNKNOWN or other cases - show QR but not clickable
-        badge.textContent = "QR";
-      }
-
-      // Prevent badge from triggering hover on card mesin
-      badge.addEventListener("mouseenter", (e) => {
-        e.stopPropagation();
-      });
-      badge.addEventListener("mouseleave", (e) => {
-        e.stopPropagation();
-      });
+      // Setup badge asynchronously (will update once event cache is fetched)
+      setupMachineBadge(badge, machine);
 
       machineElement.appendChild(badge); // Append to machineElement after content
     }
@@ -735,6 +618,317 @@ async function fetchTransactionDetail(idtransaksi) {
   } catch (error) {
     console.error("Error fetching transaction detail:", error);
     throw error;
+  }
+}
+
+/**
+ * Setup badge for machine based on aid and event cache
+ * This function handles both BOS (event-based) and QR badges
+ */
+async function setupMachineBadge(badge, machine) {
+  // Check if aid is "BOS" or undefined (case-insensitive, trimmed)
+  const aidValue = machine.aid ? String(machine.aid).trim().toUpperCase() : "";
+
+  // For BOS aid, get event type from cache to determine badge
+  if (
+    aidValue === "BOS" ||
+    !machine.aid ||
+    machine.aid === null ||
+    machine.aid === undefined
+  ) {
+    // Get event cache to determine badge type (do/qe/mt/ep)
+    const eventCache = await getMachineEvent(machine.id);
+    if (eventCache && eventCache.valid) {
+      // Show event type badge (do/qe/mt/ep)
+      const badgeText = eventCache.event_type.toUpperCase();
+      badge.textContent = badgeText;
+      badge.classList.add("machine-badge-clickable");
+      badge.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        await showEventTooltip(
+          badge,
+          eventCache.event_type,
+          eventCache.event_id
+        );
+      });
+      badge.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+      });
+      badge.addEventListener("mouseup", (e) => {
+        e.stopPropagation();
+      });
+    } else {
+      // No valid event cache, show default DO
+      badge.textContent = "DO";
+    }
+  } else if (aidValue !== "UNKNOWN" && machine.aid) {
+    badge.textContent = "QR";
+    // QR badge is clickable
+    badge.classList.add("machine-badge-clickable");
+    badge.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      showTransactionTooltip(badge, machine.aid);
+    });
+    badge.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+    });
+    badge.addEventListener("mouseup", (e) => {
+      e.stopPropagation();
+    });
+  } else {
+    // UNKNOWN or other cases - show QR but not clickable
+    badge.textContent = "QR";
+  }
+
+  // Prevent badge from triggering hover on card mesin
+  badge.addEventListener("mouseenter", (e) => {
+    e.stopPropagation();
+  });
+  badge.addEventListener("mouseleave", (e) => {
+    e.stopPropagation();
+  });
+}
+
+/**
+ * Get machine event cache from gateway
+ */
+async function getMachineEvent(machineId) {
+  try {
+    const response = await fetch(
+      `${GATEWAY_BASE}/api/machines/${machineId}/event`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn(
+        `Failed to get machine event for ${machineId}: ${response.status}`
+      );
+      return null;
+    }
+
+    const result = await response.json();
+    if (result.success && result.data && result.data.valid) {
+      return result.data;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error getting machine event for ${machineId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Get event detail from gateway
+ */
+async function getEventDetail(eventType, eventId) {
+  try {
+    // Map cache event type to API event type
+    const apiEventType =
+      {
+        do: "drop-off",
+        qe: "employee-quota",
+        mt: "maintenance",
+        ep: "error-payment",
+      }[eventType] || eventType;
+
+    const response = await fetch(
+      `${GATEWAY_BASE}/api/events/${apiEventType}/${eventId}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  } catch (error) {
+    console.error(
+      `Error getting event detail (${eventType}/${eventId}):`,
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Show event tooltip when event badge is clicked
+ */
+async function showEventTooltip(badgeElement, eventType, eventId) {
+  // Remove existing tooltip if any
+  const existingTooltip = document.getElementById("event-tooltip");
+  if (existingTooltip) {
+    existingTooltip.remove();
+  }
+
+  // Create tooltip element
+  const tooltip = document.createElement("div");
+  tooltip.id = "event-tooltip";
+  tooltip.className = "transaction-tooltip";
+  tooltip.innerHTML = `
+    <div class="tooltip-content">
+      <div class="tooltip-loading">Memuat data...</div>
+    </div>
+  `;
+
+  // Position tooltip relative to badge
+  const badgeRect = badgeElement.getBoundingClientRect();
+  document.body.appendChild(tooltip);
+
+  // Position tooltip
+  const tooltipRect = tooltip.getBoundingClientRect();
+  let top = badgeRect.bottom + 8;
+  let left = badgeRect.left + badgeRect.width / 2 - tooltipRect.width / 2;
+
+  // Adjust if tooltip goes off screen
+  if (left < 8) left = 8;
+  if (left + tooltipRect.width > window.innerWidth - 8) {
+    left = window.innerWidth - tooltipRect.width - 8;
+  }
+  if (top + tooltipRect.height > window.innerHeight - 8) {
+    top = badgeRect.top - tooltipRect.height - 8;
+  }
+
+  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${left}px`;
+
+  // Close tooltip when clicking outside
+  const closeTooltip = (e) => {
+    if (!tooltip.contains(e.target) && e.target !== badgeElement) {
+      tooltip.remove();
+      document.removeEventListener("click", closeTooltip);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener("click", closeTooltip);
+  }, 100);
+
+  // Fetch event detail
+  try {
+    const detail = await getEventDetail(eventType, eventId);
+
+    // Build tooltip content based on event type
+    let content = "";
+    const eventTypeNames = {
+      do: "Drop-off",
+      qe: "Employee Quota",
+      mt: "Maintenance",
+      ep: "Error Payment",
+    };
+    const eventName = eventTypeNames[eventType] || eventType;
+
+    if (eventType === "do") {
+      content = `
+        <div class="tooltip-header">Detail ${eventName}</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Pelanggan:</span>
+          <span class="tooltip-value">${detail.customer_name || "N/A"}</span>
+        </div>
+        ${
+          detail.customer_phone
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Telepon:</span>
+          <span class="tooltip-value">${detail.customer_phone}</span>
+        </div>
+        `
+            : ""
+        }
+        <div class="tooltip-item">
+          <span class="tooltip-label">Durasi:</span>
+          <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+      `;
+    } else if (eventType === "qe") {
+      content = `
+        <div class="tooltip-header">Detail ${eventName}</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.employee_name || "N/A"}</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Durasi:</span>
+          <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+      `;
+    } else if (eventType === "mt") {
+      content = `
+        <div class="tooltip-header">Detail ${eventName}</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Jenis:</span>
+          <span class="tooltip-value">${detail.mtype || "N/A"}</span>
+        </div>
+        ${
+          detail.note
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Catatan:</span>
+          <span class="tooltip-value">${detail.note}</span>
+        </div>
+        `
+            : ""
+        }
+        <div class="tooltip-item">
+          <span class="tooltip-label">Durasi:</span>
+          <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+      `;
+    } else if (eventType === "ep") {
+      content = `
+        <div class="tooltip-header">Detail ${eventName}</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Deskripsi:</span>
+          <span class="tooltip-value">${detail.description || "N/A"}</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Durasi:</span>
+          <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+      `;
+    }
+
+    // Update tooltip content
+    tooltip.innerHTML = `
+      <div class="tooltip-content">
+        ${content}
+      </div>
+    `;
+
+    // Reposition after content update
+    const updatedTooltipRect = tooltip.getBoundingClientRect();
+    let updatedTop = badgeRect.bottom + 8;
+    let updatedLeft =
+      badgeRect.left + badgeRect.width / 2 - updatedTooltipRect.width / 2;
+
+    if (updatedLeft < 8) updatedLeft = 8;
+    if (updatedLeft + updatedTooltipRect.width > window.innerWidth - 8) {
+      updatedLeft = window.innerWidth - updatedTooltipRect.width - 8;
+    }
+    if (updatedTop + updatedTooltipRect.height > window.innerHeight - 8) {
+      updatedTop = badgeRect.top - updatedTooltipRect.height - 8;
+    }
+
+    tooltip.style.top = `${updatedTop}px`;
+    tooltip.style.left = `${updatedLeft}px`;
+  } catch (error) {
+    console.error("Error fetching event detail:", error);
+    tooltip.innerHTML = `
+      <div class="tooltip-content">
+        <div class="tooltip-error">Gagal memuat detail event</div>
+      </div>
+    `;
   }
 }
 
@@ -2187,20 +2381,15 @@ async function startMachine() {
     `;
     startBtn.disabled = true;
 
-    // Prepare request body
+    // Prepare request body - only duration (event creation is handled separately)
     const requestBody = {
       duration: duration,
       program: "normal",
     };
 
-    // Add event data if available
-    if (eventData) {
-      requestBody.event = eventData;
-    }
-
     // Make API call to start machine
     const response = await fetch(
-      `${API_BASE}/api/machines/${currentMachine.id}/start`,
+      `${GATEWAY_BASE}/api/machines/${currentMachine.id}/start`,
       {
         method: "POST",
         headers: {
@@ -2218,6 +2407,37 @@ async function startMachine() {
     const result = await response.json();
 
     if (result.success) {
+      // Machine started successfully, now create event if eventData exists
+      if (eventData) {
+        try {
+          // Import createEvent dynamically
+          const { createEvent } = await import(
+            "../src/services/eventService.js"
+          );
+          const eventResult = await createEvent(eventData);
+
+          if (eventResult.success) {
+            console.log("✅ Event created successfully after machine start");
+          } else {
+            console.warn(
+              "⚠️ Machine started but event creation failed (will retry):",
+              eventResult.message || eventResult.error
+            );
+            alert(
+              `Mesin ${machineLabel} berhasil dinyalakan, tetapi pencatatan event gagal. Sistem akan mencoba lagi secara otomatis.`
+            );
+          }
+        } catch (eventError) {
+          console.error(
+            "Error creating event after machine start:",
+            eventError
+          );
+          alert(
+            `Mesin ${machineLabel} berhasil dinyalakan, tetapi pencatatan event gagal. Sistem akan mencoba lagi secara otomatis.`
+          );
+        }
+      }
+
       // Success - close modal and show message
       closeMachineModal();
       alert(
@@ -2274,14 +2494,14 @@ async function stopMachine() {
     `;
     stopBtn.disabled = true;
 
-    // Make API call to stop machine
+    // Make API call to stop machine via gateway
     const response = await fetch(
-      `${API_BASE}/api/machines/${currentStopMachine.id}/stop`,
+      `${GATEWAY_BASE}/api/machines/${currentStopMachine.id}/stop`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...Auth.getAuthHeaders(),
+          Accept: "application/json",
         },
       }
     );

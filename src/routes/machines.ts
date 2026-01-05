@@ -95,129 +95,35 @@ machines.get("/", async (c) => {
 });
 
 /**
- * POST /api/machines/:id/start - Start a machine
+ * POST /api/machines/:id/start - Proxy to gateway
  */
 machines.post("/:id/start", async (c) => {
   try {
     const machineId = c.req.param("id");
     const body = await c.req.json();
-    const { duration, program = "normal", event } = body;
 
-    if (!duration || duration < 1 || duration > 180) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid duration",
-          message: "Duration must be between 1-180 minutes",
-        },
-        400
-      );
-    }
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const url = `${eventGatewayBase}/api/machines/${machineId}/start`;
 
-    console.log(
-      `Starting machine ${machineId} for ${duration} minutes with program ${program}`
-    );
-
-    const bearer = config.upstream.bearer;
-
-    if (!bearer) {
-      return c.json(
-        {
-          success: false,
-          error: "Configuration error",
-          message: "Upstream bearer token not configured",
-        },
-        500
-      );
-    }
-
-    // Construct the correct URL for turning on machine
-    const turnOnUrl = `https://owner-api.smartlink.id/masterData/snap_mesin/turn_on_mesin_timer?idsnap_mesin=${machineId}`;
-
-    console.log(`Making request to: ${turnOnUrl}`);
-
-    // Create form data
-    const formData = new FormData();
-    formData.append("menit", duration.toString());
-
-    // Make API call to actual machine controller
-    const response = await fetch(turnOnUrl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${bearer}`,
-        Origin: "https://dashboard-vue.smartlink.id",
-        Referer: "https://dashboard-vue.smartlink.id",
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
-      body: formData,
+      body: JSON.stringify(body),
     });
-
-    console.log(`Response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API Error: ${response.status} - ${errorText}`);
-      throw new Error(`API returned ${response.status}: ${errorText}`);
+      throw new Error(`Gateway API ${response.status}: ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log("API Response:", result);
-
-    const machineLabel = getMachineLabel(machineId);
-
-    // Record event if provided (non-blocking)
-    let eventResult = null;
-    if (event && typeof event === "object" && event.type && event.data) {
-      try {
-        // Event gateway requires hardware ID (machineId), not label
-        // Frontend already sends machine_id as hardware ID in collectEventData
-        // Ensure we use hardware ID, not label
-        const eventData: EventData = {
-          type: event.type,
-          data: {
-            ...event.data,
-            // Use hardware ID (machineId) for event gateway
-            // event.data.machine_id from frontend is already hardware ID
-            machine_id: machineId, // Always use hardware ID for event gateway
-          },
-        };
-
-        console.log(
-          `📝 Recording event: ${event.type} for machine ${machineLabel} (hardware ID: ${machineId})`
-        );
-        eventResult = await createEvent(eventData);
-
-        if (!eventResult.success) {
-          console.error(
-            `⚠️ Failed to record event (non-blocking):`,
-            eventResult.message || eventResult.error
-          );
-        }
-      } catch (error: any) {
-        console.error("⚠️ Error recording event (non-blocking):", error);
-        eventResult = {
-          success: false,
-          error: error.message || "Unknown error",
-        };
-      }
-    }
-
-    return c.json({
-      success: true,
-      message: `Mesin ${machineLabel} berhasil dinyalakan untuk ${duration} menit`,
-      data: {
-        machineId,
-        machineLabel,
-        duration,
-        program,
-        startedAt: new Date().toISOString(),
-        apiResponse: result,
-        eventRecorded: eventResult?.success || false,
-        eventError:
-          eventResult?.success === false ? eventResult.message : undefined,
-      },
-    });
+    const json = await response.json();
+    return c.json(json);
   } catch (error: any) {
-    console.error("Error starting machine:", error);
+    console.error("❌ Error proxying machine start:", error);
     return c.json(
       {
         success: false,
@@ -230,67 +136,33 @@ machines.post("/:id/start", async (c) => {
 });
 
 /**
- * POST /api/machines/:id/stop - Stop a machine
+ * POST /api/machines/:id/stop - Proxy to gateway
  */
 machines.post("/:id/stop", async (c) => {
   try {
     const machineId = c.req.param("id");
 
-    console.log(`Stopping machine ${machineId}`);
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const url = `${eventGatewayBase}/api/machines/${machineId}/stop`;
 
-    const bearer = config.upstream.bearer;
-
-    if (!bearer) {
-      return c.json(
-        {
-          success: false,
-          error: "Configuration error",
-          message: "Upstream bearer token not configured",
-        },
-        500
-      );
-    }
-
-    // Construct the correct URL for turning off machine
-    const turnOffUrl = `https://owner-api.smartlink.id/masterData/snap_mesin/turn_off_mesin?idsnap_mesin=${machineId}`;
-
-    console.log(`Making request to: ${turnOffUrl}`);
-
-    // Make API call to actual machine controller
-    const response = await fetch(turnOffUrl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${bearer}`,
-        Origin: "https://dashboard-vue.smartlink.id",
-        Referer: "https://dashboard-vue.smartlink.id",
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
     });
-
-    console.log(`Response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API Error: ${response.status} - ${errorText}`);
-      throw new Error(`API returned ${response.status}: ${errorText}`);
+      throw new Error(`Gateway API ${response.status}: ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log("API Response:", result);
-
-    const machineLabel = getMachineLabel(machineId);
-
-    return c.json({
-      success: true,
-      message: `Mesin ${machineLabel} berhasil dimatikan`,
-      data: {
-        machineId,
-        machineLabel,
-        stoppedAt: new Date().toISOString(),
-        apiResponse: result,
-      },
-    });
+    const json = await response.json();
+    return c.json(json);
   } catch (error: any) {
-    console.error("Error stopping machine:", error);
+    console.error("❌ Error proxying machine stop:", error);
     return c.json(
       {
         success: false,
