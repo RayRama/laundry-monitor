@@ -1,8 +1,17 @@
 import { config } from "../config.js";
 import { fetchWithTimeout } from "../utils/fetch.js";
 
-// Gateway base URL - use eventGateway.base which should point to the gateway
-const GATEWAY_BASE_URL = config.eventGateway?.base || "http://localhost:54990";
+// Use relative URL to proxy through frontend API
+// Frontend API will proxy to gateway
+// In browser context, we can't use config, so we'll use relative URL
+const getEventBaseUrl = () => {
+  // If running in Node.js (server-side), use config
+  if (typeof process !== "undefined" && process.env) {
+    return config.eventGateway?.base || "http://localhost:54990";
+  }
+  // If running in browser, use relative URL (will be proxied by frontend API)
+  return "";
+};
 
 /**
  * Event data types based on API documentation
@@ -84,7 +93,8 @@ export async function createEvent(eventData: EventData): Promise<{
       };
   }
 
-  const url = `${GATEWAY_BASE_URL}${endpoint}`;
+  const baseUrl = getEventBaseUrl();
+  const url = `${baseUrl}${endpoint}`;
 
   try {
     const response = await fetchWithTimeout(url, 15000, {

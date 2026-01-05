@@ -174,4 +174,42 @@ machines.post("/:id/stop", async (c) => {
   }
 });
 
+/**
+ * GET /api/machines/:id/event - Proxy to gateway
+ */
+machines.get("/:id/event", async (c) => {
+  try {
+    const machineId = c.req.param("id");
+
+    const eventGatewayBase =
+      config.eventGateway?.base || "http://localhost:54990";
+    const url = `${eventGatewayBase}/api/machines/${machineId}/event`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gateway API ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return c.json(json, response.status);
+  } catch (error: any) {
+    console.error("❌ Error proxying machine event:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Failed to get machine event",
+        message: error.message,
+      },
+      500
+    );
+  }
+});
+
 export default machines;

@@ -168,18 +168,6 @@ const API_BASE = onFile
   ? ""
   : "http://localhost:3000";
 
-// Gateway base URL - defaults to localhost:54990 (gateway port)
-// For production (Vercel), use EVENT_GATEWAY_BASE env var or default gateway URL
-// Gateway runs on different port/host than frontend
-const GATEWAY_BASE = onFile
-  ? "http://localhost:54990"
-  : onPort3000 || onVercel
-  ? (typeof process !== "undefined" && process.env?.EVENT_GATEWAY_BASE) ||
-    (typeof window !== "undefined" && window.location?.hostname === "localhost"
-      ? "http://localhost:54990"
-      : "http://194.233.72.89:54990") // Gateway production URL
-  : "http://localhost:54990";
-
 // Hysteresis untuk mencegah "kedip" status
 const hysteresisCache = new Map();
 const HYSTERESIS_THRESHOLD = 3000; // 3 detik
@@ -695,12 +683,12 @@ async function setupMachineBadge(badge, machine) {
 }
 
 /**
- * Get machine event cache from gateway
+ * Get machine event cache from gateway (via frontend API proxy)
  */
 async function getMachineEvent(machineId) {
   try {
     const response = await fetch(
-      `${GATEWAY_BASE}/api/machines/${machineId}/event`,
+      `${API_BASE}/api/machines/${machineId}/event`,
       {
         method: "GET",
         headers: {
@@ -728,7 +716,7 @@ async function getMachineEvent(machineId) {
 }
 
 /**
- * Get event detail from gateway
+ * Get event detail from gateway (via frontend API proxy)
  */
 async function getEventDetail(eventType, eventId) {
   try {
@@ -742,7 +730,7 @@ async function getEventDetail(eventType, eventId) {
       }[eventType] || eventType;
 
     const response = await fetch(
-      `${GATEWAY_BASE}/api/events/${apiEventType}/${eventId}`,
+      `${API_BASE}/api/events/${apiEventType}/${eventId}`,
       {
         method: "GET",
         headers: {
@@ -2473,9 +2461,9 @@ async function startMachine() {
       program: "normal",
     };
 
-    // Make API call to start machine
+    // Make API call to start machine (via frontend API proxy)
     const response = await fetch(
-      `${GATEWAY_BASE}/api/machines/${currentMachine.id}/start`,
+      `${API_BASE}/api/machines/${currentMachine.id}/start`,
       {
         method: "POST",
         headers: {
@@ -2580,9 +2568,9 @@ async function stopMachine() {
     `;
     stopBtn.disabled = true;
 
-    // Make API call to stop machine via gateway
+    // Make API call to stop machine (via frontend API proxy)
     const response = await fetch(
-      `${GATEWAY_BASE}/api/machines/${currentStopMachine.id}/stop`,
+      `${API_BASE}/api/machines/${currentStopMachine.id}/stop`,
       {
         method: "POST",
         headers: {
