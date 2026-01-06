@@ -34,7 +34,9 @@ async function loadStatusData(days = 7) {
   loadingOverlay.style.display = "flex";
 
   try {
-    const response = await fetch(`${API_BASE}/api/monitoring/status?days=${days}&limit=100`);
+    const response = await fetch(
+      `${API_BASE}/api/monitoring/status?days=${days}&limit=100`
+    );
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -111,7 +113,8 @@ function renderMachines(machines) {
   grid.innerHTML = "";
 
   if (machines.length === 0) {
-    grid.innerHTML = '<p class="text-slate-500 col-span-full text-center py-8">No machine data available</p>';
+    grid.innerHTML =
+      '<p class="text-slate-500 col-span-full text-center py-8">No machine data available</p>';
     return;
   }
 
@@ -122,11 +125,17 @@ function renderMachines(machines) {
 
     const uptime = machine.uptime_percent || 100;
     const statusColor =
-      uptime >= 99.9 ? "text-green-600" : uptime >= 99 ? "text-yellow-600" : "text-red-600";
+      uptime >= 99.9
+        ? "text-green-600"
+        : uptime >= 99
+        ? "text-yellow-600"
+        : "text-red-600";
 
     card.innerHTML = `
       <div class="flex items-center justify-between mb-2">
-        <h3 class="font-semibold text-slate-900">${machine.machine_label || machine.machine_id}</h3>
+        <h3 class="font-semibold text-slate-900">${
+          machine.machine_label || machine.machine_id
+        }</h3>
         <span class="text-xs px-2 py-1 rounded-full ${
           uptime >= 99.9
             ? "bg-green-100 text-green-800"
@@ -148,11 +157,15 @@ function renderMachines(machines) {
         </div>
         <div class="flex justify-between text-slate-600">
           <span>Critical:</span>
-          <span class="font-medium text-red-600">${machine.critical_incidents || 0}</span>
+          <span class="font-medium text-red-600">${
+            machine.critical_incidents || 0
+          }</span>
         </div>
         <div class="flex justify-between text-slate-600">
           <span>Warning:</span>
-          <span class="font-medium text-yellow-600">${machine.warning_incidents || 0}</span>
+          <span class="font-medium text-yellow-600">${
+            machine.warning_incidents || 0
+          }</span>
         </div>
       </div>
     `;
@@ -186,9 +199,15 @@ function renderIncidents(incidents) {
         : "bg-blue-100 text-blue-800";
 
     const statusTransition = `${incident.old_status} → ${incident.new_status}`;
-    const timestamp = new Date(incident.created_at || incident.timestamp).toLocaleString("id-ID", {
-      dateStyle: "medium",
-      timeStyle: "short",
+    // Format timestamp sama dengan example preview: "5 Jan 2026, 20:30"
+    const timestamp = new Date(
+      incident.created_at || incident.timestamp
+    ).toLocaleString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
 
     item.innerHTML = `
@@ -208,9 +227,11 @@ function renderIncidents(incidents) {
           <p class="text-xs text-slate-500">
             ${incident.classification?.reason || "Status change detected"}
           </p>
-          ${incident.raw_device_data?.ol === false
-            ? '<p class="text-xs text-red-600 mt-1">⚠️ Device offline (ol: false)</p>'
-            : ""}
+          ${
+            incident.raw_device_data?.ol === false
+              ? '<p class="text-xs text-red-600 mt-1">⚠️ Device offline (ol: false)</p>'
+              : ""
+          }
         </div>
         <div class="text-xs text-slate-500 whitespace-nowrap">
           ${timestamp}
@@ -248,18 +269,33 @@ function renderHistory(incidentsByDate) {
     });
 
     const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-sm border border-slate-200 p-6";
+    card.className =
+      "bg-white rounded-xl shadow-sm border border-slate-200 p-6";
 
-    const criticalCount = incidents.filter((i) => i.severity === "critical").length;
-    const warningCount = incidents.filter((i) => i.severity === "warning").length;
+    const criticalCount = incidents.filter(
+      (i) => i.severity === "critical"
+    ).length;
+    const warningCount = incidents.filter(
+      (i) => i.severity === "warning"
+    ).length;
 
     card.innerHTML = `
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-slate-900">${formattedDate}</h3>
         <div class="flex items-center gap-2">
-          ${criticalCount > 0 ? `<span class="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">${criticalCount} Critical</span>` : ""}
-          ${warningCount > 0 ? `<span class="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">${warningCount} Warning</span>` : ""}
-          <span class="text-sm text-slate-500">${incidents.length} incidents</span>
+          ${
+            criticalCount > 0
+              ? `<span class="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">${criticalCount} Critical</span>`
+              : ""
+          }
+          ${
+            warningCount > 0
+              ? `<span class="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">${warningCount} Warning</span>`
+              : ""
+          }
+          <span class="text-sm text-slate-500">${
+            incidents.length
+          } incidents</span>
         </div>
       </div>
       <div class="space-y-2">
@@ -276,11 +312,17 @@ function renderHistory(incidentsByDate) {
                   ? "bg-yellow-500"
                   : "bg-blue-500"
               }"></span>
-              <span class="font-medium">${incident.machine_label || incident.machine_id}</span>
-              <span class="text-slate-600">${incident.old_status} → ${incident.new_status}</span>
+              <span class="font-medium">${
+                incident.machine_label || incident.machine_id
+              }</span>
+              <span class="text-slate-600">${incident.old_status} → ${
+              incident.new_status
+            }</span>
             </div>
             <span class="text-slate-500 text-xs">
-              ${new Date(incident.created_at || incident.timestamp).toLocaleTimeString("id-ID", {
+              ${new Date(
+                incident.created_at || incident.timestamp
+              ).toLocaleTimeString("id-ID", {
                 timeStyle: "short",
               })}
             </span>
@@ -288,7 +330,13 @@ function renderHistory(incidentsByDate) {
         `
           )
           .join("")}
-        ${incidents.length > 10 ? `<p class="text-xs text-slate-500 mt-2">+ ${incidents.length - 10} more incidents</p>` : ""}
+        ${
+          incidents.length > 10
+            ? `<p class="text-xs text-slate-500 mt-2">+ ${
+                incidents.length - 10
+              } more incidents</p>`
+            : ""
+        }
       </div>
     `;
 
@@ -321,4 +369,3 @@ function showError(message) {
 
 // Expose loadStatusData for retry button
 window.loadStatusData = loadStatusData;
-
