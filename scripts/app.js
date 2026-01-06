@@ -858,12 +858,31 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
         }
         ${
           detail.employee_id && detail.employee_id !== 0
-            ? `
+            ? (() => {
+                const employeeName = getEmployeeNameById(detail.employee_id);
+                return employeeName
+                  ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${employeeName}</span>
+        </div>
+        `
+                  : `
         <div class="tooltip-item">
           <span class="tooltip-label">Karyawan ID:</span>
           <span class="tooltip-value">${detail.employee_id}</span>
         </div>
+        `;
+              })()
+            : detail.employee_id === 0 || detail.employee_id === "0"
+            ? detail.other_employee_name
+              ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
         `
+              : ""
             : detail.other_employee_name
             ? `
         <div class="tooltip-item">
@@ -919,12 +938,31 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
         </div>
         ${
           detail.employee_id && detail.employee_id !== 0
-            ? `
+            ? (() => {
+                const employeeName = getEmployeeNameById(detail.employee_id);
+                return employeeName
+                  ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${employeeName}</span>
+        </div>
+        `
+                  : `
         <div class="tooltip-item">
           <span class="tooltip-label">Karyawan ID:</span>
           <span class="tooltip-value">${detail.employee_id}</span>
         </div>
+        `;
+              })()
+            : detail.employee_id === 0 || detail.employee_id === "0"
+            ? detail.other_employee_name
+              ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
         `
+              : ""
             : detail.other_employee_name
             ? `
         <div class="tooltip-item">
@@ -964,12 +1002,31 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
         </div>
         ${
           detail.employee_id && detail.employee_id !== 0
-            ? `
+            ? (() => {
+                const employeeName = getEmployeeNameById(detail.employee_id);
+                return employeeName
+                  ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${employeeName}</span>
+        </div>
+        `
+                  : `
         <div class="tooltip-item">
           <span class="tooltip-label">Karyawan ID:</span>
           <span class="tooltip-value">${detail.employee_id}</span>
         </div>
+        `;
+              })()
+            : detail.employee_id === 0 || detail.employee_id === "0"
+            ? detail.other_employee_name
+              ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
         `
+              : ""
             : detail.other_employee_name
             ? `
         <div class="tooltip-item">
@@ -2004,6 +2061,26 @@ async function fetchEmployees() {
     employeesList = [];
     return [];
   }
+}
+
+/**
+ * Get employee name by ID from employeesList
+ * Returns employee_nickname if available, otherwise employee_name
+ */
+function getEmployeeNameById(employeeId) {
+  if (!employeeId || employeeId === 0) {
+    return null;
+  }
+
+  const employee = employeesList.find(
+    (emp) => emp.id === employeeId || String(emp.id) === String(employeeId)
+  );
+
+  if (employee) {
+    return employee.employee_nickname || employee.employee_name || null;
+  }
+
+  return null;
 }
 
 /**
