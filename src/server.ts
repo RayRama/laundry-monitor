@@ -18,6 +18,7 @@ import events from "./routes/events.js";
 import auth from "./routes/auth.js";
 import pages from "./routes/pages.js";
 import staticFiles from "./routes/static.js";
+import monitoring from "./routes/monitoring.js";
 
 const app = new Hono();
 
@@ -51,6 +52,7 @@ app.route("/api/leaderboard-events", leaderboardEvents);
 app.route("/api/employees", employees);
 app.route("/api/events", events);
 app.route("/api/auth", auth);
+app.route("/api/monitoring", monitoring);
 
 // Manual refresh endpoint (public) - changed from POST to GET for RESTful compliance
 app.get("/api/refresh", async (c) => {

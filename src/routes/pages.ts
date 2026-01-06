@@ -145,5 +145,17 @@ pages.get("/login", async (c) => {
   }
 });
 
+/**
+ * GET /status - Status monitoring page (public)
+ */
+pages.get("/status", async (c) => {
+  try {
+    const html = await fs.readFile("status/index.html", "utf8");
+    return c.html(html);
+  } catch (error) {
+    return c.text("Status page not found", 404);
+  }
+});
+
 export default pages;
 

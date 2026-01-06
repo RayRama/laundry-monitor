@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-gray-50">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Whoooshlab • System Status</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/styles/status.css" />
+  </head>
+  <body class="h-full font-sans">
+    <!-- Header -->
+    <header
+      class="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white font-black text-lg"
+            >
+              WL
+            </div>
+            <div>
+              <h1 class="text-xl font-extrabold tracking-tight text-slate-900">
+                System Status
+              </h1>
+              <p class="text-sm text-slate-500">Machine Monitoring & Uptime</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div id="lastUpdate" class="text-sm text-slate-500">
+              Last updated: <span class="font-medium">--</span>
+            </div>
+            <button
+              id="refreshBtn"
+              class="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors text-sm font-medium"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Overall Status -->
+      <div class="mb-8">
+        <div
+          id="overallStatus"
+          class="bg-white rounded-xl shadow-sm border border-slate-200 p-6"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-slate-900">All Systems</h2>
+            <div
+              id="statusBadge"
+              class="px-4 py-2 rounded-full text-sm font-medium"
+            >
+              <span class="status-dot"></span>
+              <span id="statusText">Loading...</span>
+            </div>
+          </div>
+          <div id="overallUptime" class="text-3xl font-bold text-slate-900">
+            --%
+          </div>
+          <p class="text-sm text-slate-500 mt-1">Uptime over the past 7 days</p>
+        </div>
+      </div>
+
+      <!-- Machines Status Grid -->
+      <div class="mb-8">
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">Machines</h2>
+        <div
+          id="machinesGrid"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        >
+          <!-- Machines will be rendered here -->
+        </div>
+      </div>
+
+      <!-- Recent Incidents -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-slate-900">Recent Incidents</h2>
+          <select
+            id="daysFilter"
+            class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+        <div
+          id="incidentsList"
+          class="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-200"
+        >
+          <!-- Incidents will be rendered here -->
+        </div>
+      </div>
+
+      <!-- History by Date -->
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">History</h2>
+        <div id="historyByDate" class="space-y-4">
+          <!-- History will be rendered here -->
+        </div>
+      </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading status data...</p>
+      </div>
+    </div>
+
+    <script src="/scripts/status.js"></script>
+  </body>
+</html>

@@ -18,6 +18,12 @@ const lastStatus: Map<string, { status: Out["status"]; ts: number }> =
 // Store start times for running machines
 const startTimes: Map<string, number> = new Map();
 
+// Track previous device state untuk comparison dan logging
+const previousDeviceStates: Map<
+  string,
+  { status: string; device: any; timestamp: number }
+> = new Map();
+
 /** Zero-pad helper: 7 -> "07" */
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -118,36 +124,194 @@ function resolveLabel(
   return normalizeLabel(raw);
 }
 
-/** RULE STATUS (baru, ketat) */
-function classifyNew(device: any, updated_at: string | null): Out["status"] {
+/** RULE STATUS (baru, ketat) dengan classification reason */
+function classifyNewWithReason(
+  device: any,
+  updated_at: string | null,
+  ctrlId?: string
+): { status: Out["status"]; reason: string; details: any } {
   const ol = !!device?.ol;
   const tl = Number(device?.tl ?? 0); // ms
   const dur = Number(device?.dur ?? 0); // ms
   // const door = !!device?.door;
   // const sw = !!device?.sw;
-  const st = !!device?.st;
+  const st = Number(device?.st ?? 0);
+  const aid = device?.aid || null;
 
-  if (!ol) return "OFFLINE";
+  // Capture raw data untuk logging
+  const rawData = {
+    ol: device?.ol ?? null,
+    tl: device?.tl ?? null,
+    dur: device?.dur ?? null,
+    st: device?.st ?? null,
+    aid: device?.aid ?? null,
+    door: device?.door ?? null,
+    sw: device?.sw ?? null,
+    pow: device?.pow ?? null,
+  };
+
+  // OFFLINE: device.ol = false
+  if (!ol) {
+    return {
+      status: "OFFLINE",
+      reason: "device.ol = false",
+      details: {
+        ol_was_false: true,
+        raw_data: rawData,
+      },
+    };
+  }
 
   // Validasi durasi maksimal (3 jam = 10800000ms)
   const MAX_DURATION_MS = 3 * 60 * 60 * 1000; // 3 jam
+  const invalidDur = dur <= 0 || dur > MAX_DURATION_MS;
+  const invalidTl = tl <= 0 || tl > dur;
 
-  // Mesin running jika:
-  // 1. tl > 0 (waktu tersisa > 0)
-  // 2. dur > 0 (durasi total > 0)
-  // 3. dur <= MAX_DURATION_MS (durasi masuk akal)
-  // 4. tl <= dur (waktu tersisa tidak lebih dari durasi total)
-  // Catatan: Tidak menggunakan updated_at karena tidak sinkron dari API pusat
-  const running = tl > 0 && dur > 0 && dur <= MAX_DURATION_MS && tl <= dur;
+  // RUNNING: tl > 0 && dur > 0 && valid
+  const running = tl > 0 && dur > 0 && !invalidDur && !invalidTl;
 
-  return running ? "RUNNING" : "READY";
+  if (running) {
+    return {
+      status: "RUNNING",
+      reason: "tl > 0 && dur > 0 && valid",
+      details: {
+        tl,
+        dur,
+        tl_valid: true,
+        dur_valid: true,
+        raw_data: rawData,
+      },
+    };
+  }
+
+  // READY: online tapi tidak running
+  return {
+    status: "READY",
+    reason: "ol=true but not running",
+    details: {
+      ol: true,
+      invalid_tl: tl <= 0,
+      invalid_dur: dur <= 0 || dur > MAX_DURATION_MS,
+      tl_exceeded_dur: tl > dur,
+      dur_exceeded_max: dur > MAX_DURATION_MS,
+      raw_data: rawData,
+    },
+  };
 }
 
-function applyHysteresis(key: string, next: Out["status"]) {
+/** RULE STATUS (baru, ketat) - backward compatibility */
+function classifyNew(device: any, updated_at: string | null): Out["status"] {
+  return classifyNewWithReason(device, updated_at).status;
+}
+
+/**
+ * Log status change ke gateway API (non-blocking)
+ */
+async function logStatusChangeIfNeeded(
+  machineId: string,
+  machineLabel: string,
+  oldStatus: Out["status"],
+  newStatus: Out["status"],
+  classification: { reason: string; details: any },
+  device: any,
+  updated_at: string | null,
+  prevState?: { status: string; device: any; timestamp: number }
+): Promise<void> {
+  // Skip jika tidak ada perubahan
+  if (oldStatus === newStatus) return;
+
+  // Get gateway URL from config
+  // Use dynamic import to avoid circular dependency
+  let gatewayBase = "http://localhost:54990";
+  try {
+    if (typeof process !== "undefined" && process.env.EVENT_GATEWAY_BASE) {
+      gatewayBase = process.env.EVENT_GATEWAY_BASE;
+    } else {
+      // Try to get from config module
+      const { config } = await import("./config.js");
+      gatewayBase = config.eventGateway.base;
+    }
+  } catch (error) {
+    // Fallback to default
+    console.warn(
+      "[Normalize] Could not load gateway config, using default:",
+      gatewayBase
+    );
+  }
+
+  const logData = {
+    machine_id: machineId,
+    machine_label: machineLabel,
+    timestamp: Date.now(),
+    old_status: oldStatus,
+    new_status: newStatus,
+    raw_device_data: {
+      ol: device?.ol ?? null,
+      tl: device?.tl ?? null,
+      dur: device?.dur ?? null,
+      st: device?.st ?? null,
+      aid: device?.aid ?? null,
+      door: device?.door ?? null,
+      sw: device?.sw ?? null,
+      pow: device?.pow ?? null,
+    },
+    classification: {
+      reason: classification.reason,
+      details: classification.details,
+    },
+    previous_state: prevState
+      ? {
+          status: prevState.status,
+          ol: prevState.device?.ol ?? null,
+          tl: prevState.device?.tl ?? null,
+          dur: prevState.device?.dur ?? null,
+          timestamp: prevState.timestamp,
+        }
+      : undefined,
+    source: "normalize" as const,
+    updated_at: updated_at,
+    severity: "info" as const, // Will be determined by gateway service
+    should_alert: false,
+  };
+
+  // Call gateway API (non-blocking, fire and forget)
+  fetch(`${gatewayBase}/api/monitoring/status-change`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(logData),
+  }).catch((error) => {
+    // Silently fail - logging should not block normalization
+    console.error(
+      `[Normalize] Failed to log status change for ${machineId}:`,
+      error.message
+    );
+  });
+}
+
+function applyHysteresis(
+  key: string,
+  next: Out["status"],
+  classification?: { reason: string; details: any },
+  device?: any,
+  updated_at?: string | null,
+  machineLabel?: string
+) {
   const now = Date.now();
   const rec = lastStatus.get(key);
+  const prevState = previousDeviceStates.get(key);
+
   if (!rec) {
     lastStatus.set(key, { status: next, ts: now });
+    // Store device state
+    if (device) {
+      previousDeviceStates.set(key, {
+        status: next,
+        device: { ...device },
+        timestamp: now,
+      });
+    }
     return next;
   }
 
@@ -155,12 +319,57 @@ function applyHysteresis(key: string, next: Out["status"]) {
   // Jika mesin berubah dari RUNNING ke READY, langsung update (tidak ada delay)
   if (rec.status === "RUNNING" && next === "READY") {
     lastStatus.set(key, { status: next, ts: now });
+    // Log status change
+    if (classification && device && machineLabel) {
+      logStatusChangeIfNeeded(
+        key,
+        machineLabel,
+        rec.status,
+        next,
+        classification,
+        device,
+        updated_at || null,
+        prevState
+      );
+    }
+    // Update device state
+    if (device) {
+      previousDeviceStates.set(key, {
+        status: next,
+        device: { ...device },
+        timestamp: now,
+      });
+    }
     return next;
   }
 
   // Hysteresis normal untuk transisi lain (3 detik)
   if (rec.status !== next && now - rec.ts < HYST_MS) return rec.status;
+
+  // Status berubah setelah hysteresis
+  // Log status change
+  if (classification && device && machineLabel) {
+    logStatusChangeIfNeeded(
+      key,
+      machineLabel,
+      rec.status,
+      next,
+      classification,
+      device,
+      updated_at || null,
+      prevState
+    );
+  }
+
   lastStatus.set(key, { status: next, ts: now });
+  // Update device state
+  if (device) {
+    previousDeviceStates.set(key, {
+      status: next,
+      device: { ...device },
+      timestamp: now,
+    });
+  }
   return next;
 }
 
@@ -221,8 +430,20 @@ export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
     const label = resolveLabel(ctrlId, name, jenis, idxD, idxW, ctrlMap); // -> W07/D10 (zero-padded)
     const slot = pickSlot(label);
 
-    const rawStatus = classifyNew(device, x?.updated_at || null);
-    const status = applyHysteresis(ctrlId, rawStatus);
+    const classification = classifyNewWithReason(
+      device,
+      x?.updated_at || null,
+      ctrlId
+    );
+    const rawStatus = classification.status;
+    const status = applyHysteresis(
+      ctrlId,
+      rawStatus,
+      classification,
+      device,
+      x?.updated_at || null,
+      label
+    );
 
     // Calculate elapsed time for running machines (stopwatch)
     const elapsedData = calculateElapsed(
