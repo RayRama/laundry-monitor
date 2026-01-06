@@ -8,15 +8,11 @@ const API_BASE = window.location.origin;
 
 // State
 let currentData = null;
-let refreshInterval = null;
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
   loadStatusData();
   setupEventListeners();
-
-  // Auto-refresh every 30 seconds
-  refreshInterval = setInterval(loadStatusData, 30000);
 });
 
 function setupEventListeners() {
@@ -48,7 +44,7 @@ async function loadStatusData(days = 7) {
 
     currentData = result.data;
     renderStatus(currentData);
-    updateLastUpdate();
+    updateLastUpdate(currentData);
   } catch (error) {
     console.error("Error loading status:", error);
     showError("Failed to load status data. Please try again.");
@@ -344,10 +340,18 @@ function renderHistory(incidentsByDate) {
   });
 }
 
-function updateLastUpdate() {
+function updateLastUpdate(data) {
   const lastUpdateEl = document.getElementById("lastUpdate");
+  if (!lastUpdateEl) return;
+
   const timeSpan = lastUpdateEl.querySelector("span");
-  timeSpan.textContent = new Date().toLocaleTimeString("id-ID", {
+  if (!timeSpan) return;
+
+  // Last update time = waktu saat data di-fetch (current time)
+  // Ini menunjukkan kapan data terakhir di-refresh, bukan timestamp incident
+  const lastUpdateTime = new Date();
+
+  timeSpan.textContent = lastUpdateTime.toLocaleTimeString("id-ID", {
     timeStyle: "medium",
   });
 }
