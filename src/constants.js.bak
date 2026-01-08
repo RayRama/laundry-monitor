@@ -4,7 +4,8 @@ export const MACHINE_CONFIG = {
   machineLabels: {
     D48AFC354603: "D05",
     D48AFC325A64: "D07",
-    "2CF4321072A5": "D01",
+    "2CF4321072A5": "D01_OLD",
+    "40F5203F7801": "D01",
     "68C63AFC13FA": "D02",
     "483FDA643B85": "D03",
     "48E7296DE4BF": "D04",
@@ -32,6 +33,7 @@ export const MACHINE_CONFIG = {
   // Machine Label to Brand mapping
   machineBrands: {
     // Dryers
+    D01_OLD: "SQ",
     D01: "SQ",
     D02: "SQ",
     D03: "FGD",
@@ -64,6 +66,7 @@ export const MACHINE_CONFIG = {
   // Machine Label to Max Weight mapping (all set to 10kg)
   machineMaxWeight: {
     // Dryers
+    D01_OLD: 14,
     D01: 14,
     D02: 14,
     D03: 6,
@@ -96,6 +99,7 @@ export const MACHINE_CONFIG = {
   // Machine Label to Type mapping
   machineTypes: {
     // Dryers
+    D01_OLD: "dryer",
     D01: "dryer",
     D02: "dryer",
     D03: "dryer",

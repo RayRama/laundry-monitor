@@ -32,7 +32,8 @@ let machineBrands = {};
 const MACHINE_ID_MAPPING = {
   D48AFC354603: "D05",
   D48AFC325A64: "D07",
-  "2CF4321072A5": "D01",
+  "2CF4321072A5": "D01_OLD",
+  "40F5203F7801": "D01",
   "68C63AFC13FA": "D02",
   "483FDA643B85": "D03",
   "48E7296DE4BF": "D04",
@@ -93,6 +94,7 @@ async function loadMachineConfig() {
     // Fallback configuration
     MACHINE_CONFIG = {
       machineBrands: {
+        D01_OLD: "SQ",
         D01: "SQ",
         D02: "SQ",
         D03: "FGD",
@@ -120,6 +122,7 @@ async function loadMachineConfig() {
         W12: "BEKO",
       },
       machineMaxWeight: {
+        D01_OLD: 10,
         D01: 10,
         D02: 10,
         D03: 10,

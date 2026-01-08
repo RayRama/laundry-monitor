@@ -41,6 +41,7 @@ async function loadMachineConfig() {
     // Fallback configuration
     MACHINE_CONFIG = {
       machineBrands: {
+        D01_OLD: "SQ",
         D01: "SQ",
         D02: "SQ",
         D03: "FGD",
@@ -68,6 +69,7 @@ async function loadMachineConfig() {
         W12: "BEKO",
       },
       machineMaxWeight: {
+        D01_OLD: 14,
         D01: 14,
         D02: 14,
         D03: 6,
