@@ -269,6 +269,7 @@ class LeaderboardEventsDataManager {
 }
 
 // Leaderboard Events Renderer
+// LeaderboardEvents Renderer
 class LeaderboardEventsRenderer {
   constructor(dataManager) {
     this.dataManager = dataManager;
@@ -282,46 +283,113 @@ class LeaderboardEventsRenderer {
     }
 
     const leaderboard = this.dataManager.eventsData.data.leaderboard;
-    const tbody = document.getElementById("eventsTableBody");
-    const table = document.getElementById("eventsTable");
-    const loading = document.getElementById("eventsTableLoading");
-    const error = document.getElementById("eventsTableError");
-    const empty = document.getElementById("eventsTableEmpty");
 
-    // Hide loading, error, empty states
+    // Filter Washer (starts with W) and Dryer (starts with D)
+    // You might want to refine this filter if you have other naming conventions
+    const washers = leaderboard.filter((item) =>
+      item.machine_label.startsWith("W")
+    );
+    const dryers = leaderboard.filter((item) =>
+      item.machine_label.startsWith("D")
+    );
+
+    this.renderSingleTable(washers, "washer");
+    this.renderSingleTable(dryers, "dryer");
+  }
+
+  renderSingleTable(data, type) {
+    const tableId = `${type}Table`;
+    const tbodyId = `${type}TableBody`;
+    const tfootId = `${type}TableFooter`;
+    const loadingId = `${type}TableLoading`;
+    const emptyId = `${type}TableEmpty`;
+    const totalId = `total${
+      type.charAt(0).toUpperCase() + type.slice(1)
+    }Machines`;
+
+    const table = document.getElementById(tableId);
+    const tbody = document.getElementById(tbodyId);
+    const tfoot = document.getElementById(tfootId);
+    const loading = document.getElementById(loadingId);
+    const empty = document.getElementById(emptyId);
+    const totalEl = document.getElementById(totalId);
+    const globalError = document.getElementById("globalTableError");
+
+    // Reset states
+    if (globalError) globalError.style.display = "none";
     if (loading) loading.style.display = "none";
-    if (error) error.style.display = "none";
-    if (empty) empty.style.display = "none";
 
-    if (!leaderboard || leaderboard.length === 0) {
-      if (empty) empty.style.display = "block";
+    if (!data || data.length === 0) {
       if (table) table.style.display = "none";
-      if (document.getElementById("totalMachines")) {
-        document.getElementById("totalMachines").textContent = "0";
-      }
+      if (empty) empty.style.display = "block";
+      if (totalEl) totalEl.textContent = "0";
       return;
     }
 
-    // Show table
+    if (empty) empty.style.display = "none";
     if (table) table.style.display = "table";
+    if (totalEl)
+      totalEl.textContent = this.dataManager.formatFrequency(data.length);
 
-    // Clear existing rows
+    // Render Body
     if (tbody) {
       tbody.innerHTML = "";
+      data.forEach((item, index) => {
+        const row = this.createTableRow(item, index + 1);
+        tbody.appendChild(row);
+      });
     }
 
-    // Render rows
-    leaderboard.forEach((item, index) => {
-      const row = this.createTableRow(item, index + 1);
-      if (tbody) {
-        tbody.appendChild(row);
-      }
-    });
+    // Calculate and Render Footer Totals
+    if (tfoot) {
+      const totals = data.reduce(
+        (acc, item) => {
+          acc.transaksi += item.transaksi || 0;
+          acc.drop_off += item.drop_off || 0;
+          acc.error_payment += item.error_payment || 0;
+          acc.cuci_kosong += item.cuci_kosong || 0;
+          acc.employee_quota += item.employee_quota || 0;
+          acc.tube_clean += item.tube_clean || 0;
+          acc.total += item.total || 0;
+          return acc;
+        },
+        {
+          transaksi: 0,
+          drop_off: 0,
+          error_payment: 0,
+          cuci_kosong: 0,
+          employee_quota: 0,
+          tube_clean: 0,
+          total: 0,
+        }
+      );
 
-    // Update total machines
-    if (document.getElementById("totalMachines")) {
-      document.getElementById("totalMachines").textContent =
-        this.dataManager.formatFrequency(leaderboard.length);
+      tfoot.innerHTML = `
+        <tr class="bg-gray-100 font-bold text-gray-900">
+          <td class="px-4 py-3 text-left" colspan="2">TOTAL</td>
+          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+            totals.transaksi
+          )}</td>
+          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+            totals.drop_off
+          )}</td>
+          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+            totals.error_payment
+          )}</td>
+          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+            totals.cuci_kosong
+          )}</td>
+          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+            totals.employee_quota
+          )}</td>
+          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+            totals.tube_clean
+          )}</td>
+          <td class="px-4 py-3 text-right text-sky-700 font-extrabold">${this.dataManager.formatFrequency(
+            totals.total
+          )}</td>
+        </tr>
+      `;
     }
   }
 
@@ -383,30 +451,39 @@ class LeaderboardEventsRenderer {
   }
 
   showLoading() {
-    const table = document.getElementById("eventsTable");
-    const loading = document.getElementById("eventsTableLoading");
-    const error = document.getElementById("eventsTableError");
-    const empty = document.getElementById("eventsTableEmpty");
+    this.setSectionLoading("washer", true);
+    this.setSectionLoading("dryer", true);
+    const globalError = document.getElementById("globalTableError");
+    if (globalError) globalError.style.display = "none";
+  }
 
-    if (table) table.style.display = "none";
-    if (loading) loading.style.display = "block";
-    if (error) error.style.display = "none";
-    if (empty) empty.style.display = "none";
+  setSectionLoading(type, isLoading) {
+    const tableId = `${type}Table`;
+    const loadingId = `${type}TableLoading`;
+    const emptyId = `${type}TableEmpty`;
+
+    const table = document.getElementById(tableId);
+    const loading = document.getElementById(loadingId);
+    const empty = document.getElementById(emptyId);
+
+    if (isLoading) {
+      if (table) table.style.display = "none";
+      if (loading) loading.style.display = "block";
+      if (empty) empty.style.display = "none";
+    } else {
+      if (loading) loading.style.display = "none";
+    }
   }
 
   showError(message) {
-    const table = document.getElementById("eventsTable");
-    const loading = document.getElementById("eventsTableLoading");
-    const error = document.getElementById("eventsTableError");
-    const empty = document.getElementById("eventsTableEmpty");
+    this.setSectionLoading("washer", false);
+    this.setSectionLoading("dryer", false);
 
-    if (table) table.style.display = "none";
-    if (loading) loading.style.display = "none";
-    if (error) {
-      error.textContent = message || "Terjadi kesalahan saat memuat data";
-      error.style.display = "block";
+    const globalError = document.getElementById("globalTableError");
+    if (globalError) {
+      globalError.textContent = message || "Terjadi kesalahan saat memuat data";
+      globalError.style.display = "block";
     }
-    if (empty) empty.style.display = "none";
   }
 
   updateDataRangeInfo() {

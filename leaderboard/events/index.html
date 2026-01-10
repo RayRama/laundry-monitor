@@ -155,92 +155,86 @@
       </div>
 
       <!-- Events Table -->
-      <div class="leaderboard-section">
+      <!-- Events Table -->
+      <div class="leaderboard-section space-y-8">
+        <!-- Washer Section -->
         <div class="leaderboard-card">
           <div class="leaderboard-header">
-            <h3 class="leaderboard-subtitle">Frequency Events per Mesin</h3>
+            <h3 class="leaderboard-subtitle">Washer Machines</h3>
             <div class="leaderboard-stats">
               <span class="stat-item">
                 <span class="stat-label">Total Mesin:</span>
-                <span id="totalMachines" class="stat-value">-</span>
+                <span id="totalWasherMachines" class="stat-value">-</span>
               </span>
             </div>
           </div>
-          <div id="eventsTableContainer" class="overflow-x-auto">
-            <table id="eventsTable" class="w-full" style="display: none">
+          <div id="washerTableContainer" class="overflow-x-auto">
+            <table id="washerTable" class="w-full" style="display: none">
               <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
-                  <th
-                    class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Rank
-                  </th>
-                  <th
-                    class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Mesin
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Transaksi
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Drop Off
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Error Payment
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Cuci Kosong
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Employee Quota
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Tube Clean
-                  </th>
-                  <th
-                    class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                  >
-                    Total
-                  </th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rank</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mesin</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Transaksi</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Drop Off</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Error Payment</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Cuci Kosong</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee Quota</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Tube Clean</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
                 </tr>
               </thead>
-              <tbody
-                id="eventsTableBody"
-                class="bg-white divide-y divide-gray-200"
-              >
+              <tbody id="washerTableBody" class="bg-white divide-y divide-gray-200">
                 <!-- Table rows will be inserted here -->
               </tbody>
+              <tfoot id="washerTableFooter" class="bg-gray-50 border-t border-gray-200 font-bold">
+                <!-- Total row will be inserted here -->
+              </tfoot>
             </table>
-            <div id="eventsTableLoading" class="loading-placeholder">
-              Memuat data...
-            </div>
-            <div
-              id="eventsTableError"
-              class="error-state"
-              style="display: none"
-            ></div>
-            <div
-              id="eventsTableEmpty"
-              class="empty-state"
-              style="display: none"
-            >
-              Tidak ada data untuk periode yang dipilih
-            </div>
+            <div id="washerTableLoading" class="loading-placeholder">Memuat data Washer...</div>
+            <div id="washerTableEmpty" class="empty-state" style="display: none">Tidak ada data Washer</div>
           </div>
         </div>
+
+        <!-- Dryer Section -->
+        <div class="leaderboard-card">
+          <div class="leaderboard-header">
+            <h3 class="leaderboard-subtitle">Dryer Machines</h3>
+            <div class="leaderboard-stats">
+              <span class="stat-item">
+                <span class="stat-label">Total Mesin:</span>
+                <span id="totalDryerMachines" class="stat-value">-</span>
+              </span>
+            </div>
+          </div>
+          <div id="dryerTableContainer" class="overflow-x-auto">
+            <table id="dryerTable" class="w-full" style="display: none">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rank</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mesin</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Transaksi</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Drop Off</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Error Payment</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Cuci Kosong</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee Quota</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Tube Clean</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
+                </tr>
+              </thead>
+              <tbody id="dryerTableBody" class="bg-white divide-y divide-gray-200">
+                <!-- Table rows will be inserted here -->
+              </tbody>
+              <tfoot id="dryerTableFooter" class="bg-gray-50 border-t border-gray-200 font-bold">
+                <!-- Total row will be inserted here -->
+              </tfoot>
+            </table>
+            <div id="dryerTableLoading" class="loading-placeholder">Memuat data Dryer...</div>
+            <div id="dryerTableEmpty" class="empty-state" style="display: none">Tidak ada data Dryer</div>
+          </div>
+        </div>
+        
+        <!-- Shared Error State -->
+        <div id="globalTableError" class="error-state" style="display: none"></div>
       </div>
 
       <!-- Footer -->
