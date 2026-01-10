@@ -416,24 +416,41 @@ class LeaderboardEventsRenderer {
     const { filter, start_date, end_date } = this.dataManager.eventsData.data;
 
     let rangeText = "";
-    if (filter === "today") {
-      rangeText = "Hari Ini";
-    } else if (filter === "yesterday") {
-      rangeText = "Kemarin";
-    } else if (filter === "this_week") {
-      rangeText = "Minggu Ini";
-    } else if (filter === "last_7_days") {
-      rangeText = "7 Hari Terakhir";
-    } else if (filter === "this_month") {
-      rangeText = "Bulan Ini";
-    } else if (filter === "this_year") {
-      rangeText = "Tahun Ini";
-    } else if (filter === "custom" && start_date && end_date) {
-      const start = new Date(start_date).toLocaleDateString("id-ID");
-      const end = new Date(end_date).toLocaleDateString("id-ID");
-      rangeText = `Periode: ${start} - ${end}`;
+
+    // Helper to format date with precision
+    const formatDate = (dateStr) => {
+      try {
+        return new Date(dateStr).toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+      } catch (e) {
+        console.warn("Date formatting error", e);
+        return dateStr;
+      }
+    };
+
+    if (start_date && end_date) {
+      const startStr = formatDate(start_date);
+      const endStr = formatDate(end_date);
+
+      if (startStr === endStr) {
+        rangeText = startStr;
+      } else {
+        rangeText = `${startStr} - ${endStr}`;
+      }
     } else {
-      rangeText = "Memuat data...";
+      // Fallback relative text
+      const filterMap = {
+        today: "Hari Ini",
+        yesterday: "Kemarin",
+        this_week: "Minggu Ini",
+        last_7_days: "7 Hari Terakhir",
+        this_month: "Bulan Ini",
+        this_year: "Tahun Ini",
+      };
+      rangeText = filterMap[filter] || "Memuat data...";
     }
 
     infoElement.innerHTML = `
