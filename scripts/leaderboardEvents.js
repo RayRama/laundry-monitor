@@ -273,6 +273,53 @@ class LeaderboardEventsDataManager {
 class LeaderboardEventsRenderer {
   constructor(dataManager) {
     this.dataManager = dataManager;
+    // Default sort state: descending by total
+    this.sortState = {
+      washer: { key: "total", direction: "desc" },
+      dryer: { key: "total", direction: "desc" },
+    };
+  }
+
+  handleSort(tableType, key) {
+    const currentSort = this.sortState[tableType];
+
+    if (currentSort.key === key) {
+      // Toggle direction
+      this.sortState[tableType].direction =
+        currentSort.direction === "desc" ? "asc" : "desc";
+    } else {
+      // New key, default to desc
+      this.sortState[tableType] = { key: key, direction: "desc" };
+    }
+
+    this.updateSortIcons(tableType);
+    this.renderTable();
+  }
+
+  updateSortIcons(tableType) {
+    const headers = document.querySelectorAll(
+      `th[data-table="${tableType}"][data-sort]`
+    );
+    const currentSort = this.sortState[tableType];
+
+    headers.forEach((th) => {
+      const icon = th.querySelector(".sort-icon");
+      if (!icon) return;
+
+      if (th.dataset.sort === currentSort.key) {
+        icon.textContent = currentSort.direction === "asc" ? "↑" : "↓";
+        icon.classList.remove("opacity-0");
+        icon.classList.add("text-sky-600", "font-bold", "opacity-100");
+      } else {
+        icon.textContent = "↕";
+        icon.classList.remove(
+          "text-sky-600",
+          "font-bold",
+          "opacity-100"
+        );
+        icon.classList.add("opacity-0"); // Reset to hover-only visibility
+      }
+    });
   }
 
   renderTable() {
@@ -285,16 +332,36 @@ class LeaderboardEventsRenderer {
     const leaderboard = this.dataManager.eventsData.data.leaderboard;
 
     // Filter Washer (starts with W) and Dryer (starts with D)
-    // You might want to refine this filter if you have other naming conventions
-    const washers = leaderboard.filter((item) =>
+    let washers = leaderboard.filter((item) =>
       item.machine_label.startsWith("W")
     );
-    const dryers = leaderboard.filter((item) =>
+    let dryers = leaderboard.filter((item) =>
       item.machine_label.startsWith("D")
     );
 
+    // Apply Sorting
+    washers = this.sortData(washers, this.sortState.washer);
+    dryers = this.sortData(dryers, this.sortState.dryer);
+
     this.renderSingleTable(washers, "washer");
     this.renderSingleTable(dryers, "dryer");
+    
+    // Ensure icons are correct after render (e.g. on first load)
+    this.updateSortIcons("washer");
+    this.updateSortIcons("dryer");
+  }
+
+  sortData(data, sortConfig) {
+    return [...data].sort((a, b) => {
+      const valA = a[sortConfig.key] || 0;
+      const valB = b[sortConfig.key] || 0;
+
+      if (sortConfig.direction === "asc") {
+        return valA - valB;
+      } else {
+        return valB - valA;
+      }
+    });
   }
 
   renderSingleTable(data, type) {
@@ -335,6 +402,8 @@ class LeaderboardEventsRenderer {
     if (tbody) {
       tbody.innerHTML = "";
       data.forEach((item, index) => {
+        // Rank logic: usually rank is position in sorted list. 
+        // If sorting by non-default, visual rank is still 1, 2, 3...
         const row = this.createTableRow(item, index + 1);
         tbody.appendChild(row);
       });
@@ -365,27 +434,27 @@ class LeaderboardEventsRenderer {
       );
 
       tfoot.innerHTML = `
-        <tr class="bg-gray-100 font-bold text-gray-900">
-          <td class="px-4 py-3 text-left" colspan="2">TOTAL</td>
-          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+        <tr class="bg-gray-100 font-bold text-gray-900 sticky bottom-0 shadow-inner">
+          <td class="px-4 py-3 text-left bg-gray-100" colspan="2">TOTAL</td>
+          <td class="px-4 py-3 text-right bg-gray-100">${this.dataManager.formatFrequency(
             totals.transaksi
           )}</td>
-          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+          <td class="px-4 py-3 text-right bg-gray-100">${this.dataManager.formatFrequency(
             totals.drop_off
           )}</td>
-          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+          <td class="px-4 py-3 text-right bg-gray-100">${this.dataManager.formatFrequency(
             totals.error_payment
           )}</td>
-          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+          <td class="px-4 py-3 text-right bg-gray-100">${this.dataManager.formatFrequency(
             totals.cuci_kosong
           )}</td>
-          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+          <td class="px-4 py-3 text-right bg-gray-100">${this.dataManager.formatFrequency(
             totals.employee_quota
           )}</td>
-          <td class="px-4 py-3 text-right">${this.dataManager.formatFrequency(
+          <td class="px-4 py-3 text-right bg-gray-100">${this.dataManager.formatFrequency(
             totals.tube_clean
           )}</td>
-          <td class="px-4 py-3 text-right text-sky-700 font-extrabold">${this.dataManager.formatFrequency(
+          <td class="px-4 py-3 text-right text-sky-700 font-extrabold bg-gray-100">${this.dataManager.formatFrequency(
             totals.total
           )}</td>
         </tr>
@@ -395,7 +464,7 @@ class LeaderboardEventsRenderer {
 
   createTableRow(item, rank) {
     const row = document.createElement("tr");
-    row.className = rank <= 3 ? "bg-gray-50" : "";
+    row.className = rank % 2 === 0 ? "bg-white" : "bg-gray-50/50"; // Alternate row stripes for better read logic
 
     const rankClass = this.getRankClass(rank);
     const machineBrand = getMachineBrand(item.machine_label);
@@ -567,6 +636,21 @@ class LeaderboardEventsController {
     // Filter select change
     document.getElementById("filterSelect")?.addEventListener("change", () => {
       this.handleFilterChange();
+    });
+    
+    // Sort Headers
+    document.querySelectorAll("th[data-sort]").forEach((th) => {
+      th.addEventListener("click", (e) => {
+        // Find closest th in case user clicked inner element
+        const header = e.target.closest("th");
+        if (header) {
+          const tableType = header.dataset.table;
+          const sortKey = header.dataset.sort;
+          if (tableType && sortKey) {
+            this.renderer.handleSort(tableType, sortKey);
+          }
+        }
+      });
     });
   }
 

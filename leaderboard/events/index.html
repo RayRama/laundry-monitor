@@ -168,30 +168,67 @@
               </span>
             </div>
           </div>
-          <div id="washerTableContainer" class="overflow-x-auto">
-            <table id="washerTable" class="w-full" style="display: none">
-              <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rank</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mesin</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Transaksi</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Drop Off</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Error Payment</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Cuci Kosong</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee Quota</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Tube Clean</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
-                </tr>
-              </thead>
-              <tbody id="washerTableBody" class="bg-white divide-y divide-gray-200">
-                <!-- Table rows will be inserted here -->
-              </tbody>
-              <tfoot id="washerTableFooter" class="bg-gray-50 border-t border-gray-200 font-bold">
-                <!-- Total row will be inserted here -->
-              </tfoot>
-            </table>
-            <div id="washerTableLoading" class="loading-placeholder">Memuat data Washer...</div>
-            <div id="washerTableEmpty" class="empty-state" style="display: none">Tidak ada data Washer</div>
+          <div id="washerTableContainer" class="border rounded-lg overflow-hidden bg-white shadow-sm">
+            <div class="max-h-[500px] overflow-y-auto relative custom-scrollbar">
+              <table id="washerTable" class="w-full text-left border-collapse" style="display: none">
+                <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                  <tr class="border-b border-gray-200">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">Rank</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">Mesin</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="transaksi" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Transaksi
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="drop_off" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Drop Off
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="error_payment" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Error Payment
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="cuci_kosong" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Cuci Kosong
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="employee_quota" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Employee Quota
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="tube_clean" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Tube Clean
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="total" data-table="washer">
+                      <div class="flex items-center justify-end gap-1">
+                        Total
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="washerTableBody" class="bg-white divide-y divide-gray-200">
+                  <!-- Table rows will be inserted here -->
+                </tbody>
+                <tfoot id="washerTableFooter" class="bg-gray-50 border-t border-gray-200 font-bold sticky bottom-0 shadow-inner z-10">
+                  <!-- Total row will be inserted here -->
+                </tfoot>
+              </table>
+              <div id="washerTableLoading" class="loading-placeholder p-8 text-center text-gray-500">Memuat data Washer...</div>
+              <div id="washerTableEmpty" class="empty-state p-8 text-center text-gray-500" style="display: none">Tidak ada data Washer</div>
+            </div>
           </div>
         </div>
 
@@ -206,30 +243,67 @@
               </span>
             </div>
           </div>
-          <div id="dryerTableContainer" class="overflow-x-auto">
-            <table id="dryerTable" class="w-full" style="display: none">
-              <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rank</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mesin</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Transaksi</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Drop Off</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Error Payment</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Cuci Kosong</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee Quota</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Tube Clean</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
-                </tr>
-              </thead>
-              <tbody id="dryerTableBody" class="bg-white divide-y divide-gray-200">
-                <!-- Table rows will be inserted here -->
-              </tbody>
-              <tfoot id="dryerTableFooter" class="bg-gray-50 border-t border-gray-200 font-bold">
-                <!-- Total row will be inserted here -->
-              </tfoot>
-            </table>
-            <div id="dryerTableLoading" class="loading-placeholder">Memuat data Dryer...</div>
-            <div id="dryerTableEmpty" class="empty-state" style="display: none">Tidak ada data Dryer</div>
+          <div id="dryerTableContainer" class="border rounded-lg overflow-hidden bg-white shadow-sm">
+            <div class="max-h-[500px] overflow-y-auto relative custom-scrollbar">
+              <table id="dryerTable" class="w-full text-left border-collapse" style="display: none">
+                <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                  <tr class="border-b border-gray-200">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">Rank</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">Mesin</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="transaksi" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Transaksi
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="drop_off" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Drop Off
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="error_payment" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Error Payment
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="cuci_kosong" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Cuci Kosong
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="employee_quota" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Employee Quota
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="tube_clean" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Tube Clean
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 group bg-gray-50 select-none" data-sort="total" data-table="dryer">
+                      <div class="flex items-center justify-end gap-1">
+                        Total
+                        <span class="sort-icon text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="dryerTableBody" class="bg-white divide-y divide-gray-200">
+                  <!-- Table rows will be inserted here -->
+                </tbody>
+                <tfoot id="dryerTableFooter" class="bg-gray-50 border-t border-gray-200 font-bold sticky bottom-0 shadow-inner z-10">
+                  <!-- Total row will be inserted here -->
+                </tfoot>
+              </table>
+              <div id="dryerTableLoading" class="loading-placeholder p-8 text-center text-gray-500">Memuat data Dryer...</div>
+              <div id="dryerTableEmpty" class="empty-state p-8 text-center text-gray-500" style="display: none">Tidak ada data Dryer</div>
+            </div>
           </div>
         </div>
         
