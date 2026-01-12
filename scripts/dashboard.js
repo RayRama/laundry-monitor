@@ -1599,6 +1599,55 @@ class DashboardRenderer {
     };
   }
 
+  renderLoading() {
+    // Show skeleton/loading state for KPIs
+    const kpiIds = ["kpi-revenue", "kpi-tx", "kpi-aov", "kpi-paid", "kpi-finished", "kpi-perday", "kpi-growth"];
+    kpiIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="h-6 w-24 bg-slate-200 animate-pulse rounded"></div>';
+    });
+
+    // Show loading state for charts
+    const chartIds = [
+      "chartDaily", "chartTicket", "chartWeekly",
+      "chartTransactionDaily", "chartTransactionWeekly", "chartTransactionMonthly",
+      "chartMonthlyRevenue", "chartCombined", "chartHourly"
+    ];
+
+    chartIds.forEach(id => {
+      // Check if chart instance exists
+      if (this.charts[id]) {
+        this.charts[id].destroy();
+        delete this.charts[id];
+      }
+      
+      const ctx = document.getElementById(id);
+      if (ctx) {
+         const parent = ctx.parentElement;
+         // Add loading overlay if not exists
+         if (!parent.querySelector('.chart-loading-overlay')) {
+             const overlay = document.createElement('div');
+             overlay.className = 'chart-loading-overlay absolute inset-0 flex items-center justify-content-center bg-white/50 backdrop-blur-sm z-10';
+             overlay.innerHTML = '<div class="flex flex-col items-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div><span class="text-sm text-slate-500">Menghitung data...</span></div>';
+             parent.style.position = 'relative'; // Ensure parent has positioning
+             parent.appendChild(overlay);
+         }
+      }
+    });
+
+    // Clear table body
+    const tableBody = document.getElementById("txBody");
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="8" class="text-center p-8 text-slate-500">Memuat data transaksi...</td></tr>';
+    }
+    
+    // Clear heat map
+    const heatWrap = document.getElementById("heatWrap");
+    if (heatWrap) {
+        heatWrap.innerHTML = '<div class="flex items-center justify-center h-48 text-slate-400">Memuat Heat Map...</div>';
+    }
+  }
+
   renderCharts(data) {
     const stats = this.computeStats(data.transactions);
 
@@ -2204,6 +2253,16 @@ class DashboardRenderer {
       this.charts[ctxId].destroy();
     }
     const ctx = document.getElementById(ctxId);
+    
+    // Remove loading overlay if exists
+    if (ctx) {
+      const parent = ctx.parentElement;
+      const overlay = parent.querySelector('.chart-loading-overlay');
+      if (overlay) {
+        overlay.remove();
+      }
+    }
+
     this.charts[ctxId] = new Chart(ctx, cfg);
   }
 
@@ -2327,7 +2386,7 @@ class DashboardController {
     document.getElementById("filterBy").value = "hari_ini";
     document.getElementById("bulan").value = currentMonth;
     document.getElementById("tahun").value = currentYear;
-    document.getElementById("tanggalAwal").value = currentDate;
+    document.getElementById("tanggalAwal").value = defaultStartDate;
     document.getElementById("tanggalAkhir").value = currentDate;
 
     // Initialize filter type display
@@ -2429,37 +2488,49 @@ class DashboardController {
 
   async refreshData() {
     try {
+      this.renderer.renderLoading();
       this.dataManager.showSuccess("Memuat data terbaru...");
 
       // Determine if filter is suitable for weekly and monthly charts
       const useFilterForWeekly = this.dataManager.isFilterSuitableForWeekly();
       const useFilterForMonthly = this.dataManager.isFilterSuitableForMonthly();
 
-      // Build array of promises - only load charts if filter is suitable
-      const loadPromises = [this.dataManager.loadData()];
+      // Only load main data first
+      // If we are using filter for weekly/monthly, we can reuse this data!
+      const mainData = await this.dataManager.loadData();
 
-      // Only load weekly data if filter is suitable for weekly chart
+      // Handle weekly data
       if (useFilterForWeekly) {
-        loadPromises.push(this.dataManager.loadWeeklyData(true));
+         console.log("♻️ Reusing main data for weekly chart");
+         this.dataManager.weeklyData = [...mainData.transactions];
       } else {
-        // Skip weekly data loading if filter is not suitable
-        // Reset weekly data to empty array to ensure chart doesn't error
-        this.dataManager.weeklyData = [];
-        console.log("⏭️ Skipping weekly data load (filter not suitable)");
+         // If filter not suitable (e.g. "Hari Ini"), we might want to fetch actual weekly data
+         // or just show empty/partial?
+         // The user request implies we should try to avoid 3 calls "dg url yg sama".
+         // If we are here, it means filter is NOT suitable, so URL would be DIFFERENT (current week vs today).
+         // So we can arguably still call it, OR we can accept that "Hari Ini" view doesn't show weekly history
+         // unless the user asked for it.
+         // However, existing behavior was to call it. But user complained about "3 api sekaligus... padahal bisa panggil data bulan aja".
+         // Let's assume for "Hari Ini", we still strictly need "Week" data for the chart contexts?
+         // Logic: If I see "Today", I might want to see how it compares to the week.
+         // But if the user says "Chart terlihat kosong", maybe they prefer we just use what we have?
+         // Let's stick to: If filter suitable, REUSE. If not suitable, FETCH (different URL).
+         // BUT, we can make it parallel to avoid waterfall if we DO need to fetch.
+         // Wait, previously it was parallel.
+         // Let's go back to parallel but CONDITIONAL on reuse.
+
+         console.log("📥 Fetching separate weekly data...");
+         await this.dataManager.loadWeeklyData(false);
       }
 
-      // Only load monthly data if filter is suitable for monthly chart
+      // Handle monthly data
       if (useFilterForMonthly) {
-        loadPromises.push(this.dataManager.loadMonthlyData(true));
+         console.log("♻️ Reusing main data for monthly chart");
+         this.dataManager.monthlyData = [...mainData.transactions];
       } else {
-        // Skip monthly data loading if filter is not suitable
-        // Reset monthly data to empty array to ensure chart doesn't error
-        this.dataManager.monthlyData = [];
-        console.log("⏭️ Skipping monthly data load (filter not suitable)");
+         console.log("📥 Fetching separate monthly data...");
+         await this.dataManager.loadMonthlyData(false);
       }
-
-      // Load data in parallel (only for suitable filters)
-      const [mainData] = await Promise.all(loadPromises);
 
       this.renderer.render(mainData);
       this.dataManager.showSuccess("Data berhasil diperbarui!");
