@@ -2512,7 +2512,6 @@ class DashboardController {
       // Update loading status
       this.dataManager.showSuccess("Data berhasil diperbarui!");
     } catch (error) {
-    } catch (error) {
       console.error("Failed to refresh data:", error);
 
       // Show user-friendly error message
