@@ -378,19 +378,17 @@ class DashboardDataManager {
   async loadData() {
     this.setLoading(true);
 
+  async loadData() {
+    this.setLoading(true);
+
     try {
-      // Execute summary and transaction fetch in parallel to avoid waterfall
-      // and ensure we get both the actual summary count and the data
+      // 1. Fetch Summary FIRST to get exact total_nota
       const summaryParams = this.buildSummaryParams();
-      const transactionParams = this.buildTransactionParams();
+      console.log("� Fetching summary for exact count...");
+      const summaryData = await this.api.getTransactionSummary(summaryParams);
 
-      console.log("🚀 Starting parallel fetch for Summary and Transactions...");
-
-      const [summaryData, transactionData] = await Promise.all([
-        this.api.getTransactionSummary(summaryParams),
-        this.api.getTransactions(transactionParams)
-      ]);
-
+      let actualLimit = "100"; // Default fallback
+      
       // Handle Summary Data
       if (summaryData) {
         this.summary = summaryData;
@@ -398,6 +396,8 @@ class DashboardDataManager {
         // Store total_nota for future use
         if (this.summary?.data?.total_nota) {
           const newTotalNota = this.summary.data.total_nota;
+          actualLimit = newTotalNota.toString(); // Use EXACT limit
+          
           const currentTotalNota = this.getTotalNota();
 
           // Force update if different
@@ -415,6 +415,17 @@ class DashboardDataManager {
           console.log("⚠️ No total_nota in summary data:", this.summary);
         }
       }
+
+      // 2. Fetch Transactions with ACTUAL LIMIT
+      const transactionParams = this.buildTransactionParams();
+      
+      // Override limit if "max" is selected
+      if (this.currentFilter.limit === "max") {
+         transactionParams.limit = actualLimit;
+         console.log(`📊 Using ACTUAL limit from summary: ${actualLimit}`);
+      }
+
+      const transactionData = await this.api.getTransactions(transactionParams);
 
       // Handle Transaction Data
       if (transactionData) {
@@ -442,6 +453,14 @@ class DashboardDataManager {
       this.setLoading(false);
     }
   }
+    } catch (error) {
+      console.error("❌ Failed to load data:", error);
+      this.showError("Gagal memuat data: " + error.message);
+      throw error;
+    } finally {
+      this.setLoading(false);
+    }
+  }
 
   async loadWeeklyData(useFilter = false) {
     try {
@@ -461,7 +480,7 @@ class DashboardDataManager {
         tanggalAkhir = this.getCurrentDate();
       }
 
-      // Prepare params for parallel fetch
+      // Prepare params for fetch
       const summaryParams = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
@@ -470,20 +489,25 @@ class DashboardDataManager {
         offset: "0",
       };
 
+      console.log("📥 Fetching weekly summary for count...");
+      const summaryData = await this.api.getTransactionSummary(summaryParams);
+      
+      let actualLimit = "10000"; // Fallback
+      if (summaryData?.data?.total_nota) {
+          actualLimit = summaryData.data.total_nota.toString();
+      }
+
       const params = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
         tanggal_akhir: tanggalAkhir,
         offset: "0",
-        limit: "50000" // Use strict high limit for parallel fetch
+        limit: actualLimit // Use ACTUAL limit
       };
 
-      console.log("📥 Fetching weekly data (Parallel)...");
+      console.log(`📥 Fetching weekly data (Limit: ${actualLimit})...`);
       
-      const [summaryData, transactionData] = await Promise.all([
-        this.api.getTransactionSummary(summaryParams),
-        this.api.getTransactions(params)
-      ]);
+      const transactionData = await this.api.getTransactions(params);
 
       if (transactionData) {
         this.weeklyData = this.normalizeData(transactionData.data || []);
@@ -518,7 +542,7 @@ class DashboardDataManager {
         tanggalAkhir = this.getCurrentDate();
       }
 
-      // Prepare params for parallel fetch
+      // Prepare params for fetch
       const summaryParams = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
@@ -527,20 +551,25 @@ class DashboardDataManager {
         offset: "0",
       };
 
+      console.log("📥 Fetching monthly summary for count...");
+      const summaryData = await this.api.getTransactionSummary(summaryParams);
+
+      let actualLimit = "25000"; // Fallback
+      if (summaryData?.data?.total_nota) {
+          actualLimit = summaryData.data.total_nota.toString();
+      }
+
       const params = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
         tanggal_akhir: tanggalAkhir,
         offset: "0",
-        limit: "50000" // Use strict high limit for parallel fetch
+        limit: actualLimit // Use ACTUAL limit
       };
 
-      console.log("📥 Fetching monthly data (Parallel)...");
+      console.log(`📥 Fetching monthly data (Limit: ${actualLimit})...`);
 
-      const [summaryData, transactionData] = await Promise.all([
-        this.api.getTransactionSummary(summaryParams),
-        this.api.getTransactions(params)
-      ]);
+      const transactionData = await this.api.getTransactions(params);
 
       if (transactionData) {
         this.monthlyData = this.normalizeData(transactionData.data || []);
@@ -622,9 +651,8 @@ class DashboardDataManager {
 
     // Determine limit
     if (this.currentFilter.limit === "max") {
-      // Use a strict high limit instead of fetching total_nota first
-      // This avoids the redundant summary API call
-      params.limit = "50000";
+      // Allow dynamic override, but provide a safe fallback if not set yet
+      params.limit = "50000"; 
     } else if (this.currentFilter.limit === "custom") {
       params.limit = "100"; // Default custom limit
     } else {
