@@ -458,12 +458,15 @@ class DashboardDataManager {
     try {
       let tanggalAwal, tanggalAkhir;
 
-      if (useFilter && this.isFilterSuitableForWeekly()) {
+      if (useFilter) {
+        // STRICT MODE: Always use filter if useFilter is true
+        // This satisfies "hari ini ya hari ini aja"
         const dateRange = this.getCurrentFilterDateRange();
         if (dateRange) {
           tanggalAwal = dateRange.tanggalAwal;
           tanggalAkhir = dateRange.tanggalAkhir;
         } else {
+          // Fallback if no filter range
           tanggalAwal = this.getWeekStartDate();
           tanggalAkhir = this.getCurrentDate();
         }
@@ -520,7 +523,8 @@ class DashboardDataManager {
     try {
       let tanggalAwal, tanggalAkhir;
 
-      if (useFilter && this.isFilterSuitableForMonthly()) {
+      if (useFilter) {
+        // STRICT MODE: Always use filter if useFilter is true
         const dateRange = this.getCurrentFilterDateRange();
         if (dateRange) {
           tanggalAwal = dateRange.tanggalAwal;
@@ -2483,12 +2487,16 @@ class DashboardController {
       this.renderer.renderLoading();
       this.dataManager.showSuccess("Memuat data terbaru...");
 
-      // Determine if filter is suitable for weekly and monthly charts
-      const useFilterForWeekly = this.dataManager.isFilterSuitableForWeekly();
-      const useFilterForMonthly = this.dataManager.isFilterSuitableForMonthly();
+      // User request: Strict filtering.
+      // If "Hari Ini", only fetch "Hari Ini". 
+      // If "Minggu Ini", only fetch "Minggu Ini".
+      // We do this by consistently passing `true` to useFilter and letting the data manager handle it.
+      
+      // Note: This means "Weekly Chart" might only show 1 day of data if filter is "Hari Ini".
+      // This is the desired behavior per "filter hari ini ya hari ini aja".
 
       // 1. Kick off all requests in parallel
-      console.log("🚀 Starting parallel data fetch...");
+      console.log("🚀 Starting parallel data fetch (Strict Filter)...");
       
       const mainDataPromise = this.dataManager.loadData()
         .catch(err => {
@@ -2496,28 +2504,15 @@ class DashboardController {
           throw err;
         });
 
-      // Weekly/Monthly are secondary, catch errors so they don't block main render
-      const weeklyPromise = !useFilterForWeekly 
-        ? this.dataManager.loadWeeklyData(false).catch(err => console.error("⚠️ Weekly fetch failed:", err)) 
-        : Promise.resolve();
+      // Pass useFilter=true to strictly follow the selected period
+      const weeklyPromise = this.dataManager.loadWeeklyData(true)
+          .catch(err => console.error("⚠️ Weekly fetch failed:", err));
 
-      const monthlyPromise = !useFilterForMonthly 
-        ? this.dataManager.loadMonthlyData(false).catch(err => console.error("⚠️ Monthly fetch failed:", err)) 
-        : Promise.resolve();
+      const monthlyPromise = this.dataManager.loadMonthlyData(true)
+          .catch(err => console.error("⚠️ Monthly fetch failed:", err));
 
       // 2. Wait for MAIN data (Priority) and render immediately
       const mainData = await mainDataPromise;
-
-      // Handle reuse logic for weekly/monthly
-      if (useFilterForWeekly) {
-         console.log("♻️ Reusing main data for weekly chart");
-         this.dataManager.weeklyData = [...mainData.transactions];
-      }
-      
-      if (useFilterForMonthly) {
-         console.log("♻️ Reusing main data for monthly chart");
-         this.dataManager.monthlyData = [...mainData.transactions];
-      }
 
       // 3. Render critical UI immediately (KPIs, Table, Daily Chart)
       console.log("🎨 Rendering main view...");
@@ -2525,8 +2520,7 @@ class DashboardController {
       
       // 4. Wait for background context data and update charts
       Promise.all([weeklyPromise, monthlyPromise]).then(() => {
-        console.log("🎨 Updating background charts (Weekly/Monthly)...");
-        // Re-render charts to include the newly loaded weekly/monthly data
+        console.log("🎨 Updating background charts (Strict Mode)...");
         this.renderer.renderCharts(mainData);
         this.dataManager.showSuccess("Data berhasil diperbarui!");
       });
