@@ -378,8 +378,7 @@ class DashboardDataManager {
   async loadData() {
     this.setLoading(true);
 
-  async loadData() {
-    this.setLoading(true);
+
 
     try {
       // 1. Fetch Summary FIRST to get exact total_nota
@@ -453,14 +452,7 @@ class DashboardDataManager {
       this.setLoading(false);
     }
   }
-    } catch (error) {
-      console.error("❌ Failed to load data:", error);
-      this.showError("Gagal memuat data: " + error.message);
-      throw error;
-    } finally {
-      this.setLoading(false);
-    }
-  }
+
 
   async loadWeeklyData(useFilter = false) {
     try {
