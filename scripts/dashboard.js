@@ -9,7 +9,7 @@ class DashboardAPI {
     this.lastETag = null;
   }
 
-  async fetchWithTimeout(url, options = {}, timeout = 120000) {
+  async fetchWithTimeout(url, options = {}, timeout = 300000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
