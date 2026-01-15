@@ -9,7 +9,7 @@ class DashboardAPI {
     this.lastETag = null;
   }
 
-  async fetchWithTimeout(url, options = {}, timeout = 30000) {
+  async fetchWithTimeout(url, options = {}, timeout = 120000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -379,11 +379,19 @@ class DashboardDataManager {
     this.setLoading(true);
 
     try {
-      // First get summary to determine total count
+      // Execute summary and transaction fetch in parallel to avoid waterfall
+      // and ensure we get both the actual summary count and the data
       const summaryParams = this.buildSummaryParams();
-      const summaryData = await this.api.getTransactionSummary(summaryParams);
+      const transactionParams = this.buildTransactionParams();
 
-      // Only update summary if we got new data (not 304)
+      console.log("🚀 Starting parallel fetch for Summary and Transactions...");
+
+      const [summaryData, transactionData] = await Promise.all([
+        this.api.getTransactionSummary(summaryParams),
+        this.api.getTransactions(transactionParams)
+      ]);
+
+      // Handle Summary Data
       if (summaryData) {
         this.summary = summaryData;
 
@@ -408,11 +416,7 @@ class DashboardDataManager {
         }
       }
 
-      // Then get actual transaction data
-      const transactionParams = this.buildTransactionParams();
-      const transactionData = await this.api.getTransactions(transactionParams);
-
-      // Only update transaction data if we got new data (not 304)
+      // Handle Transaction Data
       if (transactionData) {
         this.rawData = this.normalizeData(transactionData.data || []);
         this.filteredData = [...this.rawData];
@@ -444,35 +448,20 @@ class DashboardDataManager {
       let tanggalAwal, tanggalAkhir;
 
       if (useFilter && this.isFilterSuitableForWeekly()) {
-        // Use filter date range
         const dateRange = this.getCurrentFilterDateRange();
         if (dateRange) {
           tanggalAwal = dateRange.tanggalAwal;
           tanggalAkhir = dateRange.tanggalAkhir;
-          console.log(
-            "📅 Using filter date range for weekly chart:",
-            tanggalAwal,
-            "to",
-            tanggalAkhir
-          );
         } else {
-          // Fallback to current week
           tanggalAwal = this.getWeekStartDate();
           tanggalAkhir = this.getCurrentDate();
         }
       } else {
-        // Use current week (independent from filter)
         tanggalAwal = this.getWeekStartDate();
         tanggalAkhir = this.getCurrentDate();
-        console.log(
-          "📅 Using current week for weekly chart (filter not suitable):",
-          tanggalAwal,
-          "to",
-          tanggalAkhir
-        );
       }
 
-      // Get total count first
+      // Prepare params for parallel fetch
       const summaryParams = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
@@ -480,30 +469,29 @@ class DashboardDataManager {
         limit: "20",
         offset: "0",
       };
-      const summaryData = await this.api.getTransactionSummary(summaryParams);
 
       const params = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
         tanggal_akhir: tanggalAkhir,
         offset: "0",
+        limit: "50000" // Use strict high limit for parallel fetch
       };
 
-      // Use total_nota from summary if available, otherwise use a large number
-      if (summaryData?.data?.total_nota) {
-        params.limit = summaryData.data.total_nota.toString();
-      } else {
-        params.limit = "10000"; // Fallback to large number
-      }
-
-      const transactionData = await this.api.getTransactions(params);
+      console.log("📥 Fetching weekly data (Parallel)...");
+      
+      const [summaryData, transactionData] = await Promise.all([
+        this.api.getTransactionSummary(summaryParams),
+        this.api.getTransactions(params)
+      ]);
 
       if (transactionData) {
         this.weeklyData = this.normalizeData(transactionData.data || []);
         console.log(
           "✅ Weekly data loaded:",
           this.weeklyData.length,
-          "records"
+          "records",
+          "(Summary Total:", summaryData?.data?.total_nota || "N/A", ")"
         );
       }
     } catch (error) {
@@ -517,35 +505,20 @@ class DashboardDataManager {
       let tanggalAwal, tanggalAkhir;
 
       if (useFilter && this.isFilterSuitableForMonthly()) {
-        // Use filter date range
         const dateRange = this.getCurrentFilterDateRange();
         if (dateRange) {
           tanggalAwal = dateRange.tanggalAwal;
           tanggalAkhir = dateRange.tanggalAkhir;
-          console.log(
-            "📅 Using filter date range for monthly chart:",
-            tanggalAwal,
-            "to",
-            tanggalAkhir
-          );
         } else {
-          // Fallback to current month
           tanggalAwal = this.getMonthStartDate();
           tanggalAkhir = this.getCurrentDate();
         }
       } else {
-        // Use current month (independent from filter)
         tanggalAwal = this.getMonthStartDate();
         tanggalAkhir = this.getCurrentDate();
-        console.log(
-          "📅 Using current month for monthly chart (filter not suitable):",
-          tanggalAwal,
-          "to",
-          tanggalAkhir
-        );
       }
 
-      // Get total count first
+      // Prepare params for parallel fetch
       const summaryParams = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
@@ -553,30 +526,29 @@ class DashboardDataManager {
         limit: "20",
         offset: "0",
       };
-      const summaryData = await this.api.getTransactionSummary(summaryParams);
 
       const params = {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
         tanggal_akhir: tanggalAkhir,
         offset: "0",
+        limit: "50000" // Use strict high limit for parallel fetch
       };
 
-      // Use total_nota from summary if available, otherwise use a large number
-      if (summaryData?.data?.total_nota) {
-        params.limit = summaryData.data.total_nota.toString();
-      } else {
-        params.limit = "10000"; // Fallback to large number
-      }
+      console.log("📥 Fetching monthly data (Parallel)...");
 
-      const transactionData = await this.api.getTransactions(params);
+      const [summaryData, transactionData] = await Promise.all([
+        this.api.getTransactionSummary(summaryParams),
+        this.api.getTransactions(params)
+      ]);
 
       if (transactionData) {
         this.monthlyData = this.normalizeData(transactionData.data || []);
         console.log(
           "✅ Monthly data loaded:",
           this.monthlyData.length,
-          "records"
+          "records",
+          "(Summary Total:", summaryData?.data?.total_nota || "N/A", ")"
         );
       }
     } catch (error) {
@@ -650,9 +622,9 @@ class DashboardDataManager {
 
     // Determine limit
     if (this.currentFilter.limit === "max") {
-      // Get jumlah_nota from summary or localStorage
-      const totalNota = this.getTotalNota();
-      params.limit = totalNota ? totalNota.toString() : "100";
+      // Use a strict high limit instead of fetching total_nota first
+      // This avoids the redundant summary API call
+      params.limit = "50000";
     } else if (this.currentFilter.limit === "custom") {
       params.limit = "100"; // Default custom limit
     } else {
@@ -2495,45 +2467,49 @@ class DashboardController {
       const useFilterForWeekly = this.dataManager.isFilterSuitableForWeekly();
       const useFilterForMonthly = this.dataManager.isFilterSuitableForMonthly();
 
-      // Only load main data first
-      // If we are using filter for weekly/monthly, we can reuse this data!
-      const mainData = await this.dataManager.loadData();
+      // 1. Kick off all requests in parallel
+      console.log("🚀 Starting parallel data fetch...");
+      
+      const mainDataPromise = this.dataManager.loadData()
+        .catch(err => {
+          console.error("❌ Main data failed:", err);
+          throw err;
+        });
 
-      // Handle weekly data
+      // Weekly/Monthly are secondary, catch errors so they don't block main render
+      const weeklyPromise = !useFilterForWeekly 
+        ? this.dataManager.loadWeeklyData(false).catch(err => console.error("⚠️ Weekly fetch failed:", err)) 
+        : Promise.resolve();
+
+      const monthlyPromise = !useFilterForMonthly 
+        ? this.dataManager.loadMonthlyData(false).catch(err => console.error("⚠️ Monthly fetch failed:", err)) 
+        : Promise.resolve();
+
+      // 2. Wait for MAIN data (Priority) and render immediately
+      const mainData = await mainDataPromise;
+
+      // Handle reuse logic for weekly/monthly
       if (useFilterForWeekly) {
          console.log("♻️ Reusing main data for weekly chart");
          this.dataManager.weeklyData = [...mainData.transactions];
-      } else {
-         // If filter not suitable (e.g. "Hari Ini"), we might want to fetch actual weekly data
-         // or just show empty/partial?
-         // The user request implies we should try to avoid 3 calls "dg url yg sama".
-         // If we are here, it means filter is NOT suitable, so URL would be DIFFERENT (current week vs today).
-         // So we can arguably still call it, OR we can accept that "Hari Ini" view doesn't show weekly history
-         // unless the user asked for it.
-         // However, existing behavior was to call it. But user complained about "3 api sekaligus... padahal bisa panggil data bulan aja".
-         // Let's assume for "Hari Ini", we still strictly need "Week" data for the chart contexts?
-         // Logic: If I see "Today", I might want to see how it compares to the week.
-         // But if the user says "Chart terlihat kosong", maybe they prefer we just use what we have?
-         // Let's stick to: If filter suitable, REUSE. If not suitable, FETCH (different URL).
-         // BUT, we can make it parallel to avoid waterfall if we DO need to fetch.
-         // Wait, previously it was parallel.
-         // Let's go back to parallel but CONDITIONAL on reuse.
-
-         console.log("📥 Fetching separate weekly data...");
-         await this.dataManager.loadWeeklyData(false);
       }
-
-      // Handle monthly data
+      
       if (useFilterForMonthly) {
          console.log("♻️ Reusing main data for monthly chart");
          this.dataManager.monthlyData = [...mainData.transactions];
-      } else {
-         console.log("📥 Fetching separate monthly data...");
-         await this.dataManager.loadMonthlyData(false);
       }
 
+      // 3. Render critical UI immediately (KPIs, Table, Daily Chart)
+      console.log("🎨 Rendering main view...");
       this.renderer.render(mainData);
-      this.dataManager.showSuccess("Data berhasil diperbarui!");
+      
+      // 4. Wait for background context data and update charts
+      Promise.all([weeklyPromise, monthlyPromise]).then(() => {
+        console.log("🎨 Updating background charts (Weekly/Monthly)...");
+        // Re-render charts to include the newly loaded weekly/monthly data
+        this.renderer.renderCharts(mainData);
+        this.dataManager.showSuccess("Data berhasil diperbarui!");
+      });
     } catch (error) {
       console.error("Failed to refresh data:", error);
 
