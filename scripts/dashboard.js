@@ -2487,43 +2487,31 @@ class DashboardController {
       this.renderer.renderLoading();
       this.dataManager.showSuccess("Memuat data terbaru...");
 
-      // User request: Strict filtering.
-      // If "Hari Ini", only fetch "Hari Ini". 
-      // If "Minggu Ini", only fetch "Minggu Ini".
-      // We do this by consistently passing `true` to useFilter and letting the data manager handle it.
+      // 1. Fetch Main Data (Priority)
+      // Since we are in STRICT MODE ("Hari Ini" = "Hari Ini Only"), 
+      // the data for Weekly Chart and Monthly Chart IS THE SAME as the Main Data.
+      // We can reuse it entirely and avoid 4 redundant API calls.
       
-      // Note: This means "Weekly Chart" might only show 1 day of data if filter is "Hari Ini".
-      // This is the desired behavior per "filter hari ini ya hari ini aja".
-
-      // 1. Kick off all requests in parallel
-      console.log("🚀 Starting parallel data fetch (Strict Filter)...");
+      console.log("🚀 Fetching data (Strict Mode Reuse)...");
       
-      const mainDataPromise = this.dataManager.loadData()
+      const mainData = await this.dataManager.loadData()
         .catch(err => {
           console.error("❌ Main data failed:", err);
           throw err;
         });
 
-      // Pass useFilter=true to strictly follow the selected period
-      const weeklyPromise = this.dataManager.loadWeeklyData(true)
-          .catch(err => console.error("⚠️ Weekly fetch failed:", err));
+      // 2. Reuse data for secondary contexts
+      console.log("♻️ Reusing main data for strict weekly/monthly context");
+      this.dataManager.weeklyData = [...mainData.transactions];
+      this.dataManager.monthlyData = [...mainData.transactions];
 
-      const monthlyPromise = this.dataManager.loadMonthlyData(true)
-          .catch(err => console.error("⚠️ Monthly fetch failed:", err));
-
-      // 2. Wait for MAIN data (Priority) and render immediately
-      const mainData = await mainDataPromise;
-
-      // 3. Render critical UI immediately (KPIs, Table, Daily Chart)
-      console.log("🎨 Rendering main view...");
+      // 3. Render Everything
+      console.log("🎨 Rendering all views...");
       this.renderer.render(mainData);
       
-      // 4. Wait for background context data and update charts
-      Promise.all([weeklyPromise, monthlyPromise]).then(() => {
-        console.log("🎨 Updating background charts (Strict Mode)...");
-        this.renderer.renderCharts(mainData);
-        this.dataManager.showSuccess("Data berhasil diperbarui!");
-      });
+      // Update loading status
+      this.dataManager.showSuccess("Data berhasil diperbarui!");
+    } catch (error) {
     } catch (error) {
       console.error("Failed to refresh data:", error);
 
