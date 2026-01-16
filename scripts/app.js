@@ -647,6 +647,8 @@ async function setupMachineBadge(badge, machine) {
         badge.classList.add("badge-mt");
       } else if (eventType === "ep") {
         badge.classList.add("badge-ep");
+      } else if (eventType === "cp") {
+        badge.classList.add("badge-cp");
       } else {
         // Fallback to DO if unknown event type
         badge.classList.add("badge-do");
@@ -749,6 +751,7 @@ async function getEventDetail(eventType, eventId) {
         qe: "employee-quota",
         mt: "maintenance",
         ep: "error-payment",
+        cp: "claim-promo",
       }[eventType] || eventType;
 
     const response = await fetch(
@@ -839,6 +842,7 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
       qe: "Employee Quota",
       mt: "Maintenance",
       ep: "Error Payment",
+      cp: "Claim Promo",
     };
     const eventName = eventTypeNames[eventType] || eventType;
 
@@ -981,6 +985,75 @@ async function showEventTooltip(badgeElement, eventType, eventId) {
         <div class="tooltip-item">
           <span class="tooltip-label">Catatan:</span>
           <span class="tooltip-value">${detail.note}</span>
+        </div>
+        `
+            : ""
+        }
+        <div class="tooltip-item">
+          <span class="tooltip-label">Durasi:</span>
+          <span class="tooltip-value">${detail.duration_minutes} menit</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Waktu:</span>
+          <span class="tooltip-value">${new Date(
+            detail.occurred_at
+          ).toLocaleString("id-ID")}</span>
+        </div>
+      `;
+    } else if (eventType === "cp") {
+      // Map promo type to readable text
+      const promoTypeMap = {
+        cuci_5_gratis_1: "Cuci 5 Gratis 1",
+        member_get_member: "Member Get Member",
+      };
+      const promoTypeText = promoTypeMap[detail.promo_type] || detail.promo_type || "N/A";
+
+      content = `
+        <div class="tooltip-header">Detail ${eventName}</div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Jenis Promo:</span>
+          <span class="tooltip-value">${promoTypeText}</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Pelanggan:</span>
+          <span class="tooltip-value">${detail.customer_name || "N/A"}</span>
+        </div>
+        <div class="tooltip-item">
+          <span class="tooltip-label">Telepon:</span>
+          <span class="tooltip-value">${detail.customer_phone || "N/A"}</span>
+        </div>
+        ${
+          detail.employee_id && detail.employee_id !== 0
+            ? (() => {
+                const employeeName = getEmployeeNameById(detail.employee_id);
+                return employeeName
+                  ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${employeeName}</span>
+        </div>
+        `
+                  : `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan ID:</span>
+          <span class="tooltip-value">${detail.employee_id}</span>
+        </div>
+        `;
+              })()
+            : detail.employee_id === 0 || detail.employee_id === "0"
+            ? detail.other_employee_name
+              ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
+        </div>
+        `
+              : ""
+            : detail.other_employee_name
+            ? `
+        <div class="tooltip-item">
+          <span class="tooltip-label">Karyawan:</span>
+          <span class="tooltip-value">${detail.other_employee_name}</span>
         </div>
         `
             : ""
@@ -1795,9 +1868,15 @@ function isFormValid() {
     case "drop-off": {
       const customerName =
         document.getElementById("customerName")?.value.trim() || "";
+      const customerPhone =
+        document.getElementById("customerPhone")?.value.trim() || "";
       const employeeId =
         document.getElementById("employeeSelectDropOff")?.value || "";
-      if (!customerName || !employeeId) return false;
+
+      if (!customerName || !customerPhone || !employeeId) {
+        alert("Harap lengkapi nama pelanggan, nomor telepon, dan pilih karyawan!");
+        return false;
+      }
       // If employee_id is 0, check otherEmployeeName
       if (employeeId === "0") {
         const otherEmployeeName =
@@ -1827,6 +1906,23 @@ function isFormValid() {
       const employeeName =
         document.getElementById("employeeName")?.value.trim() || "";
       return employeeName.length > 0;
+    }
+      return true;
+    }
+    case "claim-promo": {
+      const customerName = document.getElementById("customerNameClaimPromo")?.value.trim() || "";
+      const customerPhone = document.getElementById("customerPhoneClaimPromo")?.value.trim() || "";
+      const employeeId = document.getElementById("employeeSelectClaimPromo")?.value || "";
+
+      if (!customerName || !customerPhone || !employeeId) return false;
+
+      // If employee_id is 0, check otherEmployeeName
+      if (employeeId === "0") {
+        const otherEmployeeName =
+          document.getElementById("otherEmployeeNameClaimPromo")?.value.trim() || "";
+        return otherEmployeeName.length > 0;
+      }
+      return true;
     }
     case "maintenance": {
       const maintenanceType = document.querySelector(
@@ -1915,6 +2011,13 @@ function updateEventFormFields() {
       updateDurationForMaintenance();
       // Handle employee dropdown visibility
       handleEmployeeDropdownChange("maintenance");
+      break;
+    case "claim-promo":
+      document.getElementById("eventFormClaimPromo").style.display = "block";
+      // Reset duration to default if not maintenance
+      if (durationInput) durationInput.value = "1";
+      // Handle employee dropdown visibility
+      handleEmployeeDropdownChange("claim-promo");
       break;
     default:
       // Fallback to drop-off if invalid
@@ -2172,6 +2275,11 @@ function handleEmployeeDropdownChange(eventType) {
       otherNameGroupId = "otherEmployeeNameGroupMaintenance";
       otherNameInputId = "otherEmployeeNameMaintenance";
       break;
+    case "claim-promo":
+      dropdownId = "employeeSelectClaimPromo";
+      otherNameGroupId = "otherEmployeeNameGroupClaimPromo";
+      otherNameInputId = "otherEmployeeNameClaimPromo";
+      break;
     default:
       return;
   }
@@ -2219,6 +2327,7 @@ function resetEventForm() {
     "employeeSelectDropOff",
     "employeeSelectErrorPayment",
     "employeeSelectMaintenance",
+    "employeeSelectClaimPromo",
   ];
   employeeDropdowns.forEach((id) => {
     const dropdown = document.getElementById(id);
@@ -2230,11 +2339,13 @@ function resetEventForm() {
     "otherEmployeeNameGroupDropOff",
     "otherEmployeeNameGroupErrorPayment",
     "otherEmployeeNameGroupMaintenance",
+     "otherEmployeeNameGroupClaimPromo",
   ];
   const otherNameInputs = [
     "otherEmployeeNameDropOff",
     "otherEmployeeNameErrorPayment",
     "otherEmployeeNameMaintenance",
+    "otherEmployeeNameClaimPromo",
   ];
   otherNameGroups.forEach((id) => {
     const group = document.getElementById(id);
@@ -2247,6 +2358,13 @@ function resetEventForm() {
       input.required = false;
     }
   });
+
+  // Reset Claim Promo fields
+  document.getElementById("customerNameClaimPromo").value = "";
+  document.getElementById("customerPhoneClaimPromo").value = "";
+  // Reset radios
+  const promoTypeCuci5Gratis1 = document.getElementById("promoTypeCuci5Gratis1");
+  if (promoTypeCuci5Gratis1) promoTypeCuci5Gratis1.checked = true;
 
   // Reset maintenance type radio buttons
   const maintenanceTypeCuciKosong = document.getElementById(
@@ -2269,6 +2387,7 @@ function resetEventForm() {
   document.getElementById("maintenanceNote").value = "";
 
   // Hide all form sections
+  document.getElementById("eventFormClaimPromo").style.display = "none";
   updateEventFormFields();
 }
 
@@ -2379,6 +2498,7 @@ function collectEventData(machineId, duration) {
         data: {
           ...baseData,
           description: description,
+          jenis_error: document.getElementById("errorType").value || "konsumen",
           employee_id: employeeId,
           other_employee_name: otherEmployeeName,
         },
@@ -2441,6 +2561,50 @@ function collectEventData(machineId, duration) {
           note:
             document.getElementById("maintenanceNote").value.trim() ||
             undefined,
+          employee_id: employeeId,
+          other_employee_name: otherEmployeeName,
+        },
+      };
+    }
+    case "claim-promo": {
+      const promoType = document.querySelector(
+        'input[name="promoType"]:checked'
+      )?.value;
+      const customerName = document
+        .getElementById("customerNameClaimPromo")
+        .value.trim();
+      const customerPhone = document
+        .getElementById("customerPhoneClaimPromo")
+        .value.trim();
+      const employeeId = parseInt(
+        document.getElementById("employeeSelectClaimPromo").value
+      );
+      
+      if (!customerName || !customerPhone || !employeeId) {
+        alert(
+           "⚠️ Field Wajib Kosong\n\nNama Pelanggan, Nomor Telepon, dan Karyawan harus diisi.\n\nSilakan lengkapi data terlebih dahulu."
+        );
+        return null;
+      }
+      
+      const otherEmployeeName =
+        employeeId === 0
+          ? document.getElementById("otherEmployeeNameClaimPromo").value.trim()
+          : undefined;
+
+      if (employeeId === 0 && !otherEmployeeName) {
+        alert("⚠️ Field Wajib Kosong\n\nNama Karyawan Lainnya harus diisi.");
+        document.getElementById("otherEmployeeNameClaimPromo").focus();
+        return null;
+      }
+
+      return {
+        type: "claim-promo",
+        data: {
+          ...baseData,
+          promo_type: promoType || "cuci_5_gratis_1",
+          customer_name: customerName,
+          customer_phone: customerPhone,
           employee_id: employeeId,
           other_employee_name: otherEmployeeName,
         },

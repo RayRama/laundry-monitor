@@ -247,6 +247,7 @@
             <select id="eventTypeSelect" class="event-select-field" required>
               <option value="drop-off" selected>Drop-off</option>
               <option value="error-payment">Error Payment</option>
+              <option value="claim-promo">Claim Promo</option>
               <option value="employee-quota">Employee Quota</option>
               <option value="maintenance">Maintenance</option>
             </select>
@@ -271,12 +272,12 @@
               />
             </div>
             <div class="event-form-field">
-              <label for="customerPhone">Nomor Telepon:</label>
+              <label for="customerPhone">Nomor Telepon <span class="required">*</span>:</label>
               <input
                 type="text"
                 id="customerPhone"
                 class="event-input-field"
-                placeholder="Masukkan nomor telepon (opsional)"
+                placeholder="Masukkan nomor telepon"
               />
             </div>
             <div class="event-form-field">
@@ -323,6 +324,16 @@
               />
             </div>
             <div class="event-form-field">
+              <label for="errorType"
+                >Jenis Error <span class="required">*</span>:</label
+              >
+              <select id="errorType" class="event-select-field" required>
+                <option value="">Pilih jenis error...</option>
+                <option value="iot">IoT</option>
+                <option value="konsumen">Konsumen</option>
+              </select>
+            </div>
+            <div class="event-form-field">
               <label for="employeeSelectErrorPayment"
                 >Karyawan <span class="required">*</span>:</label
               >
@@ -346,6 +357,84 @@
                 placeholder="Masukkan nama karyawan lainnya"
               />
             </div>
+
+          <!-- Claim Promo Fields -->
+          <div
+            id="eventFormClaimPromo"
+            class="event-form-section"
+            style="display: none"
+          >
+            <div class="event-form-field">
+              <label>Jenis Promo <span class="required">*</span>:</label>
+              <div class="maintenance-type-group">
+                <label class="event-radio-option">
+                  <input
+                    type="radio"
+                    name="promoType"
+                    value="cuci_5_gratis_1"
+                    id="promoTypeCuci5Gratis1"
+                    checked
+                  />
+                  <span>Cuci 5 Gratis 1</span>
+                </label>
+                <label class="event-radio-option">
+                  <input
+                    type="radio"
+                    name="promoType"
+                    value="member_get_member"
+                    id="promoTypeMemberGetMember"
+                  />
+                  <span>Member Get Member</span>
+                </label>
+              </div>
+            </div>
+            <div class="event-form-field">
+              <label for="customerNameClaimPromo"
+                >Nama Pelanggan <span class="required">*</span>:</label
+              >
+              <input
+                type="text"
+                id="customerNameClaimPromo"
+                class="event-input-field"
+                placeholder="Masukkan nama pelanggan"
+              />
+            </div>
+            <div class="event-form-field">
+              <label for="customerPhoneClaimPromo"
+                >Nomor Telepon <span class="required">*</span>:</label
+              >
+              <input
+                type="text"
+                id="customerPhoneClaimPromo"
+                class="event-input-field"
+                placeholder="Masukkan nomor telepon"
+              />
+            </div>
+             <div class="event-form-field">
+              <label for="employeeSelectClaimPromo"
+                >Karyawan <span class="required">*</span>:</label
+              >
+              <select id="employeeSelectClaimPromo" class="event-select-field" required>
+                <option value="">Pilih karyawan...</option>
+                <!-- Options akan di-populate dari JavaScript -->
+              </select>
+            </div>
+            <div
+              id="otherEmployeeNameGroupClaimPromo"
+              class="event-form-field"
+              style="display: none"
+            >
+              <label for="otherEmployeeNameClaimPromo"
+                >Nama Karyawan Lainnya <span class="required">*</span>:</label
+              >
+              <input
+                type="text"
+                id="otherEmployeeNameClaimPromo"
+                class="event-input-field"
+                placeholder="Masukkan nama karyawan lainnya"
+              />
+            </div>
+          </div>
           </div>
 
           <!-- Employee Quota Fields -->
