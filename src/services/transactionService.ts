@@ -95,7 +95,7 @@ export async function fetchTransactionSummary(params: {
   idmesin?: string;
 }): Promise<TransactionSummary> {
   const url = buildTransactionSummaryUrl(params);
-  console.log(`📊 Fetching transaction summary from: ${url}`);
+  // console.log(`📊 Fetching transaction summary from: ${url}`);
 
   const headers = createUpstreamHeaders(
     config.upstream.bearer,
@@ -108,13 +108,13 @@ export async function fetchTransactionSummary(params: {
   }
 
   const json = await res.json();
-  console.log(
-    `✅ Transaction summary fetched: ${
-      json.data?.total_nota || 0
-    } total transactions${
-      params.idmesin ? ` for machine ${params.idmesin}` : ""
-    }`
-  );
+  // console.log(
+  //   `✅ Transaction summary fetched: ${
+  //     json.data?.total_nota || 0
+  //   } total transactions${
+  //     params.idmesin ? ` for machine ${params.idmesin}` : ""
+  //   }`
+  // );
 
   // Update cache (only if not filtered by machine)
   if (!params.idmesin) {
