@@ -1907,8 +1907,6 @@ function isFormValid() {
         document.getElementById("employeeName")?.value.trim() || "";
       return employeeName.length > 0;
     }
-      return true;
-    }
     case "claim-promo": {
       const customerName = document.getElementById("customerNameClaimPromo")?.value.trim() || "";
       const customerPhone = document.getElementById("customerPhoneClaimPromo")?.value.trim() || "";
