@@ -1846,8 +1846,9 @@ function closeMachineModal() {
 /**
  * Check if all mandatory fields are filled
  * Returns true if form is valid, false otherwise
+ * @param {boolean} showErrors - Whether to show alert messages
  */
-function isFormValid() {
+function isFormValid(showErrors = false) {
   const eventTypeSelect = document.getElementById("eventTypeSelect");
   const eventType = eventTypeSelect?.value || "";
   const durationInput = document.getElementById("durationInput");
@@ -1874,7 +1875,7 @@ function isFormValid() {
         document.getElementById("employeeSelectDropOff")?.value || "";
 
       if (!customerName || !customerPhone || !employeeId) {
-        alert("Harap lengkapi nama pelanggan, nomor telepon, dan pilih karyawan!");
+        if (showErrors) alert("Harap lengkapi nama pelanggan, nomor telepon, dan pilih karyawan!");
         return false;
       }
       // If employee_id is 0, check otherEmployeeName
@@ -1951,7 +1952,7 @@ function updateStartButtonState() {
   const startBtn = document.getElementById("modalStartBtn");
   if (!startBtn) return;
 
-  const isValid = isFormValid();
+  const isValid = isFormValid(false);
   startBtn.disabled = !isValid;
 
   // CSS already handles disabled state styling via :disabled pseudo-class
@@ -1970,6 +1971,7 @@ function updateEventFormFields() {
   document.getElementById("eventFormErrorPayment").style.display = "none";
   document.getElementById("eventFormEmployeeQuota").style.display = "none";
   document.getElementById("eventFormMaintenance").style.display = "none";
+  document.getElementById("eventFormClaimPromo").style.display = "none";
 
   // Show relevant form section based on event type
   const durationInput = document.getElementById("durationInput");
