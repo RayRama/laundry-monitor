@@ -2197,6 +2197,7 @@ function populateEmployeeDropdowns(employees) {
     "employeeSelectDropOff",
     "employeeSelectErrorPayment",
     "employeeSelectMaintenance",
+    "employeeSelectClaimPromo",
   ];
 
   console.log("🔄 Populating employee dropdowns with:", employees);
