@@ -1602,17 +1602,29 @@ class DashboardRenderer {
         const weekStartDay = (weekOfMonth - 1) * 7 + 1;
         weekStart = new Date(transactionYear, transactionMonth - 1, weekStartDay);
         weekKey = `${transactionYear}-${String(transactionMonth).padStart(2, '0')}-W${weekOfMonth}`;
+        
+        // Generate custom label for month-based weeks
+        // Calculate week end day (last day of this week or last day of month, whichever is earlier)
+        const weekEndDay = Math.min(weekStartDay + 6, new Date(transactionYear, transactionMonth, 0).getDate());
+        const weekEnd = new Date(transactionYear, transactionMonth - 1, weekEndDay);
+        
+        // Format: "1-7 Jan" or "8-14 Jan"
+        const monthName = weekStart.toLocaleDateString('id-ID', { month: 'short' });
+        const customLabel = `${weekStartDay}-${weekEndDay} ${monthName}`;
+        
+        weekLabel = `Minggu ke ${weekOfMonth} (${customLabel})`;
       } else {
         // ISO weeks: use standard Monday-based weeks
         weekStart = this.getWeekStart(date);
         weekKey = weekStart.toISOString().slice(0, 10);
+        weekLabel = this.getWeekLabel(weekStart);
       }
 
       const cur = byWeekMap.get(weekKey) || {
         date: weekKey,
         rev: 0,
         tx: 0,
-        weekLabel: this.getWeekLabel(weekStart),
+        weekLabel: weekLabel,
         weekStart: weekStart, // Store weekStart for filtering
       };
       cur.rev += r.total_harga || 0;
