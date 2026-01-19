@@ -1570,12 +1570,43 @@ class DashboardRenderer {
     });
 
     // Weekly aggregation
+    // When filtering by month, use month-based weeks (1-7, 8-14, etc.) instead of ISO weeks
+    // This prevents cross-month labels like "29 Des - 04 Jan"
     const byWeekMap = new Map();
+    const currentFilter = this.dataManager?.currentFilter;
+    const filterMonth = currentFilter?.bulan ? parseInt(currentFilter.bulan.split('-')[1]) : null;
+    const filterYear = currentFilter?.bulan ? parseInt(currentFilter.bulan.split('-')[0]) : null;
+    const useMonthBasedWeeks = filterMonth && filterYear; // Use month-based weeks when filtering by month
+    
     rows.forEach((r) => {
       if (!r.dt) return;
       const date = new Date(r.dt);
-      const weekStart = this.getWeekStart(date);
-      const weekKey = weekStart.toISOString().slice(0, 10);
+      
+      let weekStart, weekKey;
+      
+      if (useMonthBasedWeeks) {
+        // Month-based weeks: group by week within the month (1-7, 8-14, 15-21, 22-28, 29+)
+        const transactionMonth = date.getMonth() + 1;
+        const transactionYear = date.getFullYear();
+        
+        // Only include transactions from the filtered month
+        if (transactionMonth !== filterMonth || transactionYear !== filterYear) {
+          return; // Skip transactions outside filtered month
+        }
+        
+        // Calculate week number within month (1-based)
+        const dayOfMonth = date.getDate();
+        const weekOfMonth = Math.ceil(dayOfMonth / 7);
+        
+        // Week start is the first day of this week within the month
+        const weekStartDay = (weekOfMonth - 1) * 7 + 1;
+        weekStart = new Date(transactionYear, transactionMonth - 1, weekStartDay);
+        weekKey = `${transactionYear}-${String(transactionMonth).padStart(2, '0')}-W${weekOfMonth}`;
+      } else {
+        // ISO weeks: use standard Monday-based weeks
+        weekStart = this.getWeekStart(date);
+        weekKey = weekStart.toISOString().slice(0, 10);
+      }
 
       const cur = byWeekMap.get(weekKey) || {
         date: weekKey,
@@ -1589,48 +1620,8 @@ class DashboardRenderer {
       byWeekMap.set(weekKey, cur);
     });
     
-    // Filter out weeks that start outside the current month/year filter
-    // This prevents showing "29 Des - 04 Jan" when filtering "Bulan Ini" (Januari)
-    let byWeek = Array.from(byWeekMap.values());
-    
-    // Get current filter month/year for comparison (only if filter exists)
-    const currentFilter = this.dataManager?.currentFilter;
-    if (currentFilter) {
-      const filterMonth = currentFilter.bulan ? parseInt(currentFilter.bulan.split('-')[1]) : null;
-      const filterYear = currentFilter.bulan ? parseInt(currentFilter.bulan.split('-')[0]) : 
-                         currentFilter.tahun ? parseInt(currentFilter.tahun) : null;
-      
-      console.log(`[WeeklyFilter] Filter detected - Month: ${filterMonth}, Year: ${filterYear}`);
-      
-      // Filter weeks based on current filter
-      if (filterMonth && filterYear) {
-        // Month filter: only include weeks that start in the selected month
-        const beforeFilter = byWeek.length;
-        byWeek = byWeek.filter(week => {
-          const weekStartDate = new Date(week.weekStart);
-          const weekMonth = weekStartDate.getMonth() + 1;
-          const weekYear = weekStartDate.getFullYear();
-          const include = weekMonth === filterMonth && weekYear === filterYear;
-          if (!include) {
-            console.log(`[WeeklyFilter] Excluding week: ${week.weekLabel} (starts ${weekMonth}/${weekYear}, filter ${filterMonth}/${filterYear})`);
-          }
-          return include;
-        });
-        console.log(`[WeeklyFilter] Filtered ${beforeFilter} → ${byWeek.length} weeks for month ${filterMonth}/${filterYear}`);
-      } else if (filterYear && !filterMonth) {
-        // Year filter: only include weeks that start in the selected year
-        byWeek = byWeek.filter(week => {
-          const weekStartDate = new Date(week.weekStart);
-          return weekStartDate.getFullYear() === filterYear;
-        });
-        console.log(`[WeeklyFilter] Filtered for year ${filterYear}, ${byWeek.length} weeks remaining`);
-      }
-    } else {
-      console.log('[WeeklyFilter] No filter detected, showing all weeks');
-    }
-    
-    // Sort by date
-    byWeek = byWeek.sort((a, b) => a.date.localeCompare(b.date));
+    // Sort by date (no additional filtering needed for month-based weeks)
+    const byWeek = Array.from(byWeekMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     // Monthly aggregation
     const byMonthMap = new Map();
