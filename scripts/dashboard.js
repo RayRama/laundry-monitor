@@ -1582,14 +1582,40 @@ class DashboardRenderer {
         rev: 0,
         tx: 0,
         weekLabel: this.getWeekLabel(weekStart),
+        weekStart: weekStart, // Store weekStart for filtering
       };
       cur.rev += r.total_harga || 0;
       cur.tx += 1;
       byWeekMap.set(weekKey, cur);
     });
-    const byWeek = Array.from(byWeekMap.values()).sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
+    
+    // Filter out weeks that start outside the current month/year filter
+    // This prevents showing "29 Des - 04 Jan" when filtering "Bulan Ini" (Januari)
+    let byWeek = Array.from(byWeekMap.values());
+    
+    // Get current filter month/year for comparison
+    const filterMonth = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[1]) : null;
+    const filterYear = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[0]) : 
+                       this.currentFilter.tahun ? parseInt(this.currentFilter.tahun) : null;
+    
+    // Filter weeks based on current filter
+    if (filterMonth && filterYear) {
+      // Month filter: only include weeks that start in the selected month
+      byWeek = byWeek.filter(week => {
+        const weekStartDate = new Date(week.weekStart);
+        return weekStartDate.getMonth() + 1 === filterMonth && 
+               weekStartDate.getFullYear() === filterYear;
+      });
+    } else if (filterYear && !filterMonth) {
+      // Year filter: only include weeks that start in the selected year
+      byWeek = byWeek.filter(week => {
+        const weekStartDate = new Date(week.weekStart);
+        return weekStartDate.getFullYear() === filterYear;
+      });
+    }
+    
+    // Sort by date
+    byWeek = byWeek.sort((a, b) => a.date.localeCompare(b.date));
 
     // Monthly aggregation
     const byMonthMap = new Map();
