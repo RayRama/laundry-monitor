@@ -409,6 +409,7 @@ class DashboardDataManager {
   }
 
   async loadData() {
+    console.time('⏱️ [Dashboard] Total Load Time');
     this.setLoading(true);
 
 
@@ -472,12 +473,21 @@ class DashboardDataManager {
          }
       }
 
+      console.time('⏱️ [Dashboard] API Call - Transactions');
       const transactionData = await this.api.getTransactions(transactionParams);
+      console.timeEnd('⏱️ [Dashboard] API Call - Transactions');
 
       // Handle Transaction Data
       if (transactionData) {
+        console.log(`📊 Data received: ${transactionData.data?.length || 0} records, ${JSON.stringify(transactionData).length} bytes`);
+        
+        console.time('⏱️ [Dashboard] Normalize Data');
         this.rawData = this.normalizeData(transactionData.data || []);
+        console.timeEnd('⏱️ [Dashboard] Normalize Data');
+        
+        console.time('⏱️ [Dashboard] Copy to Filtered');
         this.filteredData = [...this.rawData];
+        console.timeEnd('⏱️ [Dashboard] Copy to Filtered');
       }
 
       console.log("✅ Data loaded successfully:", {
@@ -498,11 +508,13 @@ class DashboardDataManager {
       throw error;
     } finally {
       this.setLoading(false);
+      console.timeEnd('⏱️ [Dashboard] Total Load Time');
     }
   }
 
 
   async loadWeeklyData(useFilter = false) {
+    console.time('⏱️ [Dashboard] Load Weekly Data');
     try {
       let tanggalAwal, tanggalAkhir;
 
@@ -537,7 +549,9 @@ class DashboardDataManager {
 
       console.log(`📥 Fetching weekly data (Limit: ${actualLimit})...`);
       
+      console.time('⏱️ [Dashboard] API Call - Weekly');
       const transactionData = await this.api.getTransactions(params);
+      console.timeEnd('⏱️ [Dashboard] API Call - Weekly');
 
       if (transactionData) {
         this.weeklyData = this.normalizeData(transactionData.data || []);
@@ -550,10 +564,13 @@ class DashboardDataManager {
     } catch (error) {
       console.error("❌ Failed to load weekly data:", error);
       this.weeklyData = [];
+    } finally {
+      console.timeEnd('⏱️ [Dashboard] Load Weekly Data');
     }
   }
 
   async loadMonthlyData(useFilter = false) {
+    console.time('⏱️ [Dashboard] Load Monthly Data');
     try {
       let tanggalAwal, tanggalAkhir;
 
@@ -586,7 +603,9 @@ class DashboardDataManager {
 
       console.log(`📥 Fetching monthly data (Limit: ${actualLimit})...`);
 
+      console.time('⏱️ [Dashboard] API Call - Monthly');
       const transactionData = await this.api.getTransactions(params);
+      console.timeEnd('⏱️ [Dashboard] API Call - Monthly');
 
       if (transactionData) {
         this.monthlyData = this.normalizeData(transactionData.data || []);
@@ -599,6 +618,8 @@ class DashboardDataManager {
     } catch (error) {
       console.error("❌ Failed to load monthly data:", error);
       this.monthlyData = [];
+    } finally {
+      console.timeEnd('⏱️ [Dashboard] Load Monthly Data');
     }
   }
 
