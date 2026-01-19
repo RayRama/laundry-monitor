@@ -484,7 +484,7 @@ class DashboardDataManager {
         summary: this.summary,
         transactions: this.rawData.length,
         totalNota: this.getTotalNota(),
-        summaryUpdated: !!summaryData,
+        summaryUpdated: isToday, // Summary only fetched for today
         transactionsUpdated: !!transactionData,
       });
 
