@@ -1594,26 +1594,39 @@ class DashboardRenderer {
     let byWeek = Array.from(byWeekMap.values());
     
     // Get current filter month/year for comparison (only if filter exists)
-    if (this.currentFilter) {
-      const filterMonth = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[1]) : null;
-      const filterYear = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[0]) : 
-                         this.currentFilter.tahun ? parseInt(this.currentFilter.tahun) : null;
+    const currentFilter = this.dataManager?.currentFilter;
+    if (currentFilter) {
+      const filterMonth = currentFilter.bulan ? parseInt(currentFilter.bulan.split('-')[1]) : null;
+      const filterYear = currentFilter.bulan ? parseInt(currentFilter.bulan.split('-')[0]) : 
+                         currentFilter.tahun ? parseInt(currentFilter.tahun) : null;
+      
+      console.log(`[WeeklyFilter] Filter detected - Month: ${filterMonth}, Year: ${filterYear}`);
       
       // Filter weeks based on current filter
       if (filterMonth && filterYear) {
         // Month filter: only include weeks that start in the selected month
+        const beforeFilter = byWeek.length;
         byWeek = byWeek.filter(week => {
           const weekStartDate = new Date(week.weekStart);
-          return weekStartDate.getMonth() + 1 === filterMonth && 
-                 weekStartDate.getFullYear() === filterYear;
+          const weekMonth = weekStartDate.getMonth() + 1;
+          const weekYear = weekStartDate.getFullYear();
+          const include = weekMonth === filterMonth && weekYear === filterYear;
+          if (!include) {
+            console.log(`[WeeklyFilter] Excluding week: ${week.weekLabel} (starts ${weekMonth}/${weekYear}, filter ${filterMonth}/${filterYear})`);
+          }
+          return include;
         });
+        console.log(`[WeeklyFilter] Filtered ${beforeFilter} → ${byWeek.length} weeks for month ${filterMonth}/${filterYear}`);
       } else if (filterYear && !filterMonth) {
         // Year filter: only include weeks that start in the selected year
         byWeek = byWeek.filter(week => {
           const weekStartDate = new Date(week.weekStart);
           return weekStartDate.getFullYear() === filterYear;
         });
+        console.log(`[WeeklyFilter] Filtered for year ${filterYear}, ${byWeek.length} weeks remaining`);
       }
+    } else {
+      console.log('[WeeklyFilter] No filter detected, showing all weeks');
     }
     
     // Sort by date
