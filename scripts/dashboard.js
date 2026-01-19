@@ -1593,25 +1593,27 @@ class DashboardRenderer {
     // This prevents showing "29 Des - 04 Jan" when filtering "Bulan Ini" (Januari)
     let byWeek = Array.from(byWeekMap.values());
     
-    // Get current filter month/year for comparison
-    const filterMonth = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[1]) : null;
-    const filterYear = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[0]) : 
-                       this.currentFilter.tahun ? parseInt(this.currentFilter.tahun) : null;
-    
-    // Filter weeks based on current filter
-    if (filterMonth && filterYear) {
-      // Month filter: only include weeks that start in the selected month
-      byWeek = byWeek.filter(week => {
-        const weekStartDate = new Date(week.weekStart);
-        return weekStartDate.getMonth() + 1 === filterMonth && 
-               weekStartDate.getFullYear() === filterYear;
-      });
-    } else if (filterYear && !filterMonth) {
-      // Year filter: only include weeks that start in the selected year
-      byWeek = byWeek.filter(week => {
-        const weekStartDate = new Date(week.weekStart);
-        return weekStartDate.getFullYear() === filterYear;
-      });
+    // Get current filter month/year for comparison (only if filter exists)
+    if (this.currentFilter) {
+      const filterMonth = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[1]) : null;
+      const filterYear = this.currentFilter.bulan ? parseInt(this.currentFilter.bulan.split('-')[0]) : 
+                         this.currentFilter.tahun ? parseInt(this.currentFilter.tahun) : null;
+      
+      // Filter weeks based on current filter
+      if (filterMonth && filterYear) {
+        // Month filter: only include weeks that start in the selected month
+        byWeek = byWeek.filter(week => {
+          const weekStartDate = new Date(week.weekStart);
+          return weekStartDate.getMonth() + 1 === filterMonth && 
+                 weekStartDate.getFullYear() === filterYear;
+        });
+      } else if (filterYear && !filterMonth) {
+        // Year filter: only include weeks that start in the selected year
+        byWeek = byWeek.filter(week => {
+          const weekStartDate = new Date(week.weekStart);
+          return weekStartDate.getFullYear() === filterYear;
+        });
+      }
     }
     
     // Sort by date
