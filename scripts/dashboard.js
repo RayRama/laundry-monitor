@@ -375,53 +375,101 @@ class DashboardDataManager {
     return dateRange || null;
   }
 
+  // Helper: Check if current filter is for today
+  isFilteringToday() {
+    const today = this.getCurrentDate();
+    const currentMonth = this.getCurrentMonth();
+    const currentYear = this.getCurrentYear();
+    
+    // Check filter type
+    if (this.currentFilter.filterBy === "hari_ini") {
+      return true;
+    }
+    
+    if (this.currentFilter.filterBy === "periode" && 
+        this.currentFilter.tanggalAwal && 
+        this.currentFilter.tanggalAkhir) {
+      // Check if both dates are today
+      return this.currentFilter.tanggalAwal === today && 
+             this.currentFilter.tanggalAkhir === today;
+    }
+    
+    if (this.currentFilter.filterBy === "bulan" && this.currentFilter.bulan) {
+      // Check if it's current month
+      return this.currentFilter.bulan === currentMonth;
+    }
+    
+    if (this.currentFilter.filterBy === "tahun" && this.currentFilter.tahun) {
+      // Check if it's current year
+      return this.currentFilter.tahun === currentYear;
+    }
+    
+    // For other filters (kemarin, minggu_ini, bulan_ini), not today
+    return false;
+  }
+
   async loadData() {
     this.setLoading(true);
 
 
 
     try {
-      // 1. Fetch Summary FIRST to get exact total_nota
-      const summaryParams = this.buildSummaryParams();
-      console.log("� Fetching summary for exact count...");
-      const summaryData = await this.api.getTransactionSummary(summaryParams);
-
+      const isToday = this.isFilteringToday();
       let actualLimit = "100"; // Default fallback
       
-      // Handle Summary Data
-      if (summaryData) {
-        this.summary = summaryData;
+      // Only fetch summary for today's filter
+      if (isToday) {
+        // 1. Fetch Summary FIRST to get exact total_nota
+        const summaryParams = this.buildSummaryParams();
+        console.log("📊 Fetching summary for exact count (today filter)...");
+        const summaryData = await this.api.getTransactionSummary(summaryParams);
+        
+        // Handle Summary Data
+        if (summaryData) {
+          this.summary = summaryData;
 
-        // Store total_nota for future use
-        if (this.summary?.data?.total_nota) {
-          const newTotalNota = this.summary.data.total_nota;
-          actualLimit = newTotalNota.toString(); // Use EXACT limit
-          
-          const currentTotalNota = this.getTotalNota();
+          // Store total_nota for future use
+          if (this.summary?.data?.total_nota) {
+            const newTotalNota = this.summary.data.total_nota;
+            actualLimit = newTotalNota.toString(); // Use EXACT limit
+            
+            const currentTotalNota = this.getTotalNota();
 
-          // Force update if different
-          if (currentTotalNota !== newTotalNota) {
-            console.log(
-              `📊 Total nota changed: ${currentTotalNota} → ${newTotalNota}`
-            );
-            this.setTotalNota(newTotalNota);
+            // Force update if different
+            if (currentTotalNota !== newTotalNota) {
+              console.log(
+                `📊 Total nota changed: ${currentTotalNota} → ${newTotalNota}`
+              );
+              this.setTotalNota(newTotalNota);
+            } else {
+              console.log("📊 Total nota unchanged:", newTotalNota);
+            }
+
+            console.log("📊 Summary data:", this.summary.data);
           } else {
-            console.log("📊 Total nota unchanged:", newTotalNota);
+            console.log("⚠️ No total_nota in summary data:", this.summary);
           }
-
-          console.log("📊 Summary data:", this.summary.data);
-        } else {
-          console.log("⚠️ No total_nota in summary data:", this.summary);
         }
+      } else {
+        console.log("⏭️ Skipping summary call (past date filter) - will fetch all data from database");
+        // For past dates, don't set limit - database will fetch all matching records
+        // Backend will skip LIMIT clause for better performance
+        actualLimit = null; // No limit for database queries
       }
 
       // 2. Fetch Transactions with ACTUAL LIMIT
       const transactionParams = this.buildTransactionParams();
       
-      // Override limit if "max" is selected
-      if (this.currentFilter.limit === "max") {
-         transactionParams.limit = actualLimit;
-         console.log(`📊 Using ACTUAL limit from summary: ${actualLimit}`);
+      // Override limit if "max" is selected OR if no limit (database query)
+      if (this.currentFilter.limit === "max" || actualLimit === null) {
+         if (actualLimit !== null) {
+           transactionParams.limit = actualLimit;
+           console.log(`📊 Using ACTUAL limit from summary: ${actualLimit}`);
+         } else {
+           // For database queries, use very large limit to skip LIMIT clause
+           transactionParams.limit = "999999";
+           console.log(`📊 Using unlimited fetch from database`);
+         }
       }
 
       const transactionData = await this.api.getTransactions(transactionParams);
@@ -476,21 +524,8 @@ class DashboardDataManager {
       }
 
       // Prepare params for fetch
-      const summaryParams = {
-        filter_by: "periode",
-        tanggal_awal: tanggalAwal,
-        tanggal_akhir: tanggalAkhir,
-        limit: "20",
-        offset: "0",
-      };
-
-      console.log("📥 Fetching weekly summary for count...");
-      const summaryData = await this.api.getTransactionSummary(summaryParams);
-      
-      let actualLimit = "10000"; // Fallback
-      if (summaryData?.data?.total_nota) {
-          actualLimit = summaryData.data.total_nota.toString();
-      }
+      // Skip summary call - use large limit for database
+      const actualLimit = "10000"; // Database is fast for past dates
 
       const params = {
         filter_by: "periode",
@@ -509,8 +544,7 @@ class DashboardDataManager {
         console.log(
           "✅ Weekly data loaded:",
           this.weeklyData.length,
-          "records",
-          "(Summary Total:", summaryData?.data?.total_nota || "N/A", ")"
+          "records"
         );
       }
     } catch (error) {
@@ -539,21 +573,8 @@ class DashboardDataManager {
       }
 
       // Prepare params for fetch
-      const summaryParams = {
-        filter_by: "periode",
-        tanggal_awal: tanggalAwal,
-        tanggal_akhir: tanggalAkhir,
-        limit: "20",
-        offset: "0",
-      };
-
-      console.log("📥 Fetching monthly summary for count...");
-      const summaryData = await this.api.getTransactionSummary(summaryParams);
-
-      let actualLimit = "25000"; // Fallback
-      if (summaryData?.data?.total_nota) {
-          actualLimit = summaryData.data.total_nota.toString();
-      }
+      // Skip summary call - use large limit for database
+      const actualLimit = "25000"; // Database is fast for past dates
 
       const params = {
         filter_by: "periode",
@@ -572,8 +593,7 @@ class DashboardDataManager {
         console.log(
           "✅ Monthly data loaded:",
           this.monthlyData.length,
-          "records",
-          "(Summary Total:", summaryData?.data?.total_nota || "N/A", ")"
+          "records"
         );
       }
     } catch (error) {
