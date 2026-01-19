@@ -1582,7 +1582,7 @@ class DashboardRenderer {
       if (!r.dt) return;
       const date = new Date(r.dt);
       
-      let weekStart, weekKey;
+      let weekStart, weekKey, weekLabel;
       
       if (useMonthBasedWeeks) {
         // Month-based weeks: group by week within the month (1-7, 8-14, 15-21, 22-28, 29+)
