@@ -225,9 +225,14 @@ class DashboardDataManager {
       case "hari_ini":
         return { tanggalAwal: today, tanggalAkhir: today };
       case "kemarin": {
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        // Fix: Don't pass string to Date constructor, use current date object
+        const now = new Date();
+        const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        const year = yesterday.getFullYear();
+        const month = String(yesterday.getMonth() + 1).padStart(2, "0");
+        const day = String(yesterday.getDate()).padStart(2, "0");
+        const yesterdayStr = `${year}-${month}-${day}`;
+        console.log(`📅 Kemarin date calculated: ${yesterdayStr}`);
         return { tanggalAwal: yesterdayStr, tanggalAkhir: yesterdayStr };
       }
       case "minggu_ini":
@@ -676,6 +681,21 @@ class DashboardDataManager {
       }
     }
 
+    // Validate: Prevent future dates from being sent to API
+    if (params.tanggal_akhir) {
+      const today = this.getCurrentDate();
+      if (params.tanggal_akhir > today) {
+        console.warn(`⚠️ Preventing future end date: ${params.tanggal_akhir}, using today: ${today}`);
+        params.tanggal_akhir = today;
+      }
+    }
+    if (params.tanggal_awal && params.tanggal_akhir && params.tanggal_awal > params.tanggal_akhir) {
+      console.warn(`⚠️ Start date after end date, swapping: ${params.tanggal_awal} > ${params.tanggal_akhir}`);
+      const temp = params.tanggal_awal;
+      params.tanggal_awal = params.tanggal_akhir;
+      params.tanggal_akhir = temp;
+    }
+
     console.log("📊 Summary params:", params);
     return params;
   }
@@ -723,6 +743,21 @@ class DashboardDataManager {
         params.tanggal_awal = `${year}-01-01`;
         params.tanggal_akhir = `${year}-12-31`;
       }
+    }
+
+    // Validate: Prevent future dates from being sent to API
+    if (params.tanggal_akhir) {
+      const today = this.getCurrentDate();
+      if (params.tanggal_akhir > today) {
+        console.warn(`⚠️ Preventing future end date: ${params.tanggal_akhir}, using today: ${today}`);
+        params.tanggal_akhir = today;
+      }
+    }
+    if (params.tanggal_awal && params.tanggal_akhir && params.tanggal_awal > params.tanggal_akhir) {
+      console.warn(`⚠️ Start date after end date, swapping: ${params.tanggal_awal} > ${params.tanggal_akhir}`);
+      const temp = params.tanggal_awal;
+      params.tanggal_awal = params.tanggal_akhir;
+      params.tanggal_akhir = temp;
     }
 
     console.log("📊 Transaction params:", params);
