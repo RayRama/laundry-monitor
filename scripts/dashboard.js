@@ -2797,7 +2797,9 @@ class ShiftTransactionManager {
         filter_by: "periode",
         tanggal_awal: tanggalAwal,
         tanggal_akhir: tanggalAkhir,
-        limit: "max",
+        // PER USER REQUEST: Use explicit limit instead of "max" to avoid summary API call
+        // This prevents backend from calculating limit based on total_nota (which might be empty for tomorrow)
+        limit: "999999",
         offset: "0",
       });
 
