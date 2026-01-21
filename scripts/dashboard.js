@@ -425,37 +425,10 @@ class DashboardDataManager {
       
       // Only fetch summary for today's filter
       if (isToday) {
-        // 1. Fetch Summary FIRST to get exact total_nota
-        const summaryParams = this.buildSummaryParams();
-        console.log("📊 Fetching summary for exact count (today filter)...");
-        const summaryData = await this.api.getTransactionSummary(summaryParams);
-        
-        // Handle Summary Data
-        if (summaryData) {
-          this.summary = summaryData;
-
-          // Store total_nota for future use
-          if (this.summary?.data?.total_nota) {
-            const newTotalNota = this.summary.data.total_nota;
-            actualLimit = newTotalNota.toString(); // Use EXACT limit
-            
-            const currentTotalNota = this.getTotalNota();
-
-            // Force update if different
-            if (currentTotalNota !== newTotalNota) {
-              console.log(
-                `📊 Total nota changed: ${currentTotalNota} → ${newTotalNota}`
-              );
-              this.setTotalNota(newTotalNota);
-            } else {
-              console.log("📊 Total nota unchanged:", newTotalNota);
-            }
-
-            console.log("📊 Summary data:", this.summary.data);
-          } else {
-            console.log("⚠️ No total_nota in summary data:", this.summary);
-          }
-        }
+        // PER USER REQUEST: Disable summary call for today filter to avoid cache issues
+        // Directly use high limit to fetch all data
+        console.log("⏭️ Skipping summary call for today filter (User Request) - using limit fallback");
+        actualLimit = "999999"; 
       } else {
         console.log("⏭️ Skipping summary call (past date filter) - will fetch all data from database");
         // For past dates, don't set limit - database will fetch all matching records
@@ -493,6 +466,13 @@ class DashboardDataManager {
         console.time('⏱️ [Dashboard] Copy to Filtered');
         this.filteredData = [...this.rawData];
         console.timeEnd('⏱️ [Dashboard] Copy to Filtered');
+
+        // Update Total Nota from transaction count if we have data and it's 'today' logic
+        if (isToday) {
+             const count = this.rawData.length; // Use rawData length which is normalized
+             this.setTotalNota(count);
+             console.log(`📊 Updated total nota from transaction count: ${count}`);
+        }
       }
 
       console.log("✅ Data loaded successfully:", {

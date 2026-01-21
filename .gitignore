@@ -22,3 +22,5 @@ generate-password-hash.js
 # Exclude all .md files except README.md
 *.md
 !README.md
+# !membership_implementation_plan.md
+new_frontend
