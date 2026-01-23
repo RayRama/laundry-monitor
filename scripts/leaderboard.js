@@ -598,7 +598,24 @@ class LeaderboardRenderer {
     } else if (filterBy === "minggu_ini") {
       rangeText = "Minggu Ini";
     } else if (filterBy === "periode") {
-      rangeText = `Periode: ${tanggalAwal} - ${tanggalAkhir}`;
+      // Calculate duration
+      let durationStr = "";
+      if (tanggalAwal && tanggalAkhir) {
+        const start = new Date(tanggalAwal);
+        const end = new Date(tanggalAkhir);
+        const diffTime = end - start;
+        if (diffTime >= 0) {
+           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+           durationStr = `${diffDays} hari`;
+           if (diffDays >= 7) {
+             const weeks = Math.floor(diffDays / 7);
+             const remainingDays = diffDays % 7;
+             durationStr += ` (${weeks} minggu${remainingDays > 0 ? ` ${remainingDays} hari` : ""})`;
+           }
+           durationStr = ` • ${durationStr}`;
+        }
+      }
+      rangeText = `Periode: ${tanggalAwal} - ${tanggalAkhir}${durationStr}`;
     } else if (filterBy === "bulan") {
       const [year, month] = bulan.split("-");
       const monthNames = [
@@ -666,54 +683,6 @@ class LeaderboardController {
         this.updateFilterFromInputs();
       });
     });
-
-    // Date duration calculation
-    const updateDuration = () => {
-      const start = document.getElementById("tanggalAwal").value;
-      const end = document.getElementById("tanggalAkhir").value;
-      const infoEl = document.getElementById("dateDurationInfo");
-
-      if (start && end && infoEl) {
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-
-        // Check if dates are valid
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          infoEl.textContent = "";
-          return;
-        }
-
-        const diffTime = endDate - startDate;
-        if (diffTime < 0) {
-          infoEl.textContent = "Tanggal akhir tidak valid";
-          infoEl.className = "text-xs text-red-500 mt-1 font-medium";
-          return;
-        }
-
-        infoEl.className = "text-xs text-slate-500 mt-1 font-medium";
-
-        // Calculate days difference (inclusive)
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-        let durationText = `${diffDays} hari`;
-        if (diffDays >= 7) {
-          const weeks = Math.floor(diffDays / 7);
-          const remainingDays = diffDays % 7;
-          durationText += ` (${weeks} minggu${
-            remainingDays > 0 ? ` ${remainingDays} hari` : ""
-          })`;
-        }
-
-        infoEl.textContent = durationText;
-      } else if (infoEl) {
-        infoEl.textContent = "";
-      }
-    };
-
-    const tglAwal = document.getElementById("tanggalAwal");
-    const tglAkhir = document.getElementById("tanggalAkhir");
-    if (tglAwal) tglAwal.addEventListener("change", updateDuration);
-    if (tglAkhir) tglAkhir.addEventListener("change", updateDuration);
   }
 
   initializeFilters() {
