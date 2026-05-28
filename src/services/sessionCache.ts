@@ -111,12 +111,34 @@ async function fetchAndCache(
       return;
     }
 
+    const now = Date.now();
+
+    // Monotonic guard: tolak update kalau bikin elapsed regress.
+    // Smartlink kadang return cached/stale tl saat resync -> tanpa guard,
+    // elapsed bisa loncat mundur. Toleransi 5s untuk noise jitter.
+    const existing = sessions.get(aid);
+    if (existing) {
+      const currentExtrapolated =
+        existing.dur - existing.tl_baseline + (now - existing.fetched_at);
+      const newBaselineElapsed = dur - tl;
+
+      if (newBaselineElapsed < currentExtrapolated - 5000) {
+        // Stale data dari smartlink. Skip overwrite baseline,
+        // tapi extend fetched_at supaya tidak resync ulang segera.
+        sessions.set(aid, { ...existing, fetched_at: now });
+        console.log(
+          `[SessionCache] Stale tl untuk ${machineId} (aid=${aid}): newBaseline=${newBaselineElapsed}ms vs current=${currentExtrapolated}ms. Skip overwrite.`
+        );
+        return;
+      }
+    }
+
     sessions.set(aid, {
       aid,
       machineId,
       dur,
       tl_baseline: tl,
-      fetched_at: Date.now(),
+      fetched_at: now,
     });
   } catch (err: any) {
     console.warn(
