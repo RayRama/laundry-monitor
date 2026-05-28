@@ -1,3 +1,5 @@
+import { computeElapsed as computeElapsedFromCache } from "./services/sessionCache.js";
+
 export type Up = any;
 export type Out = {
   id: string;
@@ -27,60 +29,55 @@ const previousDeviceStates: Map<
 /** Zero-pad helper: 7 -> "07" */
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** Calculate elapsed time since updated_at for running machines (stopwatch) */
+/**
+ * Calculate elapsed time untuk running machines.
+ *
+ * Primary: pakai session cache (data dari detail_snap_mesin endpoint yg masih
+ * punya tl reliable). Cache di-extrapolate local supaya tidak fetch tiap refresh.
+ *
+ * Fallback (cache miss, first cycle, atau detail fetch gagal):
+ * pakai startTime cached dari updated_at -> elapsed = now - startTime.
+ */
 function calculateElapsed(
   ctrlId: string,
   status: Out["status"],
   updated_at: string | null,
   device: any
 ): { elapsed_ms?: number; start_time?: number } {
-  if (status !== "RUNNING" || !updated_at) {
-    // Clear start time when not running
+  if (status !== "RUNNING") {
+    startTimes.delete(ctrlId);
+    return {};
+  }
+
+  const aid = device?.aid || null;
+
+  // Primary: session cache (akurat, baseline dari detail endpoint)
+  const cached = computeElapsedFromCache(aid);
+  if (cached) {
+    return cached;
+  }
+
+  // Fallback: extrapolate dari updated_at sampai detail fetch selesai
+  const dur = Number(device?.dur ?? 0);
+  if (dur <= 0) {
     startTimes.delete(ctrlId);
     return {};
   }
 
   const now = Date.now();
-  const updatedAtMs = new Date(updated_at).getTime();
-  const tl = Number(device?.tl ?? 0); // waktu tersisa dalam ms
-  const dur = Number(device?.dur ?? 0); // durasi total dalam ms
+  const updatedAtMs = updated_at ? new Date(updated_at).getTime() : 0;
 
-  // Validasi: jika tl atau dur tidak valid, jangan hitung elapsed
-  if (tl <= 0 || dur <= 0 || tl > dur) {
-    startTimes.delete(ctrlId);
-    return {};
-  }
-
-  // Hitung elapsed time berdasarkan durasi - waktu tersisa
-  // elapsed = dur - tl (waktu yang sudah berjalan)
-  const elapsed = Math.max(0, dur - tl);
-
-  // Validasi: elapsed tidak boleh lebih dari durasi total
-  const maxElapsed = Math.min(elapsed, dur);
-
-  // Get or set start time (use current time as fallback if updated_at is not reliable)
   let startTime = startTimes.get(ctrlId);
   if (!startTime) {
-    // Use updated_at if available and recent, otherwise use current time
-    const now = Date.now();
     const dataAge = updatedAtMs ? now - updatedAtMs : Infinity;
-
-    // If updated_at is too old (> 5 minutes), use current time
-    if (dataAge > 5 * 60 * 1000) {
-      startTime = now;
-      console.log(
-        `Using current time for ${ctrlId} (updated_at too old: ${Math.round(
-          dataAge / 1000
-        )}s)`
-      );
-    } else {
-      startTime = updatedAtMs || now;
-    }
+    startTime = dataAge > 5 * 60 * 1000 ? now : updatedAtMs || now;
     startTimes.set(ctrlId, startTime);
   }
 
+  const elapsed = Math.min(dur, Math.max(0, now - startTime));
+
   return {
-    elapsed_ms: Math.round(maxElapsed),
+    elapsed_ms: Math.round(elapsed),
     start_time: startTime,
   };
 }
@@ -131,10 +128,9 @@ function classifyNewWithReason(
   ctrlId?: string
 ): { status: Out["status"]; reason: string; details: any } {
   const ol = !!device?.ol;
-  const tl = Number(device?.tl ?? 0); // ms
+  const tl = Number(device?.tl ?? 0); // ms (NB: unreliable di list_snap_mesin sejak smartlink ubah konvensi)
   const dur = Number(device?.dur ?? 0); // ms
-  // const door = !!device?.door;
-  // const sw = !!device?.sw;
+  const sw = !!device?.sw;
   const st = Number(device?.st ?? 0);
   const aid = device?.aid || null;
 
@@ -165,20 +161,20 @@ function classifyNewWithReason(
   // Validasi durasi maksimal (3 jam = 10800000ms)
   const MAX_DURATION_MS = 3 * 60 * 60 * 1000; // 3 jam
   const invalidDur = dur <= 0 || dur > MAX_DURATION_MS;
-  const invalidTl = tl <= 0 || tl > dur;
 
-  // RUNNING: tl > 0 && dur > 0 && valid
-  const running = tl > 0 && dur > 0 && !invalidDur && !invalidTl;
+  // RUNNING signal baru: sw=true && aid non-empty && dur valid
+  // (tl tidak dipakai karena list_snap_mesin tidak lagi kirim tl reliable)
+  const hasAid = !!aid && String(aid).trim() !== "";
+  const running = sw && hasAid && !invalidDur;
 
   if (running) {
     return {
       status: "RUNNING",
-      reason: "tl > 0 && dur > 0 && valid",
+      reason: "sw && aid && dur valid",
       details: {
-        tl,
+        sw,
+        aid,
         dur,
-        tl_valid: true,
-        dur_valid: true,
         raw_data: rawData,
       },
     };
@@ -187,13 +183,12 @@ function classifyNewWithReason(
   // READY: online tapi tidak running
   return {
     status: "READY",
-    reason: "ol=true but not running",
+    reason: "ol=true but not running (sw/aid/dur tidak memenuhi)",
     details: {
       ol: true,
-      invalid_tl: tl <= 0,
-      invalid_dur: dur <= 0 || dur > MAX_DURATION_MS,
-      tl_exceeded_dur: tl > dur,
-      dur_exceeded_max: dur > MAX_DURATION_MS,
+      sw,
+      has_aid: hasAid,
+      invalid_dur: invalidDur,
       raw_data: rawData,
     },
   };

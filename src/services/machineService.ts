@@ -3,6 +3,7 @@ import { MACHINE_CONFIG } from "../constants.js";
 import { config } from "../config.js";
 import { fetchWithTimeout, createUpstreamHeaders } from "../utils/fetch.js";
 import { machineCache } from "../utils/cache.js";
+import { syncRunningSessions } from "./sessionCache.js";
 import type { MachineSnapshot } from "../types.js";
 
 let controllersMap: Record<string, string> | null = null;
@@ -76,6 +77,20 @@ export async function refreshMachines(): Promise<void> {
     };
 
     machineCache.set(snapshot);
+
+    // Sync session cache untuk RUNNING machines (non-blocking).
+    // Detail endpoint masih kirim tl reliable -> baseline akurat untuk elapsed.
+    const runningForSync = list
+      .filter((m) => m.status === "RUNNING" && m.aid && m.aid !== "UNKNOWN")
+      .map((m) => {
+        const raw = rows.find((r: any) => r?.id === m.id);
+        const dur = Number(raw?.snap_report_device?.dur ?? 0);
+        return { id: m.id, aid: m.aid as string, dur };
+      });
+
+    if (runningForSync.length > 0) {
+      syncRunningSessions(runningForSync);
+    }
   } catch (e) {
     const existingSnapshot = machineCache.get();
     if (existingSnapshot) {
