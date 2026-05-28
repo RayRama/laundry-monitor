@@ -22,6 +22,14 @@ export interface SessionEntry {
 const sessions: Map<string, SessionEntry> = new Map(); // key = aid
 const inflight: Set<string> = new Set(); // key = aid, prevent concurrent fetch
 
+/**
+ * Monotonic floor per aid. elapsed yg di-return ke caller tidak boleh
+ * lebih kecil dari nilai terakhir untuk aid yg sama. Safety net untuk
+ * kasus2 baseline regress (cache evict+reseed, fallback path, smartlink
+ * stale tl yg lolos guard, dll).
+ */
+const lastKnownElapsed: Map<string, number> = new Map(); // key = aid
+
 const RESYNC_INTERVAL_MS = 90_000; // resync tiap 90s
 const FETCH_TIMEOUT_MS = 3_000;
 
@@ -47,8 +55,15 @@ export function computeElapsed(aid: string | null | undefined): {
   const now = Date.now();
   const baselineElapsed = Math.max(0, entry.dur - entry.tl_baseline);
   const drift = Math.max(0, now - entry.fetched_at);
-  const elapsed = Math.min(entry.dur, baselineElapsed + drift);
-  const start_time = entry.fetched_at - baselineElapsed;
+  const rawElapsed = Math.min(entry.dur, baselineElapsed + drift);
+
+  // Monotonic floor: tidak boleh lebih kecil dari yg pernah ditampilkan
+  // untuk aid ini. Clamp tetap ke dur (selesai = stop di max).
+  const lastKnown = lastKnownElapsed.get(entry.aid) ?? 0;
+  const elapsed = Math.min(entry.dur, Math.max(rawElapsed, lastKnown));
+  lastKnownElapsed.set(entry.aid, elapsed);
+
+  const start_time = now - elapsed;
 
   return {
     elapsed_ms: Math.round(elapsed),
@@ -178,10 +193,13 @@ export function syncRunningSessions(
     }
   }
 
-  // Evict expired sessions (aid no longer in running list)
+  // Evict expired sessions (aid no longer in running list).
+  // Hapus juga lastKnownElapsed supaya tidak memory leak — aid yg gone
+  // berarti session selesai, monotonic floor tidak relevan lagi.
   for (const aid of sessions.keys()) {
     if (!activeAids.has(aid)) {
       sessions.delete(aid);
+      lastKnownElapsed.delete(aid);
     }
   }
 }
