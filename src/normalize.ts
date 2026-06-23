@@ -1,4 +1,7 @@
-import { computeElapsed as computeElapsedFromCache } from "./services/sessionCache.js";
+import {
+  computeElapsed as computeElapsedFromCache,
+  computeElapsedDirect,
+} from "./services/sessionCache.js";
 
 export type Up = any;
 export type Out = {
@@ -32,11 +35,22 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 /**
  * Calculate elapsed time untuk running machines.
  *
- * Primary: pakai session cache (data dari detail_snap_mesin endpoint yg masih
- * punya tl reliable). Cache di-extrapolate local supaya tidak fetch tiap refresh.
+ * Strategi 3-tier (priority order):
  *
- * Fallback (cache miss, first cycle, atau detail fetch gagal):
- * pakai startTime cached dari updated_at -> elapsed = now - startTime.
+ * Tier 1 (PRIMARY) — tl direct dari list_snap_mesin payload.
+ *   Pakai saat smartlink kasih tl reliable. Paling akurat: no drift, no
+ *   extrapolation, no extra API call. Default sejak smartlink fix konvensi.
+ *
+ * Tier 2 (SAFETY NET) — session cache dari detail_snap_mesin endpoint.
+ *   Aktif saat tl di list invalid (kalau smartlink break lagi). Cache
+ *   baseline + extrapolate local, resync 90s.
+ *
+ * Tier 3 (FALLBACK) — startTime cache dari updated_at.
+ *   Cold start sebelum cache populate atau detail fetch gagal. Degraded
+ *   tapi tidak crash.
+ *
+ * Semua tier lewat monotonic floor (lastKnownElapsed) — display tidak
+ * pernah regress.
  */
 function calculateElapsed(
   ctrlId: string,
@@ -50,16 +64,24 @@ function calculateElapsed(
   }
 
   const aid = device?.aid || null;
+  const tl = Number(device?.tl ?? 0);
+  const dur = Number(device?.dur ?? 0);
+  const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
+  const durValid = dur > 0 && dur <= MAX_DURATION_MS;
 
-  // Primary: session cache (akurat, baseline dari detail endpoint)
+  // Tier 1: tl direct dari list payload (akurat, no overhead)
+  if (aid && durValid && tl > 0 && tl <= dur) {
+    return computeElapsedDirect(aid, dur, tl);
+  }
+
+  // Tier 2: session cache (safety net saat tl di list invalid)
   const cached = computeElapsedFromCache(aid);
   if (cached) {
     return cached;
   }
 
-  // Fallback: extrapolate dari updated_at sampai detail fetch selesai
-  const dur = Number(device?.dur ?? 0);
-  if (dur <= 0) {
+  // Tier 3: fallback startTime dari updated_at
+  if (!durValid) {
     startTimes.delete(ctrlId);
     return {};
   }

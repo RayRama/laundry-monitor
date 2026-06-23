@@ -42,7 +42,36 @@ export function getSession(aid: string | null | undefined): SessionEntry | null 
 }
 
 /**
- * Compute extrapolated elapsed_ms for given aid.
+ * Compute elapsed langsung dari payload list_snap_mesin (tl & dur fresh).
+ * Dipakai saat smartlink kasih tl reliable di list endpoint — primary path
+ * yg paling akurat (no extrapolation drift, no detail fetch overhead).
+ *
+ * Tetap apply monotonic floor per aid supaya kalau smartlink return stale tl
+ * (atau switch ke 0 lagi), display tidak regress.
+ *
+ * Caller wajib pastikan tl valid (tl > 0 && tl <= dur && dur > 0).
+ */
+export function computeElapsedDirect(
+  aid: string,
+  dur: number,
+  tl: number
+): { elapsed_ms: number; start_time: number } {
+  const now = Date.now();
+  const rawElapsed = Math.min(dur, Math.max(0, dur - tl));
+
+  const lastKnown = lastKnownElapsed.get(aid) ?? 0;
+  const elapsed = Math.min(dur, Math.max(rawElapsed, lastKnown));
+  lastKnownElapsed.set(aid, elapsed);
+
+  return {
+    elapsed_ms: Math.round(elapsed),
+    start_time: now - elapsed,
+  };
+}
+
+/**
+ * Compute extrapolated elapsed_ms dari session cache (detail endpoint baseline).
+ * Safety net path saat tl di list endpoint invalid.
  * Returns null if no cache entry (caller harus fallback).
  */
 export function computeElapsed(aid: string | null | undefined): {

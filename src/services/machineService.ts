@@ -78,15 +78,24 @@ export async function refreshMachines(): Promise<void> {
 
     machineCache.set(snapshot);
 
-    // Sync session cache untuk RUNNING machines (non-blocking).
-    // Detail endpoint masih kirim tl reliable -> baseline akurat untuk elapsed.
+    // Sync session cache HANYA untuk RUNNING machines yg tl-nya invalid
+    // di list endpoint. Kalau tl valid (smartlink kasih reliable),
+    // calculateElapsed pakai Tier 1 (direct) -> tidak butuh detail fetch.
+    // Hemat call ke smartlink saat normal, auto-failover saat tl break.
+    const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
     const runningForSync = list
       .filter((m) => m.status === "RUNNING" && m.aid && m.aid !== "UNKNOWN")
       .map((m) => {
         const raw = rows.find((r: any) => r?.id === m.id);
         const dur = Number(raw?.snap_report_device?.dur ?? 0);
-        return { id: m.id, aid: m.aid as string, dur };
-      });
+        const tl = Number(raw?.snap_report_device?.tl ?? 0);
+        return { id: m.id, aid: m.aid as string, dur, tl };
+      })
+      .filter(
+        (m) =>
+          !(m.tl > 0 && m.tl <= m.dur && m.dur > 0 && m.dur <= MAX_DURATION_MS)
+      )
+      .map(({ id, aid, dur }) => ({ id, aid, dur }));
 
     if (runningForSync.length > 0) {
       syncRunningSessions(runningForSync);
