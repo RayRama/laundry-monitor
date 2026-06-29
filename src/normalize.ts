@@ -1,8 +1,3 @@
-import {
-  computeElapsed as computeElapsedFromCache,
-  computeElapsedDirect,
-} from "./services/sessionCache.js";
-
 export type Up = any;
 export type Out = {
   id: string;
@@ -20,9 +15,6 @@ const HYST_MS = Number(process.env.HYST_MS || 3000);
 const lastStatus: Map<string, { status: Out["status"]; ts: number }> =
   new Map();
 
-// Store start times for running machines
-const startTimes: Map<string, number> = new Map();
-
 // Track previous device state untuk comparison dan logging
 const previousDeviceStates: Map<
   string,
@@ -33,74 +25,38 @@ const previousDeviceStates: Map<
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Calculate elapsed time untuk running machines.
+ * True when Smartlink time-left (`tl`) is a usable RUNNING/elapsed signal:
+ * positive, with a sane duration, and not exceeding it.
+ */
+function isUsableTl(tl: number, dur: number): boolean {
+  const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
+  return tl > 0 && dur > 0 && tl <= dur && dur <= MAX_DURATION_MS;
+}
+
+/**
+ * Calculate elapsed time — stateless, inline dari payload device.
  *
- * Strategi 3-tier (priority order):
+ * Vercel serverless = tiap request fresh memory, jadi in-memory cache tidak
+ * persist. Kita compute fresh tiap kali dari `dur - tl`.
  *
- * Tier 1 (PRIMARY) — tl direct dari list_snap_mesin payload.
- *   Pakai saat smartlink kasih tl reliable. Paling akurat: no drift, no
- *   extrapolation, no extra API call. Default sejak smartlink fix konvensi.
- *
- * Tier 2 (SAFETY NET) — session cache dari detail_snap_mesin endpoint.
- *   Aktif saat tl di list invalid (kalau smartlink break lagi). Cache
- *   baseline + extrapolate local, resync 90s.
- *
- * Tier 3 (FALLBACK) — startTime cache dari updated_at.
- *   Cold start sebelum cache populate atau detail fetch gagal. Degraded
- *   tapi tidak crash.
- *
- * Semua tier lewat monotonic floor (lastKnownElapsed) — display tidak
- * pernah regress.
+ * Jika tl invalid di list payload → return empty. Caller (machineService)
+ * harus fetch detail_snap_mesin synchronously inline untuk fallback elapsed.
  */
 function calculateElapsed(
-  ctrlId: string,
   status: Out["status"],
-  updated_at: string | null,
   device: any
 ): { elapsed_ms?: number; start_time?: number } {
-  if (status !== "RUNNING") {
-    startTimes.delete(ctrlId);
-    return {};
-  }
+  if (status !== "RUNNING") return {};
 
-  const aid = device?.aid || null;
   const tl = Number(device?.tl ?? 0);
   const dur = Number(device?.dur ?? 0);
-  const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
-  const durValid = dur > 0 && dur <= MAX_DURATION_MS;
 
-  // Tier 1: tl direct dari list payload (akurat, no overhead)
-  if (aid && durValid && tl > 0 && tl <= dur) {
-    return computeElapsedDirect(aid, dur, tl);
-  }
+  if (!isUsableTl(tl, dur)) return {};
 
-  // Tier 2: session cache (safety net saat tl di list invalid)
-  const cached = computeElapsedFromCache(aid);
-  if (cached) {
-    return cached;
-  }
-
-  // Tier 3: fallback startTime dari updated_at
-  if (!durValid) {
-    startTimes.delete(ctrlId);
-    return {};
-  }
-
-  const now = Date.now();
-  const updatedAtMs = updated_at ? new Date(updated_at).getTime() : 0;
-
-  let startTime = startTimes.get(ctrlId);
-  if (!startTime) {
-    const dataAge = updatedAtMs ? now - updatedAtMs : Infinity;
-    startTime = dataAge > 5 * 60 * 1000 ? now : updatedAtMs || now;
-    startTimes.set(ctrlId, startTime);
-  }
-
-  const elapsed = Math.min(dur, Math.max(0, now - startTime));
-
+  const elapsed = Math.max(0, dur - tl);
   return {
     elapsed_ms: Math.round(elapsed),
-    start_time: startTime,
+    start_time: Date.now(),
   };
 }
 
@@ -180,39 +136,32 @@ function classifyNewWithReason(
     };
   }
 
-  // Validasi durasi maksimal (3 jam = 10800000ms)
-  const MAX_DURATION_MS = 3 * 60 * 60 * 1000; // 3 jam
-  const invalidDur = dur <= 0 || dur > MAX_DURATION_MS;
-
-  // RUNNING signal baru: sw=true && aid non-empty && dur valid
-  // (tl tidak dipakai karena list_snap_mesin tidak lagi kirim tl reliable)
-  const hasAid = !!aid && String(aid).trim() !== "";
-  const running = sw && hasAid && !invalidDur;
-
-  if (running) {
+  // Primary: trust real time-left (vendor restored 2026-06-23).
+  // Mirror Next.js whoooshlab-laundry-service classifier — tl > 0 with sane
+  // bounds = RUNNING. Fallback: sw|aid|dur>0 heuristic for transient tl=0.
+  if (isUsableTl(tl, dur)) {
     return {
       status: "RUNNING",
-      reason: "sw && aid && dur valid",
-      details: {
-        sw,
-        aid,
-        dur,
-        raw_data: rawData,
-      },
+      reason: "tl > 0 && tl <= dur (primary)",
+      details: { tl, dur, raw_data: rawData },
     };
   }
 
-  // READY: online tapi tidak running
+  const hasAid = !!aid && String(aid).trim() !== "";
+  const fallbackRunning = sw || hasAid || dur > 0;
+
+  if (fallbackRunning) {
+    return {
+      status: "RUNNING",
+      reason: "sw|aid|dur>0 (fallback — tl invalid)",
+      details: { sw, aid, dur, has_aid: hasAid, raw_data: rawData },
+    };
+  }
+
   return {
     status: "READY",
-    reason: "ol=true but not running (sw/aid/dur tidak memenuhi)",
-    details: {
-      ol: true,
-      sw,
-      has_aid: hasAid,
-      invalid_dur: invalidDur,
-      raw_data: rawData,
-    },
+    reason: "ol=true, no running signal",
+    details: { ol: true, sw, has_aid: hasAid, dur, raw_data: rawData },
   };
 }
 
@@ -462,13 +411,8 @@ export function normalize(rows: Up[], ctrlMap: Record<string, string> | null) {
       label
     );
 
-    // Calculate elapsed time for running machines (stopwatch)
-    const elapsedData = calculateElapsed(
-      ctrlId,
-      status,
-      x?.updated_at || null,
-      device
-    );
+    // Calculate elapsed time for running machines (stateless, inline)
+    const elapsedData = calculateElapsed(status, device);
 
     return {
       id: ctrlId,

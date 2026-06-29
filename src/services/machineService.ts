@@ -3,8 +3,46 @@ import { MACHINE_CONFIG } from "../constants.js";
 import { config } from "../config.js";
 import { fetchWithTimeout, createUpstreamHeaders } from "../utils/fetch.js";
 import { machineCache } from "../utils/cache.js";
-import { syncRunningSessions } from "./sessionCache.js";
 import type { MachineSnapshot } from "../types.js";
+
+const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
+
+function isUsableTl(tl: number, dur: number): boolean {
+  return tl > 0 && dur > 0 && tl <= dur && dur <= MAX_DURATION_MS;
+}
+
+/**
+ * Fetch detail_snap_mesin for one machine, return {tl, dur}.
+ * Used as inline fallback when list endpoint tl is invalid.
+ */
+async function fetchDetailTlDur(
+  machineId: string,
+  timeoutMs: number
+): Promise<{ tl: number; dur: number } | null> {
+  try {
+    const base = config.upstream.base;
+    const outlet = config.upstream.outletId;
+    const url = `${base}/detail_snap_mesin?idoutlet=${encodeURIComponent(
+      outlet
+    )}&idsnap_mesin=${encodeURIComponent(machineId)}`;
+    const headers = {
+      ...createUpstreamHeaders(config.upstream.bearer, "detail-fallback/1.0"),
+      Origin: "https://dashboard-vue.smartlink.id",
+      Referer: "https://dashboard-vue.smartlink.id",
+    };
+    const res = await fetchWithTimeout(url, timeoutMs, { headers });
+    if (!res.ok) return null;
+    const json: any = await res.json();
+    const device = json?.data?.snap_report_device;
+    if (!device) return null;
+    return {
+      tl: Number(device.tl ?? 0),
+      dur: Number(device.dur ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
 
 let controllersMap: Record<string, string> | null = null;
 
@@ -65,6 +103,37 @@ export async function refreshMachines(): Promise<void> {
 
     const { list, summary } = normalize(rows, controllersMap);
 
+    // Inline fallback: RUNNING machines yg tidak dapat elapsed_ms dari list
+    // payload (tl invalid). Fetch detail_snap_mesin synchronously per mesin
+    // dalam request yg sama. Vercel serverless = no shared memory, harus
+    // resolve dalam single request.
+    const needsDetail = list
+      .filter((m) => m.status === "RUNNING" && m.elapsed_ms === undefined);
+
+    if (needsDetail.length > 0) {
+      const detailTimeoutMs = Math.min(timeout, 2500);
+      const detailResults = await Promise.allSettled(
+        needsDetail.map((m) => fetchDetailTlDur(m.id, detailTimeoutMs))
+      );
+      const now = Date.now();
+      needsDetail.forEach((m, i) => {
+        const r = detailResults[i];
+        if (r && r.status === "fulfilled" && r.value) {
+          const { tl, dur } = r.value;
+          if (isUsableTl(tl, dur)) {
+            const idx = list.findIndex((x) => x.id === m.id);
+            if (idx >= 0) {
+              list[idx] = {
+                ...list[idx],
+                elapsed_ms: Math.round(dur - tl),
+                start_time: now,
+              };
+            }
+          }
+        }
+      });
+    }
+
     // Update cache dengan snapshot baru
     const snapshot: MachineSnapshot = {
       machines: list,
@@ -77,29 +146,6 @@ export async function refreshMachines(): Promise<void> {
     };
 
     machineCache.set(snapshot);
-
-    // Sync session cache HANYA untuk RUNNING machines yg tl-nya invalid
-    // di list endpoint. Kalau tl valid (smartlink kasih reliable),
-    // calculateElapsed pakai Tier 1 (direct) -> tidak butuh detail fetch.
-    // Hemat call ke smartlink saat normal, auto-failover saat tl break.
-    const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
-    const runningForSync = list
-      .filter((m) => m.status === "RUNNING" && m.aid && m.aid !== "UNKNOWN")
-      .map((m) => {
-        const raw = rows.find((r: any) => r?.id === m.id);
-        const dur = Number(raw?.snap_report_device?.dur ?? 0);
-        const tl = Number(raw?.snap_report_device?.tl ?? 0);
-        return { id: m.id, aid: m.aid as string, dur, tl };
-      })
-      .filter(
-        (m) =>
-          !(m.tl > 0 && m.tl <= m.dur && m.dur > 0 && m.dur <= MAX_DURATION_MS)
-      )
-      .map(({ id, aid, dur }) => ({ id, aid, dur }));
-
-    if (runningForSync.length > 0) {
-      syncRunningSessions(runningForSync);
-    }
   } catch (e) {
     const existingSnapshot = machineCache.get();
     if (existingSnapshot) {
