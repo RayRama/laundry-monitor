@@ -138,7 +138,7 @@ function classifyNewWithReason(
 
   // Primary: trust real time-left (vendor restored 2026-06-23).
   // Mirror Next.js whoooshlab-laundry-service classifier — tl > 0 with sane
-  // bounds = RUNNING. Fallback: sw|aid|dur>0 heuristic for transient tl=0.
+  // bounds = RUNNING. Fallback: sw|dur>0 heuristic for transient tl=0.
   if (isUsableTl(tl, dur)) {
     return {
       status: "RUNNING",
@@ -147,21 +147,30 @@ function classifyNewWithReason(
     };
   }
 
-  const hasAid = !!aid && String(aid).trim() !== "";
-  const fallbackRunning = sw || hasAid || dur > 0;
+  // `aid` is DROPPED from the fallback 2026-07-23 (mirrors whoooshlab-laundry-
+  // service PR #100). It is Smartlink's activation id — a payment ref on a
+  // customer QR scan, the literal "BOS" on a staff turn-on — and marks *who
+  // activated*, not *whether a cycle is live*. Smartlink leaves it set after
+  // the cycle ends and never clears it, so `aid` present with tl=0/dur=0 is a
+  // finished/reconnecting/never-ran machine. It was showing idle machines as
+  // RUNNING with a stuck 0 timer and an empty event badge. A genuinely running
+  // machine (customer OR staff) always carries a valid tl/dur and is caught by
+  // the primary branch above — proven against machine_status_logs 2026-07-23,
+  // where every aid-only tl=0/dur=0 row was a one-off transient (n=1).
+  const fallbackRunning = sw || dur > 0;
 
   if (fallbackRunning) {
     return {
       status: "RUNNING",
-      reason: "sw|aid|dur>0 (fallback — tl invalid)",
-      details: { sw, aid, dur, has_aid: hasAid, raw_data: rawData },
+      reason: "sw|dur>0 (fallback — tl invalid)",
+      details: { sw, aid, dur, raw_data: rawData },
     };
   }
 
   return {
     status: "READY",
     reason: "ol=true, no running signal",
-    details: { ol: true, sw, has_aid: hasAid, dur, raw_data: rawData },
+    details: { ol: true, sw, aid, dur, raw_data: rawData },
   };
 }
 
