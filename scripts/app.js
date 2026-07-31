@@ -1495,39 +1495,32 @@ function renderSummary() {
  * Render status legend with separate counts for washer and dryer
  */
 function renderStatusLegend() {
-  // Calculate washer counts
-  const washers = machines.filter((m) => m.type === MACHINE_TYPE.WASHER);
-  const washerReady = washers.filter((m) => m.status === STATUS.READY).length;
-  const washerRunning = washers.filter(
-    (m) => m.status === STATUS.RUNNING
-  ).length;
-  const washerOffline = washers.filter(
-    (m) => m.status === STATUS.OFFLINE
-  ).length;
+  const counts = {
+    [MACHINE_TYPE.WASHER]: {
+      [STATUS.READY]: 0,
+      [STATUS.RUNNING]: 0,
+      [STATUS.OFFLINE]: 0,
+    },
+    [MACHINE_TYPE.DRYER]: {
+      [STATUS.READY]: 0,
+      [STATUS.RUNNING]: 0,
+      [STATUS.OFFLINE]: 0,
+    },
+  };
 
-  // Calculate dryer counts
-  const dryers = machines.filter((m) => m.type === MACHINE_TYPE.DRYER);
-  const dryerReady = dryers.filter((m) => m.status === STATUS.READY).length;
-  const dryerRunning = dryers.filter((m) => m.status === STATUS.RUNNING).length;
-  const dryerOffline = dryers.filter((m) => m.status === STATUS.OFFLINE).length;
+  machines.forEach((machine) => {
+    if (counts[machine.type] && machine.status in counts[machine.type]) {
+      counts[machine.type][machine.status] += 1;
+    }
+  });
 
-  // Update washer counts
-  const washerReadyEl = document.getElementById("washer-ready-count");
-  const washerRunningEl = document.getElementById("washer-running-count");
-  const washerOfflineEl = document.getElementById("washer-offline-count");
-
-  if (washerReadyEl) washerReadyEl.textContent = washerReady;
-  if (washerRunningEl) washerRunningEl.textContent = washerRunning;
-  if (washerOfflineEl) washerOfflineEl.textContent = washerOffline;
-
-  // Update dryer counts
-  const dryerReadyEl = document.getElementById("dryer-ready-count");
-  const dryerRunningEl = document.getElementById("dryer-running-count");
-  const dryerOfflineEl = document.getElementById("dryer-offline-count");
-
-  if (dryerReadyEl) dryerReadyEl.textContent = dryerReady;
-  if (dryerRunningEl) dryerRunningEl.textContent = dryerRunning;
-  if (dryerOfflineEl) dryerOfflineEl.textContent = dryerOffline;
+  document
+    .querySelectorAll("[data-machine-type][data-machine-status]")
+    .forEach((countElement) => {
+      const machineType = countElement.dataset.machineType;
+      const machineStatus = countElement.dataset.machineStatus;
+      countElement.textContent = counts[machineType]?.[machineStatus] ?? 0;
+    });
 }
 
 /**

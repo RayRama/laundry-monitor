@@ -11,6 +11,80 @@
   margin-top: 2rem;
 }
 
+/* Desktop/tablet machine status summary */
+.desktop-status-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  width: min(100%, 760px);
+  margin: 0 auto;
+}
+
+.desktop-status-section h2 {
+  margin-bottom: 0.65rem;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.desktop-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  min-height: 56px;
+  padding: 0.75rem 1rem;
+  background: var(--panel);
+  border: 1px solid rgba(226, 232, 240, 0.65);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.desktop-status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.desktop-status-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12);
+}
+
+.desktop-status-count.ready {
+  background: var(--ready);
+}
+
+.desktop-status-count.running {
+  background: var(--running);
+}
+
+.desktop-status-count.offline {
+  background: var(--offline);
+}
+
+.desktop-status-count span {
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+}
+
+.desktop-status-label {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 /* Status Legend Row Styles (below title, above grid) */
 .mobile-grid-section .status-legend-row {
   display: flex;
@@ -324,6 +398,14 @@
 
 /* Responsive adjustments for monitor view */
 @media (max-width: 1024px) {
+  .desktop-status-summary {
+    gap: 1rem;
+  }
+
+  .desktop-status-card {
+    gap: 1rem;
+  }
+
   .monitor-view .cards {
     grid-template-columns: 1fr;
   }
@@ -337,7 +419,11 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
+  .desktop-status-summary {
+    display: none;
+  }
+
   .machine-details {
     gap: 0.375rem;
   }
