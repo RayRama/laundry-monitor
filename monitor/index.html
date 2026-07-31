@@ -42,21 +42,95 @@
         </div>
       </header>
 
-      <!-- Status Legend Row -->
-      <!-- <div class="status-legend-row">
-        <div class="legend-item">
-          <div class="legend-icon ready"></div>
-          <span>Tersedia</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-icon running"></div>
-          <span>Berjalan</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-icon offline"></div>
-          <span>Offline</span>
-        </div>
-      </div> -->
+      <!-- Desktop/Tablet: Machine Status Summary -->
+      <div
+        class="desktop-status-summary"
+        aria-label="Jumlah kumulatif status mesin"
+      >
+        <section
+          class="desktop-status-section"
+          aria-labelledby="desktop-washer-status-title"
+        >
+          <h2 id="desktop-washer-status-title">Washers</h2>
+          <div class="desktop-status-card">
+            <div class="desktop-status-item">
+              <div class="desktop-status-count ready">
+                <span
+                  data-machine-type="W"
+                  data-machine-status="READY"
+                  aria-live="polite"
+                  >0</span
+                >
+              </div>
+              <span class="desktop-status-label">Tersedia</span>
+            </div>
+            <div class="desktop-status-item">
+              <div class="desktop-status-count running">
+                <span
+                  data-machine-type="W"
+                  data-machine-status="RUNNING"
+                  aria-live="polite"
+                  >0</span
+                >
+              </div>
+              <span class="desktop-status-label">Berjalan</span>
+            </div>
+            <div class="desktop-status-item">
+              <div class="desktop-status-count offline">
+                <span
+                  data-machine-type="W"
+                  data-machine-status="OFFLINE"
+                  aria-live="polite"
+                  >0</span
+                >
+              </div>
+              <span class="desktop-status-label">Offline</span>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="desktop-status-section"
+          aria-labelledby="desktop-dryer-status-title"
+        >
+          <h2 id="desktop-dryer-status-title">Dryers</h2>
+          <div class="desktop-status-card">
+            <div class="desktop-status-item">
+              <div class="desktop-status-count ready">
+                <span
+                  data-machine-type="D"
+                  data-machine-status="READY"
+                  aria-live="polite"
+                  >0</span
+                >
+              </div>
+              <span class="desktop-status-label">Tersedia</span>
+            </div>
+            <div class="desktop-status-item">
+              <div class="desktop-status-count running">
+                <span
+                  data-machine-type="D"
+                  data-machine-status="RUNNING"
+                  aria-live="polite"
+                  >0</span
+                >
+              </div>
+              <span class="desktop-status-label">Berjalan</span>
+            </div>
+            <div class="desktop-status-item">
+              <div class="desktop-status-count offline">
+                <span
+                  data-machine-type="D"
+                  data-machine-status="OFFLINE"
+                  aria-live="polite"
+                  >0</span
+                >
+              </div>
+              <span class="desktop-status-label">Offline</span>
+            </div>
+          </div>
+        </section>
+      </div>
 
       <!-- Machine Grid -->
       <div class="machines-section">
@@ -77,7 +151,11 @@
                 <div class="legend-items">
                   <div class="legend-item">
                     <div class="legend-icon ready">
-                      <span class="legend-count" id="washer-ready-count"
+                      <span
+                        class="legend-count"
+                        id="washer-ready-count"
+                        data-machine-type="W"
+                        data-machine-status="READY"
                         >0</span
                       >
                     </div>
@@ -85,7 +163,11 @@
                   </div>
                   <div class="legend-item">
                     <div class="legend-icon running">
-                      <span class="legend-count" id="washer-running-count"
+                      <span
+                        class="legend-count"
+                        id="washer-running-count"
+                        data-machine-type="W"
+                        data-machine-status="RUNNING"
                         >0</span
                       >
                     </div>
@@ -93,7 +175,11 @@
                   </div>
                   <div class="legend-item">
                     <div class="legend-icon offline">
-                      <span class="legend-count" id="washer-offline-count"
+                      <span
+                        class="legend-count"
+                        id="washer-offline-count"
+                        data-machine-type="W"
+                        data-machine-status="OFFLINE"
                         >0</span
                       >
                     </div>
@@ -111,13 +197,23 @@
                 <div class="legend-items">
                   <div class="legend-item">
                     <div class="legend-icon ready">
-                      <span class="legend-count" id="dryer-ready-count">0</span>
+                      <span
+                        class="legend-count"
+                        id="dryer-ready-count"
+                        data-machine-type="D"
+                        data-machine-status="READY"
+                        >0</span
+                      >
                     </div>
                     <span class="legend-label">Tersedia</span>
                   </div>
                   <div class="legend-item">
                     <div class="legend-icon running">
-                      <span class="legend-count" id="dryer-running-count"
+                      <span
+                        class="legend-count"
+                        id="dryer-running-count"
+                        data-machine-type="D"
+                        data-machine-status="RUNNING"
                         >0</span
                       >
                     </div>
@@ -125,7 +221,11 @@
                   </div>
                   <div class="legend-item">
                     <div class="legend-icon offline">
-                      <span class="legend-count" id="dryer-offline-count"
+                      <span
+                        class="legend-count"
+                        id="dryer-offline-count"
+                        data-machine-type="D"
+                        data-machine-status="OFFLINE"
                         >0</span
                       >
                     </div>
