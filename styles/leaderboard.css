@@ -198,10 +198,35 @@
 
 /* Loading placeholder */
 .loading-placeholder {
-  padding: 2rem;
-  text-align: center;
-  color: #6b7280;
-  font-style: italic;
+  height: 7.5rem;
+  margin: 1rem;
+  border-radius: 0.75rem;
+  color: transparent;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
+  background-size: 400% 100%;
+  animation: leaderboard-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes leaderboard-skeleton {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.data-range-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.range-freshness {
+  color: #64748b;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-placeholder { animation: none; }
 }
 
 /* Error state */

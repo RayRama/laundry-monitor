@@ -105,6 +105,16 @@ const Auth = {
   // Logout user
   logout() {
     this.removeToken();
+    try {
+      for (let index = sessionStorage.length - 1; index >= 0; index--) {
+        const key = sessionStorage.key(index);
+        if (key && key.startsWith("leaderboard:v")) {
+          sessionStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // Session cache cleanup must never prevent logout.
+    }
     window.location.href = "/login";
   },
 

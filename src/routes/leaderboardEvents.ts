@@ -9,15 +9,19 @@ const leaderboardEvents = new Hono();
  * GET /api/leaderboard-events - Get events leaderboard
  */
 leaderboardEvents.get("/", async (c) => {
+  let cacheKey = "default";
   try {
     const filter = c.req.query("filter") || "today";
     const startDate = c.req.query("start_date");
     const endDate = c.req.query("end_date");
+    cacheKey = JSON.stringify({ filter, startDate, endDate });
 
     const responseData = await generateEventsLeaderboard({
       filter,
       startDate,
       endDate,
+      authorization: c.req.header("Authorization"),
+      cookie: c.req.header("Cookie"),
     });
 
     // Calculate ETag
@@ -48,14 +52,14 @@ leaderboardEvents.get("/", async (c) => {
     );
 
     // Update cache
-    eventsLeaderboardCache.set(responseData);
+    eventsLeaderboardCache.set(responseData, cacheKey);
 
     return c.json(responseData);
   } catch (error: any) {
     console.error("❌ Error generating events leaderboard:", error);
 
     // Return cached data if available
-    const cached = eventsLeaderboardCache.get();
+    const cached = eventsLeaderboardCache.get(cacheKey);
     if (cached) {
       console.log("📦 Returning cached events leaderboard data due to error");
       const currentETag = calculateETag(cached);

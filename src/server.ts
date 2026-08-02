@@ -92,12 +92,14 @@ app.get("/", (c) => c.text("OK"));
 // Initialize and start server
 async function start() {
   await loadControllerMap();
-  await refreshMachines();
-  setInterval(refreshMachines, config.refresh.interval);
-
   serve({ fetch: app.fetch, port: config.port }, () =>
     console.log(`Local API on http://localhost:${config.port}`)
   );
+
+  // Static pages become available immediately; the machine endpoint awaits
+  // the same single-flight refresh only when it has no snapshot yet.
+  void refreshMachines();
+  setInterval(refreshMachines, config.refresh.interval);
 }
 
 start();

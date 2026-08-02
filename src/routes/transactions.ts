@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { config } from "../config.js";
 import { fetchWithTimeout } from "../utils/fetch.js";
+import { gatewayHeaders } from "../utils/gatewayHeaders.js";
 
 const transactions = new Hono();
 
@@ -40,6 +41,7 @@ transactions.get("/summary", async (c) => {
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
+    Object.assign(headers, gatewayHeaders(c));
     if (ifNoneMatch) {
       headers["If-None-Match"] = ifNoneMatch;
     }
@@ -99,6 +101,7 @@ transactions.get("/", async (c) => {
     const limit = c.req.query("limit");
     const offset = c.req.query("offset");
     const filterBy = c.req.query("filter_by");
+    const tahun = c.req.query("tahun");
     const bulan = c.req.query("bulan");
     const tanggalAwal = c.req.query("tanggal_awal");
     const tanggalAkhir = c.req.query("tanggal_akhir");
@@ -107,6 +110,7 @@ transactions.get("/", async (c) => {
     if (limit) queryParams.append("limit", limit);
     if (offset) queryParams.append("offset", offset);
     if (filterBy) queryParams.append("filter_by", filterBy);
+    if (tahun) queryParams.append("tahun", tahun);
     if (bulan) queryParams.append("bulan", bulan);
     if (tanggalAwal) queryParams.append("tanggal_awal", tanggalAwal);
     if (tanggalAkhir) queryParams.append("tanggal_akhir", tanggalAkhir);
@@ -119,6 +123,7 @@ transactions.get("/", async (c) => {
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
+    Object.assign(headers, gatewayHeaders(c));
     if (ifNoneMatch) {
       headers["If-None-Match"] = ifNoneMatch;
     }
@@ -179,10 +184,10 @@ transactions.post("/batch-details", async (c) => {
 
     const response = await fetchWithTimeout(url, 60000, {
       method: "POST",
-      headers: {
+      headers: gatewayHeaders(c, {
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+      }),
       body: JSON.stringify(body),
     });
 
@@ -236,6 +241,7 @@ export const handleTransactionDetail = async (c: Context) => {
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
+    Object.assign(headers, gatewayHeaders(c));
     if (ifNoneMatch) {
       headers["If-None-Match"] = ifNoneMatch;
     }

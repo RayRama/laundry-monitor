@@ -45,6 +45,7 @@ async function fetchDetailTlDur(
 }
 
 let controllersMap: Record<string, string> | null = null;
+let machineRefreshPromise: Promise<void> | null = null;
 
 /**
  * Load controller map dari constants
@@ -77,7 +78,7 @@ export function isDataStale(): boolean {
 /**
  * Refresh machine data dari upstream API
  */
-export async function refreshMachines(): Promise<void> {
+async function performMachineRefresh(): Promise<void> {
   const base = config.upstream.base;
   const outlet = config.upstream.outletId;
   const url = `${base}/list_snap_mesin?idoutlet=${encodeURIComponent(
@@ -173,6 +174,15 @@ export async function refreshMachines(): Promise<void> {
       machineCache.set(emptySnapshot);
     }
   }
+}
+
+export function refreshMachines(): Promise<void> {
+  if (!machineRefreshPromise) {
+    machineRefreshPromise = performMachineRefresh().finally(() => {
+      machineRefreshPromise = null;
+    });
+  }
+  return machineRefreshPromise;
 }
 
 /**

@@ -14,12 +14,12 @@ let dashboardTransactionsCache: any = null;
 let lastDashboardSuccessTime: number | null = null;
 
 // Leaderboard cache
-let frequencyLeaderboardCache: LeaderboardResponse | null = null;
-let revenueLeaderboardCache: LeaderboardResponse | null = null;
+const frequencyLeaderboardCache = new Map<string, LeaderboardResponse>();
+const revenueLeaderboardCache = new Map<string, LeaderboardResponse>();
 let lastLeaderboardSuccessTime: number | null = null;
 
 // Events leaderboard cache
-let eventsLeaderboardCacheData: any = null;
+const eventsLeaderboardCacheData = new Map<string, any>();
 let lastEventsLeaderboardSuccessTime: number | null = null;
 
 // Machine snapshot
@@ -57,16 +57,16 @@ export const transactionCache = {
 // Leaderboard cache
 export const leaderboardCache = {
   frequency: {
-    get: () => frequencyLeaderboardCache,
-    set: (data: LeaderboardResponse) => {
-      frequencyLeaderboardCache = data;
+    get: (key = "default") => frequencyLeaderboardCache.get(key) || null,
+    set: (data: LeaderboardResponse, key = "default") => {
+      frequencyLeaderboardCache.set(key, data);
       lastLeaderboardSuccessTime = Date.now();
     },
   },
   revenue: {
-    get: () => revenueLeaderboardCache,
-    set: (data: LeaderboardResponse) => {
-      revenueLeaderboardCache = data;
+    get: (key = "default") => revenueLeaderboardCache.get(key) || null,
+    set: (data: LeaderboardResponse, key = "default") => {
+      revenueLeaderboardCache.set(key, data);
       lastLeaderboardSuccessTime = Date.now();
     },
   },
@@ -75,9 +75,9 @@ export const leaderboardCache = {
 
 // Events leaderboard cache
 export const eventsLeaderboardCache = {
-  get: () => eventsLeaderboardCacheData,
-  set: (data: any) => {
-    eventsLeaderboardCacheData = data;
+  get: (key = "default") => eventsLeaderboardCacheData.get(key) || null,
+  set: (data: any, key = "default") => {
+    eventsLeaderboardCacheData.set(key, data);
     lastEventsLeaderboardSuccessTime = Date.now();
   },
   getLastSuccessTime: () => lastEventsLeaderboardSuccessTime,

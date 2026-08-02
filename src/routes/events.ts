@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { config } from "../config.js";
 import { fetchWithTimeout } from "../utils/fetch.js";
+import { gatewayHeaders } from "../utils/gatewayHeaders.js";
 
 const events = new Hono();
 
@@ -36,9 +37,9 @@ events.get("/:type/:id", async (c) => {
 
     const response = await fetchWithTimeout(url, 15000, {
       method: "GET",
-      headers: {
+      headers: gatewayHeaders(c, {
         Accept: "application/json",
-      },
+      }),
     });
 
     if (!response.ok) {
@@ -99,10 +100,10 @@ events.post("/:type", async (c) => {
 
     const response = await fetchWithTimeout(url, 15000, {
       method: "POST",
-      headers: {
+      headers: gatewayHeaders(c, {
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+      }),
       body: JSON.stringify(body),
     });
 
