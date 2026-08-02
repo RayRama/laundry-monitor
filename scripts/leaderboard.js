@@ -265,8 +265,14 @@ class LeaderboardDataManager {
   }
 
   getCurrentDate() {
-    const now = new Date();
-    return now.toISOString().split("T")[0];
+    return this.formatLocalDate(new Date());
+  }
+
+  formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   getCurrentMonth() {
@@ -282,26 +288,53 @@ class LeaderboardDataManager {
   }
 
   getTodayDate() {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
+    return this.getCurrentDate();
   }
 
-  getWeekStartDate() {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
-    const monday = new Date(today.getFullYear(), today.getMonth(), diff);
-    return monday.toISOString().split("T")[0];
+  getWeekStartDate(referenceDate = new Date()) {
+    const date = new Date(
+      referenceDate.getFullYear(),
+      referenceDate.getMonth(),
+      referenceDate.getDate()
+    );
+    const dayOfWeek = date.getDay();
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    date.setDate(date.getDate() - daysSinceMonday);
+    return date;
   }
 
-  getDateRangeForFilter(filterBy) {
-    const today = this.getCurrentDate();
+  getDateRangeForFilter(filterBy, referenceDate = new Date()) {
+    const now = referenceDate;
+    const today = this.formatLocalDate(now);
 
     switch (filterBy) {
       case "hari_ini":
         return { tanggalAwal: today, tanggalAkhir: today };
-      case "minggu_ini":
-        return { tanggalAwal: this.getWeekStartDate(), tanggalAkhir: today };
+      case "minggu_ini": {
+        return {
+          tanggalAwal: this.formatLocalDate(this.getWeekStartDate(now)),
+          tanggalAkhir: today,
+        };
+      }
+      case "minggu_lalu": {
+        const thisMonday = this.getWeekStartDate(now);
+        const lastMonday = new Date(thisMonday);
+        lastMonday.setDate(lastMonday.getDate() - 7);
+        const lastSunday = new Date(thisMonday);
+        lastSunday.setDate(lastSunday.getDate() - 1);
+        return {
+          tanggalAwal: this.formatLocalDate(lastMonday),
+          tanggalAkhir: this.formatLocalDate(lastSunday),
+        };
+      }
+      case "bulan_lalu": {
+        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+        return {
+          tanggalAwal: this.formatLocalDate(firstDay),
+          tanggalAkhir: this.formatLocalDate(lastDay),
+        };
+      }
       default:
         return null;
     }
@@ -716,12 +749,17 @@ class LeaderboardRenderer {
 
     const { filterBy, bulan, tanggalAwal, tanggalAkhir, tahun } =
       this.dataManager.currentFilter;
+    const resolvedRange = this.dataManager.getDateRangeForFilter(filterBy);
 
     let rangeText = "";
     if (filterBy === "hari_ini") {
       rangeText = "Hari Ini";
     } else if (filterBy === "minggu_ini") {
       rangeText = "Minggu Ini";
+    } else if (filterBy === "minggu_lalu") {
+      rangeText = `Minggu Lalu: ${this.formatDateRange(resolvedRange)}`;
+    } else if (filterBy === "bulan_lalu") {
+      rangeText = `Bulan Lalu: ${this.formatDateRange(resolvedRange)}`;
     } else if (filterBy === "periode") {
       // Calculate duration
       let durationStr = "";
@@ -740,7 +778,10 @@ class LeaderboardRenderer {
            durationStr = ` • ${durationStr}`;
         }
       }
-      rangeText = `Periode: ${tanggalAwal} - ${tanggalAkhir}${durationStr}`;
+      rangeText = `Custom Tanggal: ${this.formatDateRange({
+        tanggalAwal,
+        tanggalAkhir,
+      })}${durationStr}`;
     } else if (filterBy === "bulan") {
       const [year, month] = bulan.split("-");
       const monthNames = [
@@ -773,6 +814,20 @@ class LeaderboardRenderer {
           : ""
       }</div>
     `;
+  }
+
+  formatDateRange(range) {
+    if (!range?.tanggalAwal || !range?.tanggalAkhir) return "";
+    const formatter = new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Jakarta",
+    });
+    const parseDate = (value) => new Date(`${value}T00:00:00+07:00`);
+    return `${formatter.format(parseDate(range.tanggalAwal))} – ${formatter.format(
+      parseDate(range.tanggalAkhir)
+    )}`;
   }
 }
 
@@ -829,6 +884,7 @@ class LeaderboardController {
 
     document.getElementById("filterBy").value = "minggu_ini";
     document.getElementById("bulan").value = currentMonth;
+    document.getElementById("tanggalAwal").value = currentDate;
     document.getElementById("tanggalAkhir").value = currentDate;
     document.getElementById("tahun").value = this.dataManager.getCurrentYear();
 
@@ -852,7 +908,7 @@ class LeaderboardController {
     } else if (filterBy === "tahun") {
       document.getElementById("tahunGroup").style.display = "block";
     }
-    // For new filter types (hari_ini, minggu_ini), no additional inputs needed
+    // Quick ranges do not need additional inputs.
   }
 
   updateFilterFromInputs() {
@@ -867,12 +923,27 @@ class LeaderboardController {
     } else if (filterBy === "tahun") {
       newFilter.tahun = document.getElementById("tahun").value;
     }
-    // For new filter types (hari_ini, minggu_ini), no additional inputs needed
+    // Quick ranges do not need additional inputs.
 
     this.dataManager.updateFilter(newFilter);
+    return true;
   }
 
   applyFilter() {
+    const filterBy = document.getElementById("filterBy").value;
+    if (filterBy === "periode") {
+      const tanggalAwal = document.getElementById("tanggalAwal").value;
+      const tanggalAkhir = document.getElementById("tanggalAkhir").value;
+      if (!tanggalAwal || !tanggalAkhir) {
+        alert("Pilih tanggal awal dan tanggal akhir terlebih dahulu.");
+        return;
+      }
+      if (tanggalAwal > tanggalAkhir) {
+        alert("Tanggal awal tidak boleh melewati tanggal akhir.");
+        return;
+      }
+    }
+
     this.updateFilterFromInputs();
     this.refreshData();
   }
