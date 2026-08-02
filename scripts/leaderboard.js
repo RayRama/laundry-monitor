@@ -113,6 +113,28 @@ class LeaderboardAPI {
     this.isLoading = false;
     this.lastFrequencyETag = null;
     this.lastRevenueETag = null;
+    this.lastCombinedETag = null;
+  }
+
+  async getCombinedLeaderboard(params = {}) {
+    const queryParams = new URLSearchParams(params);
+    const url = `${this.apiBase}/api/leaderboard/combined?${queryParams}`;
+    const headers = { ...Auth.getAuthHeaders() };
+    if (this.lastCombinedETag) {
+      headers["If-None-Match"] = this.lastCombinedETag;
+    }
+    const response = await this.fetchWithTimeout(url, { headers });
+    if (response.status === 304) return null;
+    if (!response.ok) {
+      throw new Error(`Combined API: ${response.status} ${response.statusText}`);
+    }
+    const body = await response.json();
+    if (!body.success || !body.data?.frequency || !body.data?.revenue) {
+      throw new Error("Invalid combined leaderboard response");
+    }
+    const etag = response.headers.get("ETag");
+    if (etag) this.lastCombinedETag = etag;
+    return body.data;
   }
 
   async fetchWithTimeout(url, options = {}, timeout = 30000) {
@@ -238,6 +260,8 @@ class LeaderboardDataManager {
     };
     this.frequencyData = null;
     this.revenueData = null;
+    this.lastRenderedAt = null;
+    this.activeSnapshotKey = null;
   }
 
   getCurrentDate() {
@@ -314,19 +338,52 @@ class LeaderboardDataManager {
     try {
       const params = this.buildParams();
 
-      // Fetch both leaderboards in parallel
-      const [frequencyData, revenueData] = await Promise.all([
-        this.api.getFrequencyLeaderboard(params),
-        this.api.getRevenueLeaderboard(params),
-      ]);
-
-      // Only update if we got new data (not 304)
-      if (frequencyData) {
-        this.frequencyData = frequencyData;
+      let frequencyData = null;
+      let revenueData = null;
+      const errors = [];
+      try {
+        // Fast path: both rankings are generated from one accurate aggregate.
+        const combined = await this.api.getCombinedLeaderboard(params);
+        frequencyData = combined?.frequency || null;
+        revenueData = combined?.revenue || null;
+      } catch (combinedError) {
+        console.warn("Combined leaderboard unavailable, using compatibility endpoints:", combinedError);
+        // Backward-compatible path protects deployments where frontend and
+        // gateway versions briefly overlap.
+        const [frequencyResult, revenueResult] = await Promise.allSettled([
+          this.api.getFrequencyLeaderboard(params),
+          this.api.getRevenueLeaderboard(params),
+        ]);
+        frequencyData =
+          frequencyResult.status === "fulfilled" ? frequencyResult.value : null;
+        revenueData =
+          revenueResult.status === "fulfilled" ? revenueResult.value : null;
+        if (frequencyResult.status === "rejected") {
+          errors.push(`frekuensi: ${frequencyResult.reason?.message || "gagal"}`);
+        }
+        if (revenueResult.status === "rejected") {
+          errors.push(`omzet: ${revenueResult.reason?.message || "gagal"}`);
+        }
       }
 
-      if (revenueData) {
-        this.revenueData = revenueData;
+      const requestKey = this.browserSnapshotKey(params);
+      const sameSnapshot = this.activeSnapshotKey === requestKey;
+
+      // Frequency and revenue describe one period. Never combine a result from
+      // the new filter with data that was rendered for an older filter.
+      if (errors.length > 0) {
+        throw new Error(errors.join("; "));
+      }
+      if (!sameSnapshot && (!frequencyData || !revenueData)) {
+        throw new Error("Data leaderboard untuk filter ini belum lengkap");
+      }
+      if (frequencyData) this.frequencyData = frequencyData;
+      if (revenueData) this.revenueData = revenueData;
+      this.activeSnapshotKey = requestKey;
+
+      if (this.frequencyData || this.revenueData) {
+        this.lastRenderedAt = new Date();
+        this.persistBrowserSnapshot(params);
       }
 
       console.log("✅ Leaderboard data loaded successfully:", {
@@ -350,8 +407,56 @@ class LeaderboardDataManager {
   }
 
   updateFilter(newFilter) {
+    const previousKey = this.browserSnapshotKey();
     this.currentFilter = { ...this.currentFilter, ...newFilter };
+    const nextKey = this.browserSnapshotKey();
+    if (previousKey !== nextKey) {
+      this.frequencyData = null;
+      this.revenueData = null;
+      this.lastRenderedAt = null;
+      this.activeSnapshotKey = null;
+      this.restoreBrowserSnapshot();
+    }
     console.log("🔄 Filter updated:", this.currentFilter);
+  }
+
+  browserSnapshotKey(params = this.buildParams()) {
+    const user = window.Auth?.getUserInfo?.();
+    const identity = user ? `${user.userId || ""}:${user.username || ""}` : "anonymous";
+    return `leaderboard:v3:${identity}:${new URLSearchParams(params).toString()}`;
+  }
+
+  persistBrowserSnapshot(params) {
+    try {
+      sessionStorage.setItem(
+        this.browserSnapshotKey(params),
+        JSON.stringify({
+          frequency: this.frequencyData,
+          revenue: this.revenueData,
+          savedAt: this.lastRenderedAt?.toISOString(),
+        })
+      );
+    } catch {
+      // Browser storage is an optional instant-render optimization.
+    }
+  }
+
+  restoreBrowserSnapshot() {
+    try {
+      const raw = sessionStorage.getItem(this.browserSnapshotKey());
+      if (!raw) return false;
+      const snapshot = JSON.parse(raw);
+      if (!snapshot.frequency && !snapshot.revenue) return false;
+      this.frequencyData = snapshot.frequency || null;
+      this.revenueData = snapshot.revenue || null;
+      this.lastRenderedAt = snapshot.savedAt
+        ? new Date(snapshot.savedAt)
+        : null;
+      this.activeSnapshotKey = this.browserSnapshotKey();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   setLoading(loading) {
@@ -361,7 +466,8 @@ class LeaderboardDataManager {
     // Show/hide loading overlay
     if (overlay) {
       if (loading) {
-        overlay.style.display = "flex";
+        overlay.style.display =
+          this.frequencyData || this.revenueData ? "none" : "flex";
       } else {
         overlay.style.display = "none";
       }
@@ -447,14 +553,33 @@ class LeaderboardRenderer {
   }
 
   renderAll() {
-    if (!this.dataManager.frequencyData || !this.dataManager.revenueData) {
-      console.log("⚠️ No data to render");
-      return;
+    if (this.dataManager.frequencyData) {
+      this.renderFrequencyLeaderboards();
+    } else {
+      this.renderSectionError("frequency");
     }
+    if (this.dataManager.revenueData) {
+      this.renderRevenueLeaderboards();
+    } else {
+      this.renderSectionError("revenue");
+    }
+    if (this.dataManager.frequencyData || this.dataManager.revenueData) {
+      this.updateDataRangeInfo();
+    }
+  }
 
-    this.renderFrequencyLeaderboards();
-    this.renderRevenueLeaderboards();
-    this.updateDataRangeInfo();
+  renderSectionError(type) {
+    const ids =
+      type === "frequency"
+        ? ["washerFrequencyList", "dryerFrequencyList"]
+        : ["washerRevenueList", "dryerRevenueList"];
+    ids.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.innerHTML =
+          '<div class="text-center text-sm text-red-600 py-6">Data belum tersedia. Silakan refresh.</div>';
+      }
+    });
   }
 
   renderFrequencyLeaderboards() {
@@ -639,6 +764,14 @@ class LeaderboardRenderer {
 
     infoElement.innerHTML = `
       <div class="range-text">${rangeText}</div>
+      <div class="range-freshness">${
+        this.dataManager.lastRenderedAt
+          ? `Diperbarui ${this.dataManager.lastRenderedAt.toLocaleTimeString(
+              "id-ID",
+              { hour: "2-digit", minute: "2-digit" }
+            )}`
+          : ""
+      }</div>
     `;
   }
 }
@@ -654,9 +787,13 @@ class LeaderboardController {
   }
 
   async initializeApp() {
-    // Load machine configuration first
-    await loadMachineConfig();
-    // Then load initial data
+    // Configuration and data are independent; do not put a static file on the
+    // critical path. Re-render labels if configuration arrives afterwards.
+    void loadMachineConfig().then(() => {
+      if (this.dataManager.frequencyData || this.dataManager.revenueData) {
+        this.renderer.renderAll();
+      }
+    });
     this.loadInitialData();
   }
 
@@ -742,6 +879,9 @@ class LeaderboardController {
 
   async loadInitialData() {
     try {
+      if (this.dataManager.restoreBrowserSnapshot()) {
+        this.renderer.renderAll();
+      }
       await this.dataManager.loadData();
       this.renderer.renderAll();
     } catch (error) {

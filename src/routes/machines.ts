@@ -9,6 +9,7 @@ import {
 import { createEvent, type EventData } from "../services/eventService.js";
 import { config } from "../config.js";
 import { MACHINE_CONFIG } from "../constants.js";
+import { gatewayHeaders } from "../utils/gatewayHeaders.js";
 
 const machines = new Hono();
 
@@ -27,8 +28,13 @@ machines.get("/", async (c) => {
   if (stale) {
     console.log("Data is stale, triggering refresh...");
     try {
-      await refreshMachines();
-      console.log("Refresh completed successfully");
+      if (machineCache.get()) {
+        void refreshMachines();
+        console.log("Serving stale snapshot while refresh runs in background");
+      } else {
+        await refreshMachines();
+        console.log("Initial refresh completed successfully");
+      }
     } catch (error) {
       console.error("Failed to refresh data:", error);
     }
@@ -108,10 +114,10 @@ machines.post("/:id/start", async (c) => {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
+      headers: gatewayHeaders(c, {
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+      }),
       body: JSON.stringify(body),
     });
 
@@ -148,10 +154,10 @@ machines.post("/:id/stop", async (c) => {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
+      headers: gatewayHeaders(c, {
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+      }),
     });
 
     if (!response.ok) {
@@ -187,9 +193,9 @@ machines.get("/:id/event", async (c) => {
 
     const response = await fetch(url, {
       method: "GET",
-      headers: {
+      headers: gatewayHeaders(c, {
         Accept: "application/json",
-      },
+      }),
     });
 
     if (!response.ok) {

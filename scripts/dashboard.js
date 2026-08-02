@@ -6,7 +6,8 @@ class DashboardAPI {
       ? window.API_CONFIG.getBaseUrl()
       : "http://localhost:3000";
     this.isLoading = false;
-    this.lastETag = null;
+    this.lastSummaryETag = null;
+    this.lastTransactionsETag = null;
   }
 
   async fetchWithTimeout(url, options = {}, timeout = 300000) {
@@ -48,8 +49,8 @@ class DashboardAPI {
         "cache-control": "no-cache",
         ...Auth.getAuthHeaders(),
       };
-      if (this.lastETag) {
-        headers["If-None-Match"] = this.lastETag;
+      if (this.lastSummaryETag) {
+        headers["If-None-Match"] = this.lastSummaryETag;
       }
 
       const response = await this.fetchWithTimeout(url, { headers });
@@ -71,7 +72,7 @@ class DashboardAPI {
       // Update ETag from response
       const newETag = response.headers.get("ETag");
       if (newETag) {
-        this.lastETag = newETag;
+        this.lastSummaryETag = newETag;
       }
 
       console.log("✅ Transaction summary received:", data);
@@ -99,8 +100,8 @@ class DashboardAPI {
         "cache-control": "no-cache",
         ...Auth.getAuthHeaders(),
       };
-      if (this.lastETag) {
-        headers["If-None-Match"] = this.lastETag;
+      if (this.lastTransactionsETag) {
+        headers["If-None-Match"] = this.lastTransactionsETag;
       }
 
       const response = await this.fetchWithTimeout(url, { headers });
@@ -120,7 +121,7 @@ class DashboardAPI {
       // Update ETag from response
       const newETag = response.headers.get("ETag");
       if (newETag) {
-        this.lastETag = newETag;
+        this.lastTransactionsETag = newETag;
       }
 
       console.log(

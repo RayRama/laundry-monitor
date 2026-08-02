@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { config } from "../config.js";
 import { fetchWithTimeout } from "../utils/fetch.js";
+import { gatewayHeaders } from "../utils/gatewayHeaders.js";
 
 const employees = new Hono();
 
@@ -31,10 +32,10 @@ employees.get("/", async (c) => {
     // Forward request to event gateway
     const response = await fetchWithTimeout(url, 10000, {
       method: "GET",
-      headers: {
+      headers: gatewayHeaders(c, {
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+      }),
     });
 
     if (!response.ok) {
@@ -78,4 +79,3 @@ employees.get("/", async (c) => {
 });
 
 export default employees;
-

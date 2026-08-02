@@ -9,8 +9,10 @@ async function fetchEventsLeaderboard(params: {
   filter?: string;
   startDate?: string;
   endDate?: string;
+  authorization?: string;
+  cookie?: string;
 }): Promise<any> {
-  const { filter, startDate, endDate } = params;
+  const { filter, startDate, endDate, authorization, cookie } = params;
 
   const eventGatewayBase =
     config.eventGateway?.base ||
@@ -33,11 +35,12 @@ async function fetchEventsLeaderboard(params: {
   console.log(`📊 Fetching events leaderboard from: ${url}`);
 
   try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (authorization) headers.Authorization = authorization;
+    if (cookie) headers.Cookie = cookie;
     const response = await fetchWithTimeout(url, 15000, {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -66,6 +69,8 @@ export async function generateEventsLeaderboard(params: {
   filter?: string;
   startDate?: string;
   endDate?: string;
+  authorization?: string;
+  cookie?: string;
 }): Promise<{
   success: boolean;
   data: {
@@ -88,11 +93,23 @@ export async function generateEventsLeaderboard(params: {
 }> {
   console.log("📊 Generating events leaderboard via gateway...");
 
-  const { filter = "today", startDate, endDate } = params;
+  const {
+    filter = "today",
+    startDate,
+    endDate,
+    authorization,
+    cookie,
+  } = params;
 
   try {
     // Fetch from analytics leaderboard route (already includes transactions merge)
-    const eventsData = await fetchEventsLeaderboard({ filter, startDate, endDate });
+    const eventsData = await fetchEventsLeaderboard({
+      filter,
+      startDate,
+      endDate,
+      authorization,
+      cookie,
+    });
 
     if (!eventsData.success || !eventsData.data?.leaderboard) {
       throw new Error("Invalid events data from event gateway");
@@ -120,7 +137,7 @@ export async function generateEventsLeaderboard(params: {
     });
 
     // Sort by total (descending) - gateway should already sort, but ensure it
-    mergedLeaderboard.sort((a, b) => b.total - a.total);
+    mergedLeaderboard.sort((a: any, b: any) => b.total - a.total);
 
     console.log(
       `✅ Events leaderboard generated: ${mergedLeaderboard.length} machines`
