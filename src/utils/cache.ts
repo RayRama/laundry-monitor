@@ -25,8 +25,16 @@ let lastEventsLeaderboardSuccessTime: number | null = null;
 // Machine snapshot
 export const machineCache = {
   get: () => machineSnapshot,
+  // `set` only stores a snapshot - it does NOT mean the refresh succeeded.
+  // machineService writes here on its error path too (re-marking the existing
+  // snapshot as stale), so folding the success timestamp into `set` recorded
+  // every upstream failure as a success. That is what made the X-Last-Success
+  // header report a time at which no upstream call had actually succeeded.
+  // Call markSuccess() explicitly on the success path instead.
   set: (snapshot: MachineSnapshot) => {
     machineSnapshot = snapshot;
+  },
+  markSuccess: () => {
     lastMachineSuccessTime = Date.now();
   },
   getLastSuccessTime: () => lastMachineSuccessTime,

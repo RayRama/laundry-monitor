@@ -20,6 +20,11 @@ export const config = {
   },
   refresh: {
     interval: 180000, // 3 menit
-    staleThreshold: 2 * 60 * 1000, // 2 menit
+    // 15s, was 2 menit. Vercel serverless holds one in-memory snapshot per warm
+    // lambda, so a 2-minute window pinned whatever Smartlink happened to return
+    // on that instance's last refresh - including a blank-record OFFLINE - and
+    // different instances served visibly different data for the same request.
+    // The Next.js prod stack (whoooshlab-laundry-frontend) uses 5s.
+    staleThreshold: 15 * 1000,
   },
 } as const;

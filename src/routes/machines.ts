@@ -28,13 +28,14 @@ machines.get("/", async (c) => {
   if (stale) {
     console.log("Data is stale, triggering refresh...");
     try {
-      if (machineCache.get()) {
-        void refreshMachines();
-        console.log("Serving stale snapshot while refresh runs in background");
-      } else {
-        await refreshMachines();
-        console.log("Initial refresh completed successfully");
-      }
+      // Always await. On Vercel the lambda is frozen the instant the response
+      // is sent, so `void refreshMachines()` routinely never completed: the
+      // stale snapshot stayed pinned on that instance and the next request
+      // fired another background refresh that was frozen in turn. Awaiting
+      // costs one upstream round-trip on the single request per staleThreshold
+      // that finds the data stale.
+      await refreshMachines();
+      console.log("Refresh completed before serving");
     } catch (error) {
       console.error("Failed to refresh data:", error);
     }
@@ -78,7 +79,9 @@ machines.get("/", async (c) => {
     : null;
 
   c.header("ETag", currentETag);
-  c.header("X-Data-Stale", stale.toString());
+  // Recomputed, not the pre-refresh `stale` - the refresh above is awaited now,
+  // so the value captured before it ran no longer describes what is served.
+  c.header("X-Data-Stale", isDataStale().toString());
   c.header("X-Last-Success", lastSuccess || "");
 
   // Add screen size info to response

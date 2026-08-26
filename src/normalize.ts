@@ -25,6 +25,31 @@ const previousDeviceStates: Map<
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /**
+ * True when Smartlink handed us a *blank placeholder* snap_report_device instead
+ * of a real one: every field zeroed (`id:""`, `ver:0`, `ol:false`, `ssid:""`,
+ * `ip:""`, `rssi:0`). A real record always carries a populated `id` and `ver:100`.
+ *
+ * This is NOT an offline machine. `ol` is a field *of the snapshot record*, not
+ * a device state, so a blank record reports `ol:false` for a perfectly healthy
+ * machine. Measured 2026-08-26 against live prod (12 polls of list_snap_mesin at
+ * 2.5s, 24 machines, 288 samples): every single `ol=false` was a blank record —
+ * correlation 100%, a populated record never once reported `ol=false` — and the
+ * blanking flaps hard (D07 blank 3/12, D09 7/12, D02 9/12, D11 9/12). Cross-
+ * checking detail_snap_mesin returned `ol:true, ver:100` for six of the nine
+ * machines the list endpoint had just called offline.
+ *
+ * Same class of bug as the `aid` one fixed 2026-07-23: reading Smartlink
+ * bookkeeping as a device signal. Callers must verify a blank record against
+ * detail_snap_mesin before classifying OFFLINE — see machineService.
+ */
+export function isBlankDeviceRecord(device: any): boolean {
+  if (!device || typeof device !== "object") return true;
+  const id = String(device.id ?? "").trim();
+  const ver = Number(device.ver ?? 0);
+  return id === "" && ver === 0;
+}
+
+/**
  * True when Smartlink time-left (`tl`) is a usable RUNNING/elapsed signal:
  * positive, with a sane duration, and not exceeding it.
  */
@@ -124,13 +149,22 @@ function classifyNewWithReason(
     pow: device?.pow ?? null,
   };
 
-  // OFFLINE: device.ol = false
+  // OFFLINE: device.ol = false.
+  //
+  // Only trustworthy on a *populated* record. machineService replaces blank
+  // placeholder records with detail_snap_mesin data before calling normalize, so
+  // anything still blank here was blank in BOTH endpoints and is genuinely down.
+  // See isBlankDeviceRecord above for why a raw `!ol` check is not enough.
   if (!ol) {
+    const blankRecord = isBlankDeviceRecord(device);
     return {
       status: "OFFLINE",
-      reason: "device.ol = false",
+      reason: blankRecord
+        ? "blank record in list + detail (device down)"
+        : "device.ol = false",
       details: {
         ol_was_false: true,
+        blank_record: blankRecord,
         raw_data: rawData,
       },
     };

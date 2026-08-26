@@ -31,6 +31,29 @@ BEARER_TOKEN=your_bearer_token_here
 UPSTREAM_TIMEOUT_MS=10000
 ```
 
+
+### Device snapshot safety net (optional but recommended)
+
+```bash
+# Shared secret for POST {EVENT_GATEWAY_BASE}/api/monitoring/device-snapshot.
+# Must match MONITOR_INGEST_SECRET on laundry-monitor-gateway.
+MONITOR_INGEST_SECRET=<same value as the gateway>
+```
+
+Smartlink randomly answers `list_snap_mesin` and `detail_snap_mesin` with a blank
+placeholder `snap_report_device` — every field zeroed, `ol:false` included — for
+machines that are perfectly healthy. Measured 2026-08-26 over five minutes: 16 of
+24 machines hit a blank episode in BOTH endpoints at once, episodes ran up to 60
+seconds, and not one machine in the outlet was actually offline.
+
+Vercel gives each request a fresh lambda, so the monitor cannot remember the last
+good record on its own. With this secret set it pushes good records to the gateway
+each refresh and holds a machine at its last known state (with the countdown still
+advancing) for up to 5 minutes while Smartlink is blank, instead of showing OFFLINE.
+
+Without the secret the monitor still runs — it falls back to cross-checking blanks
+against `detail_snap_mesin` only, which clears most but not all false OFFLINE.
+
 ## API Endpoints Structure
 
 With the new `UPSTREAM_BASE` configuration, the following endpoints are constructed:

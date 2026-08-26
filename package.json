@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/server.ts"
+    "dev": "tsx src/server.ts",
+    "test:blank-record": "tsx tests/blank-record-classification.ts",
+    "test:blank-record-repair": "tsx tests/blank-record-repair.integration.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.12.0",
