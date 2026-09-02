@@ -141,6 +141,50 @@ class DashboardAPI {
       throw error;
     }
   }
+
+  /**
+   * Satu panggilan berisi KPI, rollup grafik, dan `rows` baris teratas.
+   *
+   * Menggantikan pola lama getTransactions({limit: "max"}) yang menarik seluruh
+   * baris periode -- puluhan ribu, belasan megabyte -- hanya untuk diagregasi
+   * di browser lalu dibuang semuanya kecuali 100 baris teratas.
+   */
+  async getAnalytics({ tanggalAwal, tanggalAkhir, rows = 100 }) {
+    const params = new URLSearchParams({
+      tanggal_awal: tanggalAwal,
+      tanggal_akhir: tanggalAkhir,
+      rows: String(rows),
+    });
+    const url = `${this.apiBase}/api/transactions/analytics?${params}`;
+
+    console.log("📊 Fetching analytics:", url);
+
+    try {
+      const response = await this.fetchWithTimeout(url, {
+        headers: { "cache-control": "no-cache", ...Auth.getAuthHeaders() },
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(
+        `✅ Analytics: ${data.data?.kpi?.tx || 0} transaksi, ` +
+          `${data.data?.rows?.length || 0} baris tabel, ` +
+          `MV s/d ${data.meta?.covered_through}`
+      );
+      return data.data;
+    } catch (error) {
+      console.error("❌ Error fetching analytics:", error);
+      if (error.name === "TimeoutError") {
+        throw new Error(
+          "Waktu tunggu habis saat mengambil ringkasan. Silakan coba lagi atau periksa koneksi internet Anda."
+        );
+      }
+      throw error;
+    }
+  }
 }
 
 // Dashboard Data Manager
@@ -149,8 +193,9 @@ class DashboardDataManager {
     this.api = new DashboardAPI();
     this.rawData = [];
     this.filteredData = [];
-    this.weeklyData = []; // Data untuk grafik mingguan (selalu minggu ini)
-    this.monthlyData = []; // Data untuk grafik bulanan (selalu bulan ini)
+    this.analytics = null; // Agregat periode aktif dari server
+    this.weeklyAnalytics = null; // Agregat untuk grafik mingguan (selalu minggu ini)
+    this.monthlyAnalytics = null; // Agregat untuk grafik bulanan (selalu bulan ini)
     this.summary = null;
     const currentDate = this.getCurrentDate();
     this.currentFilter = {
@@ -414,79 +459,63 @@ class DashboardDataManager {
     return false;
   }
 
+  /**
+   * Muat agregat periode aktif plus baris untuk tabel, dalam satu panggilan.
+   *
+   * Versi lama menarik SELURUH baris periode (`limit: "999999"`), menormalkan
+   * puluhan ribu objek Date, menyalinnya ke filteredData, lalu menyerahkannya ke
+   * renderer yang menjumlahkan semuanya di browser -- padahal tabelnya cuma
+   * menampilkan 100 baris teratas. Sekarang penjumlahan ada di Postgres di atas
+   * mv_tx_facts, dan yang dikirim tinggal ringkasannya.
+   */
   async loadData() {
     console.time('⏱️ [Dashboard] Total Load Time');
     this.setLoading(true);
 
-
-
     try {
-      const isToday = this.isFilteringToday();
-      let actualLimit = "100"; // Default fallback
-      
-      // Only fetch summary for today's filter
-      if (isToday) {
-        // PER USER REQUEST: Disable summary call for today filter to avoid cache issues
-        // Directly use high limit to fetch all data
-        console.log("⏭️ Skipping summary call for today filter (User Request) - using limit fallback");
-        actualLimit = "999999"; 
-      } else {
-        console.log("⏭️ Skipping summary call (past date filter) - will fetch all data from database");
-        // For past dates, don't set limit - database will fetch all matching records
-        // Backend will skip LIMIT clause for better performance
-        actualLimit = null; // No limit for database queries
+      const range = this.getCurrentFilterDateRange();
+      if (!range || !range.tanggalAwal || !range.tanggalAkhir) {
+        throw new Error("Rentang tanggal filter tidak valid");
       }
 
-      // 2. Fetch Transactions with ACTUAL LIMIT
-      const transactionParams = this.buildTransactionParams();
-      
-      // Override limit if "max" is selected OR if no limit (database query)
-      if (this.currentFilter.limit === "max" || actualLimit === null) {
-         if (actualLimit !== null) {
-           transactionParams.limit = actualLimit;
-           console.log(`📊 Using ACTUAL limit from summary: ${actualLimit}`);
-         } else {
-           // For database queries, use very large limit to skip LIMIT clause
-           transactionParams.limit = "999999";
-           console.log(`📊 Using unlimited fetch from database`);
-         }
-      }
+      console.time('⏱️ [Dashboard] API Call - Analytics');
+      const analytics = await this.api.getAnalytics({
+        tanggalAwal: range.tanggalAwal,
+        tanggalAkhir: range.tanggalAkhir,
+        rows: 100, // Sama dengan jumlah yang benar-benar dirender renderTable()
+      });
+      console.timeEnd('⏱️ [Dashboard] API Call - Analytics');
 
-      console.time('⏱️ [Dashboard] API Call - Transactions');
-      const transactionData = await this.api.getTransactions(transactionParams);
-      console.timeEnd('⏱️ [Dashboard] API Call - Transactions');
+      this.analytics = analytics;
+      // Baris tabel sudah dipotong di server; normalizeData hanya menambahkan
+      // `dt` dan mengurutkan, biayanya sekarang atas 100 baris, bukan 80.000.
+      this.rawData = this.normalizeData(
+        // Alias ke nama lama supaya normalizeData dan renderTable tidak perlu
+        // tahu bentuk payload endpoint yang baru.
+        (analytics?.rows || []).map((row) => ({
+          ...row,
+          idtransaksi: row.id_transaction,
+          waktu_diterima_raw: row.occurred_at,
+          total_harga: row.total_amount,
+        }))
+      );
+      this.filteredData = [...this.rawData];
 
-      // Handle Transaction Data
-      if (transactionData) {
-        console.log(`📊 Data received: ${transactionData.data?.length || 0} records, ${JSON.stringify(transactionData).length} bytes`);
-        
-        console.time('⏱️ [Dashboard] Normalize Data');
-        this.rawData = this.normalizeData(transactionData.data || []);
-        console.timeEnd('⏱️ [Dashboard] Normalize Data');
-        
-        console.time('⏱️ [Dashboard] Copy to Filtered');
-        this.filteredData = [...this.rawData];
-        console.timeEnd('⏱️ [Dashboard] Copy to Filtered');
-
-        // Update Total Nota from transaction count if we have data and it's 'today' logic
-        if (isToday) {
-             const count = this.rawData.length; // Use rawData length which is normalized
-             this.setTotalNota(count);
-             console.log(`📊 Updated total nota from transaction count: ${count}`);
-        }
-      }
+      // Total nota kini datang dari agregat, bukan dari panjang array baris --
+      // array itu sengaja dipotong 100, jadi memakai panjangnya akan salah.
+      this.setTotalNota(analytics?.kpi?.tx || 0);
 
       console.log("✅ Data loaded successfully:", {
-        summary: this.summary,
-        transactions: this.rawData.length,
-        totalNota: this.getTotalNota(),
-        summaryUpdated: isToday, // Summary only fetched for today
-        transactionsUpdated: !!transactionData,
+        transaksi: analytics?.kpi?.tx || 0,
+        omzet: analytics?.kpi?.omzet || 0,
+        barisTabel: this.rawData.length,
+        hariAktif: analytics?.kpi?.hari_aktif || 0,
       });
 
       return {
         summary: this.summary,
         transactions: this.rawData,
+        analytics,
       };
     } catch (error) {
       console.error("❌ Failed to load data:", error);
@@ -497,7 +526,6 @@ class DashboardDataManager {
       console.timeEnd('⏱️ [Dashboard] Total Load Time');
     }
   }
-
 
   async loadWeeklyData(useFilter = false) {
     console.time('⏱️ [Dashboard] Load Weekly Data');
@@ -512,7 +540,6 @@ class DashboardDataManager {
           tanggalAwal = dateRange.tanggalAwal;
           tanggalAkhir = dateRange.tanggalAkhir;
         } else {
-          // Fallback if no filter range
           tanggalAwal = this.getWeekStartDate();
           tanggalAkhir = this.getCurrentDate();
         }
@@ -521,35 +548,20 @@ class DashboardDataManager {
         tanggalAkhir = this.getCurrentDate();
       }
 
-      // Prepare params for fetch
-      // Skip summary call - use large limit for database
-      const actualLimit = "10000"; // Database is fast for past dates
-
-      const params = {
-        filter_by: "periode",
-        tanggal_awal: tanggalAwal,
-        tanggal_akhir: tanggalAkhir,
-        offset: "0",
-        limit: actualLimit // Use ACTUAL limit
-      };
-
-      console.log(`📥 Fetching weekly data (Limit: ${actualLimit})...`);
-      
-      console.time('⏱️ [Dashboard] API Call - Weekly');
-      const transactionData = await this.api.getTransactions(params);
-      console.timeEnd('⏱️ [Dashboard] API Call - Weekly');
-
-      if (transactionData) {
-        this.weeklyData = this.normalizeData(transactionData.data || []);
-        console.log(
-          "✅ Weekly data loaded:",
-          this.weeklyData.length,
-          "records"
-        );
-      }
+      // rows: 0 -- grafik mingguan hanya butuh agregat harian, tidak butuh baris.
+      this.weeklyAnalytics = await this.api.getAnalytics({
+        tanggalAwal,
+        tanggalAkhir,
+        rows: 0,
+      });
+      console.log(
+        "✅ Weekly analytics loaded:",
+        this.weeklyAnalytics?.daily?.length || 0,
+        "hari"
+      );
     } catch (error) {
       console.error("❌ Failed to load weekly data:", error);
-      this.weeklyData = [];
+      this.weeklyAnalytics = null;
     } finally {
       console.timeEnd('⏱️ [Dashboard] Load Weekly Data');
     }
@@ -575,35 +587,19 @@ class DashboardDataManager {
         tanggalAkhir = this.getCurrentDate();
       }
 
-      // Prepare params for fetch
-      // Skip summary call - use large limit for database
-      const actualLimit = "25000"; // Database is fast for past dates
-
-      const params = {
-        filter_by: "periode",
-        tanggal_awal: tanggalAwal,
-        tanggal_akhir: tanggalAkhir,
-        offset: "0",
-        limit: actualLimit // Use ACTUAL limit
-      };
-
-      console.log(`📥 Fetching monthly data (Limit: ${actualLimit})...`);
-
-      console.time('⏱️ [Dashboard] API Call - Monthly');
-      const transactionData = await this.api.getTransactions(params);
-      console.timeEnd('⏱️ [Dashboard] API Call - Monthly');
-
-      if (transactionData) {
-        this.monthlyData = this.normalizeData(transactionData.data || []);
-        console.log(
-          "✅ Monthly data loaded:",
-          this.monthlyData.length,
-          "records"
-        );
-      }
+      this.monthlyAnalytics = await this.api.getAnalytics({
+        tanggalAwal,
+        tanggalAkhir,
+        rows: 0,
+      });
+      console.log(
+        "✅ Monthly analytics loaded:",
+        this.monthlyAnalytics?.daily?.length || 0,
+        "hari"
+      );
     } catch (error) {
       console.error("❌ Failed to load monthly data:", error);
-      this.monthlyData = [];
+      this.monthlyAnalytics = null;
     } finally {
       console.timeEnd('⏱️ [Dashboard] Load Monthly Data');
     }
@@ -897,546 +893,75 @@ class DashboardDataManager {
     return "Filter tidak dikenal";
   }
 
-  async enrichTransactionsWithDetails(
-    transactions,
-    progressCallback = null,
-    abortSignal = null
-  ) {
-    const ids = transactions.map((t) => t.idtransaksi).filter((id) => id);
-
-    if (ids.length === 0) {
-      return transactions;
+  /**
+   * Unduh export dari server: satu ZIP berisi 5 CSV.
+   *
+   * Menggantikan exportExcel() lama, yang lebih dulu memanggil
+   * /api/transactions/batch-details untuk SETIAP id transaksi pada periode
+   * (80k id dalam satu POST: mget Redis + WHERE id = ANY($1) + parse jsonb di
+   * dalam request path), lalu menyusun lima lembar xlsx di browser. Itu sumber
+   * "nunggu proses"-nya, bukan penulisan filenya.
+   *
+   * Sekarang kolom mesin dan nama layanan sudah dipipihkan di mv_tx_facts saat
+   * refresh harian, jadi server tinggal menuang isinya. Tidak ada enrichment,
+   * tidak ada antrean, tidak ada file yang di-generate lebih dulu.
+   */
+  async downloadExport(abortSignal = null) {
+    const range = this.getCurrentFilterDateRange();
+    if (!range || !range.tanggalAwal || !range.tanggalAkhir) {
+      throw new Error("Rentang tanggal tidak valid untuk export");
     }
 
-    try {
-      if (progressCallback) {
-        progressCallback(
-          "Mengambil detail transaksi (mesin & layanan)...",
-          0,
-          ids.length,
-          "Memulai fetch batch..."
-        );
-      }
+    const params = new URLSearchParams({
+      tanggal_awal: range.tanggalAwal,
+      tanggal_akhir: range.tanggalAkhir,
+    });
 
-      // Calculate batch count and time estimates
-      const batchCount = Math.ceil(ids.length / 50);
-      // Estimate: ~1 second per batch (50 transactions)
-      const estimatedSeconds = batchCount * 1;
-      const estimatedMinutes = Math.floor(estimatedSeconds / 60);
-      const estimatedSecondsRemainder = estimatedSeconds % 60;
-      const timeEstimate =
-        estimatedMinutes > 0
-          ? `Estimasi waktu: ~${estimatedMinutes}m ${Math.round(
-              estimatedSecondsRemainder
-            )}s`
-          : `Estimasi waktu: ~${Math.round(estimatedSeconds)}s`;
+    const response = await fetch(
+      `${this.api.apiBase}/api/transactions/export?${params}`,
+      { headers: Auth.getAuthHeaders(), signal: abortSignal }
+    );
 
-      // Start progress simulation with interval timer
-      let progressInterval = null;
-      const startTime = Date.now();
-      let currentProgress = 0;
-
-      if (progressCallback) {
-        progressCallback(
-          `Memproses ${ids.length} transaksi dalam batch...`,
-          0,
-          ids.length,
-          timeEstimate
-        );
-
-        // Update progress every 500ms based on elapsed time
-        progressInterval = setInterval(() => {
-          const elapsed = (Date.now() - startTime) / 1000; // seconds
-          // Estimate progress: assume linear progress over estimated time
-          // Use 80% of estimated time to account for variability and show progress faster
-          const estimatedTotalTime = Math.max(estimatedSeconds * 0.8, 1); // At least 1 second
-          const progressRatio = Math.min(elapsed / estimatedTotalTime, 0.95); // Cap at 95% until done
-          currentProgress = Math.min(
-            Math.floor(progressRatio * ids.length),
-            ids.length
-          );
-
-          const elapsedMinutes = Math.floor(elapsed / 60);
-          const elapsedSeconds = Math.floor(elapsed % 60);
-          const elapsedTime =
-            elapsedMinutes > 0
-              ? `${elapsedMinutes}m ${elapsedSeconds}s`
-              : `${elapsedSeconds}s`;
-
-          const batchProgress = Math.floor(
-            (currentProgress / ids.length) * batchCount
-          );
-          progressCallback(
-            `Memproses ${ids.length} transaksi dalam batch...`,
-            currentProgress,
-            ids.length,
-            `Batch ${batchProgress}/${batchCount} • ${currentProgress} dari ${ids.length} (${elapsedTime})`
-          );
-        }, 500); // Update every 500ms
-      }
-
-      // Fetch batch details from API with increased timeout
-      // For large batches, we need more time
-      // Add buffer: multiply by 2 for safety
-      const timeoutMs = Math.max(120000, estimatedSeconds * 2000); // Min 120s (2 minutes), or 2s per batch
-
-      // Use provided abort signal or create new one
-      let controller = null;
-      let timeoutId = null;
-
-      if (abortSignal) {
-        // Use provided abort signal
-        controller = { signal: abortSignal };
-      } else {
-        // Create new abort controller for timeout
-        controller = new AbortController();
-        timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      }
-
+    if (!response.ok) {
+      let detail = "";
       try {
-        // Check if already aborted
-        if (abortSignal?.aborted) {
-          throw new Error("Export dibatalkan");
-        }
-
-        const response = await fetch(
-          `${this.api.apiBase}/api/transactions/batch-details`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...Auth.getAuthHeaders(),
-            },
-            body: JSON.stringify({ ids }),
-            signal: abortSignal || controller.signal,
-          }
-        );
-
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        // Stop progress interval
-        if (progressInterval) {
-          clearInterval(progressInterval);
-        }
-
-        // Check if aborted
-        if (abortSignal?.aborted) {
-          throw new Error("Export dibatalkan");
-        }
-
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
-        }
-
-        const result = await response.json();
-        const detailsMap = new Map(
-          (result.data || []).map((d) => [d.idtransaksi, d])
-        );
-
-        // Count successful vs failed
-        const successful =
-          result.data?.filter(
-            (d) => d.mesin !== null || d.nama_layanan !== null
-          ).length || 0;
-        const failed = result.data?.filter((d) => d.error).length || 0;
-
-        if (progressCallback) {
-          // Final update with actual count
-          progressCallback(
-            "Detail transaksi berhasil diambil",
-            ids.length,
-            ids.length,
-            `${ids.length} dari ${
-              ids.length
-            } detail terambil (${successful} berhasil${
-              failed > 0 ? `, ${failed} gagal` : ""
-            })`
-          );
-        }
-
-        // Merge details with transactions
-        return transactions.map((t) => {
-          const detail = detailsMap.get(t.idtransaksi);
-          return {
-            ...t,
-            mesin: detail?.mesin || "-",
-            nama_layanan: detail?.nama_layanan || "-",
-          };
-        });
-      } catch (fetchError) {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        // Stop progress interval on error
-        if (progressInterval) {
-          clearInterval(progressInterval);
-        }
-
-        // Check if cancelled by user
-        if (abortSignal?.aborted || fetchError.name === "AbortError") {
-          if (fetchError.message?.includes("dibatalkan")) {
-            throw fetchError;
-          }
-          throw new Error("Export dibatalkan");
-        }
-
-        if (fetchError.message?.includes("Timeout")) {
-          throw new Error(
-            `Timeout: Proses terlalu lama untuk ${ids.length} transaksi. Silakan coba dengan periode yang lebih kecil.`
-          );
-        }
-        throw fetchError;
+        const body = await response.json();
+        detail = body?.message || body?.error || "";
+      } catch (_) {
+        // Respons non-JSON: pesan status saja sudah cukup.
       }
-    } catch (error) {
-      // Re-throw cancellation errors
-      if (
-        error.message?.includes("dibatalkan") ||
-        error.message?.includes("Export dibatalkan")
-      ) {
-        throw error;
-      }
-      console.error("Error enriching transactions:", error);
-      // Return original transactions if enrichment fails
-      return transactions.map((t) => ({
-        ...t,
-        mesin: "-",
-        nama_layanan: "-",
-      }));
-    }
-  }
-
-  async exportExcel(renderer, progressCallback = null, abortSignal = null) {
-    if (!window.XLSX) {
-      throw new Error("SheetJS library tidak dimuat");
-    }
-
-    // Check if aborted before starting
-    if (abortSignal?.aborted) {
-      throw new Error("Export dibatalkan");
-    }
-
-    const transactions = this.filteredData || [];
-    const summary = this.summary;
-    const stats = renderer.computeStats(transactions);
-
-    // Fetch transaction details with progress
-    if (progressCallback) {
-      progressCallback(
-        "Mengambil detail transaksi (mesin & layanan)...",
-        0,
-        transactions.length
+      throw new Error(
+        `Export gagal (${response.status})${detail ? `: ${detail}` : ""}`
       );
     }
 
-    const enrichedTransactions = await this.enrichTransactionsWithDetails(
-      transactions,
-      progressCallback,
-      abortSignal
-    );
+    // Nama file datang dari Content-Disposition supaya penamaan hanya ada di
+    // satu tempat, di server, dan tidak ikut menyimpang kalau formatnya diubah.
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename =
+      (match && match[1]) ||
+      `Transaksi_${range.tanggalAwal}_sd_${range.tanggalAkhir}.zip`;
 
-    // Check if aborted after enrichment
-    if (abortSignal?.aborted) {
-      throw new Error("Export dibatalkan");
-    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    // Objek URL menahan blob di memori sampai dilepas; 8 MB tidak besar, tapi
+    // beberapa export berturut-turut tanpa ini akan menumpuk.
+    URL.revokeObjectURL(url);
 
-    if (progressCallback) {
-      progressCallback(
-        "Menyusun data Excel...",
-        transactions.length,
-        transactions.length
-      );
-    }
-
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-
-    // Helper function to format date
-    const formatDate = (date) => {
-      if (!date) return "-";
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return "-";
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
+    return {
+      filename,
+      rows: Number(response.headers.get("X-Export-Rows") || 0),
+      durationMs: Number(response.headers.get("X-Export-Duration-Ms") || 0),
+      coveredThrough: response.headers.get("X-Mv-Covered-Through"),
+      size: blob.size,
     };
-
-    // Helper function to format time
-    const formatTime = (date) => {
-      if (!date) return "-";
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return "-";
-      const hours = String(d.getHours()).padStart(2, "0");
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      return `${hours}:${minutes}`;
-    };
-
-    // Helper function to get day name
-    const getDayName = (date) => {
-      if (!date) return "-";
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return "-";
-      const days = [
-        "Minggu",
-        "Senin",
-        "Selasa",
-        "Rabu",
-        "Kamis",
-        "Jumat",
-        "Sabtu",
-      ];
-      return days[d.getDay()];
-    };
-
-    // Helper function to get month name
-    const getMonthName = (date) => {
-      if (!date) return "-";
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return "-";
-      const months = [
-        "Januari",
-        "Februari",
-        "Maret",
-        "April",
-        "Mei",
-        "Juni",
-        "Juli",
-        "Agustus",
-        "September",
-        "Oktober",
-        "November",
-        "Desember",
-      ];
-      return months[d.getMonth()];
-    };
-
-    // Helper function to determine shift
-    const getShift = (date) => {
-      if (!date) return "-";
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return "-";
-      const hour = d.getHours();
-      const minutes = d.getMinutes();
-      const totalMinutes = hour * 60 + minutes;
-
-      if (totalMinutes >= 360 && totalMinutes <= 840) {
-        // 06:00 - 14:00
-        return "Shift 1";
-      } else if (totalMinutes >= 841 && totalMinutes <= 1319) {
-        // 14:01 - 21:59
-        return "Shift 2";
-      } else {
-        // 22:00 - 05:59
-        return "Shift 3";
-      }
-    };
-
-    // Helper function to format IDR
-    const formatIDR = (amount) => {
-      return new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        maximumFractionDigits: 0,
-      }).format(amount);
-    };
-
-    // Sheet 1: Transaksi Detail
-    const detailData = enrichedTransactions.map((r) => {
-      const time = r.dt ? new Date(r.dt) : null;
-      const paid = +r.status_lunas === 1;
-      const done = +r.status_selesai === 2;
-
-      return {
-        Tanggal: formatDate(time),
-        Jam: formatTime(time),
-        "ID Transaksi": r.idtransaksi || "-",
-        "Jenis Transaksi": r.jenis_transaksi_formated || "-",
-        "Nama Customer": r.nama_customer || "-",
-        Mesin: r.mesin || "-",
-        "Nama Layanan": r.nama_layanan || "-",
-        Nominal: r.total_harga || 0,
-        "Status Paid": paid ? "Ya" : "Tidak",
-        "Status Selesai": done ? "Selesai" : "Proses",
-        Shift: getShift(time),
-        Hari: getDayName(time),
-        Bulan: getMonthName(time),
-        Tahun: time ? time.getFullYear() : "-",
-      };
-    });
-
-    const wsDetail = XLSX.utils.json_to_sheet(detailData);
-    XLSX.utils.book_append_sheet(wb, wsDetail, "Transaksi Detail");
-
-    // Sheet 2: Summary
-    const dateRange = this.getFilterDescription();
-    const exportDate = new Date().toLocaleString("id-ID");
-    const paidRate = stats.tx ? (stats.paid / stats.tx) * 100 : 0;
-
-    const summaryData = [
-      { Metrik: "Total Omzet (IDR)", Nilai: stats.rev },
-      { Metrik: "Total Transaksi", Nilai: stats.tx },
-      { Metrik: "AOV (Average Order Value) (IDR)", Nilai: stats.aov },
-      { Metrik: "Paid Rate (%)", Nilai: paidRate },
-      { Metrik: "Jumlah Paid", Nilai: stats.paid },
-      { Metrik: "Jumlah Selesai", Nilai: stats.finished },
-      { Metrik: "Omzet per Hari (IDR)", Nilai: stats.perday },
-      { Metrik: "Pertumbuhan d/d", Nilai: stats.growthText || "-" },
-      { Metrik: "Periode Filter", Nilai: dateRange },
-      { Metrik: "Tanggal Export", Nilai: exportDate },
-    ];
-
-    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
-
-    // Sheet 3: Transaksi per Shift
-    const shiftMap = new Map();
-    transactions.forEach((r) => {
-      const time = r.dt ? new Date(r.dt) : null;
-      if (!time) return;
-
-      const shift = getShift(time);
-      const dateStr = formatDate(time);
-
-      const key = `${dateStr}_${shift}`;
-      if (!shiftMap.has(key)) {
-        shiftMap.set(key, {
-          Tanggal: dateStr,
-          Shift: shift,
-          "Waktu Shift":
-            shift === "Shift 1"
-              ? "06:00-14:00"
-              : shift === "Shift 2"
-              ? "14:01-21:59"
-              : "22:00-05:59",
-          "Jumlah Transaksi": 0,
-          "Total Omzet": 0,
-          "Rata-rata per Transaksi": 0,
-        });
-      }
-
-      const shiftData = shiftMap.get(key);
-      shiftData["Jumlah Transaksi"] += 1;
-      shiftData["Total Omzet"] += r.total_harga || 0;
-    });
-
-    // Calculate average (keep as number for Excel calculation)
-    shiftMap.forEach((data) => {
-      data["Rata-rata per Transaksi"] =
-        data["Jumlah Transaksi"] > 0
-          ? data["Total Omzet"] / data["Jumlah Transaksi"]
-          : 0;
-    });
-
-    const shiftData = Array.from(shiftMap.values()).sort((a, b) => {
-      const dateA = new Date(a.Tanggal.split("/").reverse().join("-"));
-      const dateB = new Date(b.Tanggal.split("/").reverse().join("-"));
-      if (dateA.getTime() !== dateB.getTime()) {
-        return dateA - dateB;
-      }
-      const shiftOrder = { "Shift 1": 1, "Shift 2": 2, "Shift 3": 3 };
-      return (shiftOrder[a.Shift] || 0) - (shiftOrder[b.Shift] || 0);
-    });
-
-    const wsShift = XLSX.utils.json_to_sheet(shiftData);
-    XLSX.utils.book_append_sheet(wb, wsShift, "Transaksi per Shift");
-
-    // Sheet 4: Omzet Harian
-    const dailyMap = new Map();
-    transactions.forEach((r) => {
-      if (!r.dt) return;
-      const dateStr = formatDate(r.dt);
-
-      if (!dailyMap.has(dateStr)) {
-        dailyMap.set(dateStr, {
-          Tanggal: dateStr,
-          Omzet: 0,
-          "Jumlah Transaksi": 0,
-          AOV: 0,
-        });
-      }
-
-      const dailyData = dailyMap.get(dateStr);
-      dailyData.Omzet += r.total_harga || 0;
-      dailyData["Jumlah Transaksi"] += 1;
-    });
-
-    // Calculate AOV (keep as number for Excel calculation)
-    dailyMap.forEach((data) => {
-      data.AOV =
-        data["Jumlah Transaksi"] > 0
-          ? data.Omzet / data["Jumlah Transaksi"]
-          : 0;
-    });
-
-    const dailyData = Array.from(dailyMap.values()).sort((a, b) => {
-      const dateA = new Date(a.Tanggal.split("/").reverse().join("-"));
-      const dateB = new Date(b.Tanggal.split("/").reverse().join("-"));
-      return dateA - dateB;
-    });
-
-    const wsDaily = XLSX.utils.json_to_sheet(dailyData);
-    XLSX.utils.book_append_sheet(wb, wsDaily, "Omzet Harian");
-
-    // Sheet 5: Transaksi per Jam
-    const hourlyMap = new Map();
-    transactions.forEach((r) => {
-      if (!r.dt) return;
-      const d = new Date(r.dt);
-      const hour = d.getHours();
-
-      if (!hourlyMap.has(hour)) {
-        hourlyMap.set(hour, {
-          Jam: `${String(hour).padStart(2, "0")}:00`,
-          "Jumlah Transaksi": 0,
-          "Total Omzet": 0,
-        });
-      }
-
-      const hourlyData = hourlyMap.get(hour);
-      hourlyData["Jumlah Transaksi"] += 1;
-      hourlyData["Total Omzet"] += r.total_harga || 0;
-    });
-
-    const hourlyData = Array.from(hourlyMap.values()).sort((a, b) => {
-      const hourA = parseInt(a.Jam.split(":")[0]);
-      const hourB = parseInt(b.Jam.split(":")[0]);
-      return hourA - hourB;
-    });
-
-    const wsHourly = XLSX.utils.json_to_sheet(hourlyData);
-    XLSX.utils.book_append_sheet(wb, wsHourly, "Transaksi per Jam");
-
-    // Generate filename
-    const filterDesc = this.getFilterDescription().replace(
-      /[^a-zA-Z0-9]/g,
-      "_"
-    );
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const filename = `Dashboard_Export_${filterDesc}_${timestamp}.xlsx`;
-
-    if (progressCallback) {
-      progressCallback(
-        "Menyimpan file Excel...",
-        enrichedTransactions.length,
-        enrichedTransactions.length,
-        "Hampir selesai..."
-      );
-    }
-
-    // Write file
-    XLSX.writeFile(wb, filename);
-
-    if (progressCallback) {
-      progressCallback(
-        "Export selesai!",
-        enrichedTransactions.length,
-        enrichedTransactions.length,
-        "File berhasil dibuat"
-      );
-    }
-
-    console.log("✅ Excel file exported:", filename);
   }
 }
 
@@ -1461,7 +986,8 @@ class DashboardRenderer {
   }
 
   renderKPIs(data) {
-    const stats = this.computeStats(data.transactions);
+    const stats = this.computeStats(data.analytics);
+    const kpi = data.analytics?.kpi || {};
 
     document.getElementById("kpi-revenue").textContent = this.IDR.format(
       stats.rev
@@ -1472,27 +998,34 @@ class DashboardRenderer {
     document.getElementById("kpi-tx").textContent =
       stats.tx.toLocaleString("id-ID");
 
-    // Date range
+    // Rentang tanggal datang dari agregat server (min/max atas SELURUH periode),
+    // bukan dari baris yang kebetulan terkirim. Versi lama menghitungnya dari
+    // array transaksi, yang kini hanya berisi 100 baris teratas -- membacanya
+    // dari situ akan menampilkan rentang yang jauh lebih sempit dari kenyataan.
     let rangeTxt = "Semua data";
-    if (data.transactions.length) {
-      const minD = new Date(
-        Math.min(...data.transactions.map((r) => (r.dt ? +r.dt : Infinity)))
-      );
-      const maxD = new Date(
-        Math.max(...data.transactions.map((r) => (r.dt ? +r.dt : -Infinity)))
-      );
-      rangeTxt = `${this.DTF.format(minD)} – ${this.DTF.format(maxD)}`;
+    if (kpi.dari && kpi.sampai) {
+      const toLocal = (iso) => {
+        const [y, m, d] = String(iso).split("-").map(Number);
+        return new Date(y, (m || 1) - 1, d || 1);
+      };
+      rangeTxt = `${this.DTF.format(toLocal(kpi.dari))} – ${this.DTF.format(
+        toLocal(kpi.sampai)
+      )}`;
     }
     document.getElementById("kpi-date-range").textContent = rangeTxt;
 
-    // Paid rate
-    const paidRate = stats.tx ? (stats.paid / stats.tx) * 100 : 0;
-    const finishedRate = stats.tx ? (stats.finished / stats.tx) * 100 : 0;
-    document.getElementById("kpi-paid").textContent = paidRate.toFixed(1) + "%";
-    document.getElementById("kpi-paid-pill").textContent = stats.paid + " paid";
-    document.getElementById("kpi-finished").textContent = `Finish ${
-      stats.finished
-    } (${finishedRate.toFixed(1)}%)`;
+    // Mesin teraktif. Menggantikan Paid Rate, yang bersumber dari
+    // transaction_details.status_lunas -- tabel yang tidak lagi dibaca. Untuk
+    // laundry prabayar nilainya praktis selalu 1, jadi KPI-nya macet di 100%.
+    const topMachine = (data.analytics?.machines || [])[0];
+    document.getElementById("kpi-top-machine").textContent = topMachine
+      ? topMachine.machine_label || topMachine.machine_id
+      : "–";
+    document.getElementById("kpi-top-machine-sub").textContent = topMachine
+      ? `${topMachine.tx.toLocaleString("id-ID")} transaksi · ${this.IDR.format(
+          topMachine.omzet
+        )}`
+      : "–";
 
     // Per day
     document.getElementById("kpi-perday").textContent = this.IDR.format(
@@ -1514,31 +1047,30 @@ class DashboardRenderer {
     }
   }
 
-  computeStats(rows) {
-    const tx = rows.length;
-    const rev = rows.reduce((a, b) => a + (b.total_harga || 0), 0);
-    const aov = tx ? rev / tx : 0;
-    const paid = rows.filter((r) => +r.status_lunas === 1).length;
-    const finished = rows.filter((r) => +r.status_selesai === 2).length;
-
-    // Daily
-    const byDayMap = new Map();
-    rows.forEach((r) => {
-      if (!r.dt) return;
-      // Use local timezone instead of UTC
-      const year = r.dt.getFullYear();
-      const month = String(r.dt.getMonth() + 1).padStart(2, "0");
-      const day = String(r.dt.getDate()).padStart(2, "0");
-      const d = `${year}-${month}-${day}`;
-
-      const cur = byDayMap.get(d) || { date: d, rev: 0, tx: 0 };
-      cur.rev += r.total_harga || 0;
-      cur.tx += 1;
-      byDayMap.set(d, cur);
-    });
-    const byDay = Array.from(byDayMap.values()).sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
+  /**
+   * Bentuk statistik untuk seluruh renderer grafik, dari payload
+   * /api/transactions/analytics.
+   *
+   * Dulu fungsi ini menerima array baris mentah dan mengagregasi 80k di antaranya
+   * di browser -- padahal renderTable() cuma memakai 100 baris teratas, sisanya
+   * ditarik lewat jaringan hanya untuk dijumlahkan lalu dibuang. Sekarang
+   * penjumlahannya di Postgres, dan yang tersisa di sini hanya pembentukan
+   * label: pengelompokan minggu/bulan dan matriks heatmap.
+   *
+   * Susunan objek yang dikembalikan SENGAJA dipertahankan persis seperti versi
+   * lama (byDay, byWeek, byMonth, byHour, bucketCounts, heat, days, ...) supaya
+   * tidak ada satu pun renderChart* yang perlu diubah.
+   */
+  computeStats(analytics) {
+    const kpi = analytics?.kpi || {};
+    const tx = Number(kpi.tx || 0);
+    const rev = Number(kpi.omzet || 0);
+    const aov = Number(kpi.aov || 0);
+    const byDay = (analytics?.daily || []).map((d) => ({
+      date: d.tanggal,
+      rev: Number(d.omzet || 0),
+      tx: Number(d.tx || 0),
+    }));
 
     // Growth
     let growthText = "–";
@@ -1551,7 +1083,7 @@ class DashboardRenderer {
       )}% vs hari sebelumnya`;
     }
 
-    const perday = byDay.length ? rev / byDay.length : 0;
+    const perday = Number(kpi.omzet_per_hari || 0);
 
     // Hourly
     const byHour = Array.from({ length: 24 }, (_, h) => ({
@@ -1559,26 +1091,27 @@ class DashboardRenderer {
       tx: 0,
       rev: 0,
     }));
-    rows.forEach((r) => {
-      if (!r.dt) return;
-      const h = r.dt.getHours();
-      byHour[h].tx += 1;
-      byHour[h].rev += r.total_harga || 0;
+    (analytics?.hourly || []).forEach((h) => {
+      const idx = Number(h.jam);
+      if (idx >= 0 && idx < 24) {
+        byHour[idx].tx = Number(h.tx || 0);
+        byHour[idx].rev = Number(h.omzet || 0);
+      }
     });
 
-    // Ticket buckets
-    const buckets = [
-      { label: "<= 5k", min: 0, max: 5000 },
-      { label: "5k–10k", min: 5001, max: 10000 },
-      { label: "10k–15k", min: 10001, max: 15000 },
-      { label: "> 15k", min: 15001, max: 1e12 },
-    ];
-    const bucketCounts = buckets.map((b) => ({
-      label: b.label,
-      count: rows.filter(
-        (r) => (r.total_harga || 0) >= b.min && (r.total_harga || 0) <= b.max
-      ).length,
-    }));
+    // Ticket buckets — ambang batasnya kini di SQL, urutannya dipertahankan.
+    const bucketCounts =
+      analytics?.buckets && analytics.buckets.length
+        ? analytics.buckets.map((b) => ({
+            label: b.label,
+            count: Number(b.count || 0),
+          }))
+        : [
+            { label: "<= 5k", count: 0 },
+            { label: "5k–10k", count: 0 },
+            { label: "10k–15k", count: 0 },
+            { label: "> 15k", count: 0 },
+          ];
 
     // Heat map
     const days = [
@@ -1590,15 +1123,23 @@ class DashboardRenderer {
       "Jumat",
       "Sabtu",
     ];
-    const heat = Array.from({ length: 7 }, (_, i) =>
+    const heat = Array.from({ length: 7 }, () =>
       Array.from({ length: 24 }, () => 0)
     );
-    rows.forEach((r) => {
-      if (!r.dt) return;
-      const day = r.dt.getDay();
-      const hour = r.dt.getHours();
-      heat[day][hour] += 1;
+    (analytics?.heat || []).forEach((cell) => {
+      const dow = Number(cell.dow);
+      const jam = Number(cell.jam);
+      if (dow >= 0 && dow < 7 && jam >= 0 && jam < 24) {
+        heat[dow][jam] = Number(cell.tx || 0);
+      }
     });
+
+    // "YYYY-MM-DD" diurai manual, bukan lewat new Date(string): bentuk itu
+    // ditafsirkan sebagai UTC dan menggeser tanggal satu hari di WIB.
+    const parseLocalDate = (iso) => {
+      const [y, m, d] = String(iso).split("-").map(Number);
+      return new Date(y, (m || 1) - 1, d || 1);
+    };
 
     // Weekly aggregation
     // When filtering by month, use month-based weeks (1-7, 8-14, etc.) instead of ISO weeks
@@ -1608,41 +1149,38 @@ class DashboardRenderer {
     const filterMonth = currentFilter?.bulan ? parseInt(currentFilter.bulan.split('-')[1]) : null;
     const filterYear = currentFilter?.bulan ? parseInt(currentFilter.bulan.split('-')[0]) : null;
     const useMonthBasedWeeks = filterMonth && filterYear; // Use month-based weeks when filtering by month
-    
-    rows.forEach((r) => {
-      if (!r.dt) return;
-      const date = new Date(r.dt);
-      
+
+    byDay.forEach((point) => {
+      const date = parseLocalDate(point.date);
+
       let weekStart, weekKey, weekLabel;
-      
+
       if (useMonthBasedWeeks) {
         // Month-based weeks: group by week within the month (1-7, 8-14, 15-21, 22-28, 29+)
         const transactionMonth = date.getMonth() + 1;
         const transactionYear = date.getFullYear();
-        
+
         // Only include transactions from the filtered month
         if (transactionMonth !== filterMonth || transactionYear !== filterYear) {
           return; // Skip transactions outside filtered month
         }
-        
+
         // Calculate week number within month (1-based)
         const dayOfMonth = date.getDate();
         const weekOfMonth = Math.ceil(dayOfMonth / 7);
-        
+
         // Week start is the first day of this week within the month
         const weekStartDay = (weekOfMonth - 1) * 7 + 1;
         weekStart = new Date(transactionYear, transactionMonth - 1, weekStartDay);
         weekKey = `${transactionYear}-${String(transactionMonth).padStart(2, '0')}-W${weekOfMonth}`;
-        
-        // Generate custom label for month-based weeks
+
         // Calculate week end day (last day of this week or last day of month, whichever is earlier)
         const weekEndDay = Math.min(weekStartDay + 6, new Date(transactionYear, transactionMonth, 0).getDate());
-        const weekEnd = new Date(transactionYear, transactionMonth - 1, weekEndDay);
-        
+
         // Format: "1-7 Jan" or "8-14 Jan"
         const monthName = weekStart.toLocaleDateString('id-ID', { month: 'short' });
         const customLabel = `${weekStartDay}-${weekEndDay} ${monthName}`;
-        
+
         weekLabel = `Minggu ke ${weekOfMonth} (${customLabel})`;
       } else {
         // ISO weeks: use standard Monday-based weeks
@@ -1658,19 +1196,17 @@ class DashboardRenderer {
         weekLabel: weekLabel,
         weekStart: weekStart, // Store weekStart for filtering
       };
-      cur.rev += r.total_harga || 0;
-      cur.tx += 1;
+      cur.rev += point.rev;
+      cur.tx += point.tx;
       byWeekMap.set(weekKey, cur);
     });
-    
-    // Sort by date (no additional filtering needed for month-based weeks)
+
     const byWeek = Array.from(byWeekMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     // Monthly aggregation
     const byMonthMap = new Map();
-    rows.forEach((r) => {
-      if (!r.dt) return;
-      const date = new Date(r.dt);
+    byDay.forEach((point) => {
+      const date = parseLocalDate(point.date);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       const monthKey = `${year}-${String(month).padStart(2, "0")}`;
@@ -1685,8 +1221,8 @@ class DashboardRenderer {
         tx: 0,
         monthLabel: monthLabel,
       };
-      cur.rev += r.total_harga || 0;
-      cur.tx += 1;
+      cur.rev += point.rev;
+      cur.tx += point.tx;
       byMonthMap.set(monthKey, cur);
     });
     const byMonth = Array.from(byMonthMap.values()).sort((a, b) =>
@@ -1697,8 +1233,6 @@ class DashboardRenderer {
       tx,
       rev,
       aov,
-      paid,
-      finished,
       byDay,
       byWeek,
       byMonth,
@@ -1713,7 +1247,7 @@ class DashboardRenderer {
 
   renderLoading() {
     // Show skeleton/loading state for KPIs
-    const kpiIds = ["kpi-revenue", "kpi-tx", "kpi-aov", "kpi-paid", "kpi-finished", "kpi-perday", "kpi-growth"];
+    const kpiIds = ["kpi-revenue", "kpi-tx", "kpi-aov", "kpi-top-machine", "kpi-top-machine-sub", "kpi-perday", "kpi-growth"];
     kpiIds.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '<div class="h-6 w-24 bg-slate-200 animate-pulse rounded"></div>';
@@ -1750,7 +1284,7 @@ class DashboardRenderer {
     // Clear table body
     const tableBody = document.getElementById("txBody");
     if (tableBody) {
-      tableBody.innerHTML = '<tr><td colspan="8" class="text-center p-8 text-slate-500">Memuat data transaksi...</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="6" class="text-center p-8 text-slate-500">Memuat data transaksi...</td></tr>';
     }
     
     // Clear heat map
@@ -1761,7 +1295,7 @@ class DashboardRenderer {
   }
 
   renderCharts(data) {
-    const stats = this.computeStats(data.transactions);
+    const stats = this.computeStats(data.analytics);
 
     // Use main data for daily charts
     this.renderDailyChart(stats);
@@ -1771,12 +1305,12 @@ class DashboardRenderer {
     this.renderTransactionDailyChart(stats);
 
     // Use weekly data for weekly charts (always shows current week)
-    const weeklyStats = this.computeStats(this.dataManager.weeklyData);
+    const weeklyStats = this.computeStats(this.dataManager.weeklyAnalytics);
     this.renderWeeklyChart(weeklyStats);
     this.renderTransactionWeeklyChart(weeklyStats);
 
     // Use monthly data for monthly charts (always shows current month)
-    const monthlyStats = this.computeStats(this.dataManager.monthlyData);
+    const monthlyStats = this.computeStats(this.dataManager.monthlyAnalytics);
     this.renderMonthlyRevenueChart(monthlyStats);
     this.renderTransactionMonthlyChart(monthlyStats);
   }
@@ -2329,32 +1863,24 @@ class DashboardRenderer {
     body.innerHTML = rows
       .slice(0, 100) // Ambil 100 data terbaru (sudah terurut dari API)
       .map((r) => {
-        const paid = +r.status_lunas === 1;
-        const done = +r.status_selesai === 2;
         const time = r.dt ? new Date(r.dt) : null;
         const d = time ? time.toLocaleDateString("id-ID") : "-";
         const h = time
           ? this.pad2(time.getHours()) + ":" + this.pad2(time.getMinutes())
           : "-";
+        // Kolom Jenis/Customer/Paid/Selesai dicabut bersama transaction_details;
+        // dua yang pertama memang sudah selalu kosong. Mesin menggantikannya --
+        // machine_id sudah ada di `transactions` sejak awal, dan gateway
+        // mengirim labelnya ("D05") supaya tidak perlu peta id di sini.
         return `<tr>
         <td>${d}</td>
         <td>${h}</td>
         <td class="font-mono text-xs">${r.idtransaksi || "-"}</td>
-        <td>${r.jenis_transaksi_formated || "–"}</td>
-        <td>${r.nama_customer || "–"}</td>
+        <td>${r.machine_label || r.machine_id || "–"}</td>
+        <td>${r.outlet_name || "–"}</td>
         <td class="text-right font-semibold">${this.IDR.format(
           r.total_harga || 0
         )}</td>
-        <td>${
-          paid
-            ? '<span class="pill pill-green">Ya</span>'
-            : '<span class="pill pill-red">Tidak</span>'
-        }</td>
-        <td>${
-          done
-            ? '<span class="pill pill-green">Selesai</span>'
-            : '<span class="pill pill-amber">Proses</span>'
-        }</td>
       </tr>`;
       })
       .join("");
@@ -2617,9 +2143,11 @@ class DashboardController {
         });
 
       // 2. Reuse data for secondary contexts
-      console.log("♻️ Reusing main data for strict weekly/monthly context");
-      this.dataManager.weeklyData = [...mainData.transactions];
-      this.dataManager.monthlyData = [...mainData.transactions];
+      // STRICT MODE: periode grafik mingguan/bulanan sama dengan periode utama,
+      // jadi agregatnya dipakai ulang alih-alih memanggil endpoint dua kali.
+      console.log("♻️ Reusing main analytics for strict weekly/monthly context");
+      this.dataManager.weeklyAnalytics = mainData.analytics;
+      this.dataManager.monthlyAnalytics = mainData.analytics;
 
       // 3. Render Everything
       console.log("🎨 Rendering all views...");
@@ -2658,10 +2186,6 @@ class DashboardController {
     const progressText = document.getElementById("exportProgressText");
     const progressDetail = document.getElementById("exportProgressDetail");
     const progressBar = document.getElementById("exportProgressBar");
-    const totalTransactionsEl = document.getElementById(
-      "exportTotalTransactions"
-    );
-    const detailsFetchedEl = document.getElementById("exportDetailsFetched");
 
     // AbortController untuk membatalkan export
     let exportAbortController = null;
@@ -2723,22 +2247,16 @@ class DashboardController {
         if (progressBar) {
           progressBar.style.width = `${percentage}%`;
         }
-        if (totalTransactionsEl) {
-          totalTransactionsEl.textContent = total;
-        }
-        if (detailsFetchedEl) {
-          detailsFetchedEl.textContent = current;
-        }
       };
 
-      // Initial progress
-      updateProgress("Mempersiapkan data...", 0, 0);
+      // Modal progres dipertahankan karena membangun ZIP untuk rentang panjang
+      // masih memakan waktu satu-dua detik, dan tombol batal tetap berguna.
+      // Yang hilang adalah progres per-transaksi: tidak ada lagi 80k detail
+      // yang diambil satu per satu, jadi tidak ada yang bisa dihitung mundur.
+      updateProgress("Menyiapkan file di server...", 0, 0);
 
-      // Export with progress updates and abort controller
       exportAbortController = new AbortController();
-      await this.dataManager.exportExcel(
-        this.renderer,
-        updateProgress,
+      const result = await this.dataManager.downloadExport(
         exportAbortController.signal
       );
 
@@ -2746,7 +2264,16 @@ class DashboardController {
         return; // Don't proceed if cancelled
       }
 
-      // Hide progress modal
+      updateProgress(
+        "Export selesai",
+        1,
+        1,
+        `${result.rows.toLocaleString("id-ID")} transaksi, ${Math.round(
+          result.size / 1024
+        ).toLocaleString("id-ID")} KB, ${result.durationMs} ms`
+      );
+      console.log("✅ Export ZIP terunduh:", result.filename, result);
+
       cleanup();
     } catch (error) {
       if (isCancelled || error.message?.includes("dibatalkan")) {
@@ -2765,7 +2292,7 @@ class DashboardController {
         error.name !== "AbortError" &&
         !error.message?.includes("dibatalkan")
       ) {
-        alert("Gagal mengekspor data ke Excel. Silakan coba lagi.");
+        alert(`Gagal mengekspor data: ${error.message || "Silakan coba lagi."}`);
       }
     }
   }

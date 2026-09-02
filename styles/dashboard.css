@@ -662,3 +662,17 @@ body {
   font-weight: 700;
   color: #111827;
 }
+/* Daftar isi ZIP export, ditampilkan di modal saat file sedang disiapkan.
+   Menggantikan statistik "Detail Terambil" yang dulu mencacah pengambilan
+   detail per transaksi lewat /batch-details -- proses yang sudah tidak ada. */
+.export-file-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+.export-file-list li {
+  list-style: decimal;
+}
