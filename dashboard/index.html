@@ -12,7 +12,6 @@
     />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/styles/dashboard.css" />
   </head>
   <body class="h-full">
@@ -85,7 +84,7 @@
             <button
               id="exportExcel"
               class="btn btn-secondary export-btn text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
-              title="Export ke Excel"
+              title="Export data transaksi (ZIP berisi 5 file CSV)"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -95,7 +94,7 @@
               >
                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
               </svg>
-              <span class="hidden sm:inline">Export Excel</span>
+              <span class="hidden sm:inline">Export CSV</span>
             </button>
 
             <!-- Refresh Button -->
@@ -239,13 +238,18 @@
           <div id="kpi-tx" class="value">–</div>
           <div id="kpi-date-range" class="sub">–</div>
         </div>
+        <!--
+          Menggantikan kartu "Paid Rate". Paid rate bersumber dari
+          transaction_details.status_lunas, dan tabel itu tidak lagi dibaca:
+          isinya hampir seluruhnya kosong, nol, atau duplikat kolom yang sudah
+          ada di `transactions`. Untuk laundry prabayar, status_lunas praktis
+          selalu 1 -- sebuah KPI yang macet di 100% tidak memberi tahu apa pun.
+          Mesin teraktif diturunkan dari machine_id yang memang sudah tersimpan.
+        -->
         <div class="card p-5 kpi">
-          <div class="label">Paid Rate</div>
-          <div class="flex items-center gap-2">
-            <div id="kpi-paid" class="value">–</div>
-            <span class="pill pill-green" id="kpi-paid-pill">–</span>
-          </div>
-          <div class="sub">Selesai <span id="kpi-finished">–</span></div>
+          <div class="label">Mesin Teraktif</div>
+          <div id="kpi-top-machine" class="value">–</div>
+          <div id="kpi-top-machine-sub" class="sub">–</div>
         </div>
         <div class="card p-5 kpi">
           <div class="label">Omzet per Hari</div>
@@ -388,14 +392,21 @@
           <table class="table">
             <thead>
               <tr>
+                <!--
+                  "Jenis" dan "Customer" dicabut karena sumbernya di payload
+                  SmartLink memang kosong: nama_konsumen string kosong, dan
+                  jenis hanya kode angka tanpa tabel lookup. Keduanya sudah
+                  tampil kosong sebelum perubahan ini.
+                  "Paid" dan "Selesai" ikut dicabut bersama transaction_details.
+                  "Mesin" ditambahkan -- datanya sudah ada di transactions
+                  sejak awal, tapi tidak pernah ditampilkan.
+                -->
                 <th>Tanggal</th>
                 <th>Jam</th>
                 <th>ID Transaksi</th>
-                <th>Jenis</th>
-                <th>Customer</th>
+                <th>Mesin</th>
+                <th>Outlet</th>
                 <th>Nominal</th>
-                <th>Paid</th>
-                <th>Selesai</th>
               </tr>
             </thead>
             <tbody id="txBody"></tbody>
@@ -542,16 +553,16 @@
     <div id="exportProgressModal" class="modal-overlay" style="display: none">
       <div class="modal-content" style="max-width: 500px">
         <div class="modal-header">
-          <h3>Mengekspor Data ke Excel</h3>
+          <h3>Menyiapkan File Export</h3>
         </div>
         <div class="modal-body">
           <div class="export-progress-container">
             <div class="progress-info">
               <p id="exportProgressText" class="progress-text">
-                Memuat data transaksi...
+                Menyiapkan file di server...
               </p>
               <p id="exportProgressDetail" class="progress-detail">
-                0 dari 0 transaksi
+                ZIP berisi 5 file CSV
               </p>
             </div>
             <div class="progress-bar-container">
@@ -561,16 +572,21 @@
                 style="width: 0%"
               ></div>
             </div>
-            <div class="progress-stats">
-              <div class="stat-item">
-                <span class="stat-label">Total Transaksi:</span>
-                <span id="exportTotalTransactions" class="stat-value">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Detail Terambil:</span>
-                <span id="exportDetailsFetched" class="stat-value">0</span>
-              </div>
-            </div>
+            <!--
+              Statistik "Total Transaksi / Detail Terambil" dihapus: keduanya
+              menghitung progres pengambilan detail per transaksi lewat
+              /batch-details, yang sudah tidak ada. Server sekarang menuang
+              isi mv_tx_facts sekaligus, jadi tidak ada yang bisa dicacah.
+              Ringkasan hasil (jumlah baris, ukuran, durasi) muncul di
+              #exportProgressDetail setelah file selesai.
+            -->
+            <ol class="export-file-list">
+              <li>1-transaksi-detail.csv — satu baris per transaksi</li>
+              <li>2-summary.csv — omzet, AOV, paid rate</li>
+              <li>3-transaksi-per-shift.csv</li>
+              <li>4-omzet-harian.csv</li>
+              <li>5-transaksi-per-jam.csv</li>
+            </ol>
           </div>
         </div>
         <div class="modal-footer">
