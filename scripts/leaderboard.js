@@ -310,6 +310,12 @@ class LeaderboardDataManager {
     switch (filterBy) {
       case "hari_ini":
         return { tanggalAwal: today, tanggalAkhir: today };
+      case "kemarin": {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayText = this.formatLocalDate(yesterday);
+        return { tanggalAwal: yesterdayText, tanggalAkhir: yesterdayText };
+      }
       case "minggu_ini": {
         return {
           tanggalAwal: this.formatLocalDate(this.getWeekStartDate(now)),
@@ -754,12 +760,14 @@ class LeaderboardRenderer {
     let rangeText = "";
     if (filterBy === "hari_ini") {
       rangeText = "Hari Ini";
+    } else if (filterBy === "kemarin") {
+      rangeText = `D-1 / Kemarin: ${this.formatDateRange(resolvedRange)}`;
     } else if (filterBy === "minggu_ini") {
       rangeText = "Minggu Ini";
     } else if (filterBy === "minggu_lalu") {
-      rangeText = `Minggu Lalu: ${this.formatDateRange(resolvedRange)}`;
+      rangeText = `W-1 / Minggu Lalu: ${this.formatDateRange(resolvedRange)}`;
     } else if (filterBy === "bulan_lalu") {
-      rangeText = `Bulan Lalu: ${this.formatDateRange(resolvedRange)}`;
+      rangeText = `M-1 / Bulan Lalu: ${this.formatDateRange(resolvedRange)}`;
     } else if (filterBy === "periode") {
       // Calculate duration
       let durationStr = "";
