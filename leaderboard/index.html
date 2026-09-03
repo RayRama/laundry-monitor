@@ -116,9 +116,12 @@
             <label for="filterBy">Filter Data</label>
             <select id="filterBy" class="filter-select">
               <option value="hari_ini">Hari Ini</option>
+              <option value="kemarin">D-1 (Kemarin)</option>
               <option value="minggu_ini" selected>Minggu Ini</option>
+              <option value="minggu_lalu">W-1 (Minggu Lalu)</option>
+              <option value="bulan_lalu">M-1 (Bulan Lalu)</option>
               <option value="bulan">Bulan</option>
-              <option value="periode">Periode</option>
+              <option value="periode">Custom Tanggal</option>
               <option value="tahun">Tahun</option>
             </select>
           </div>
@@ -134,7 +137,7 @@
           </div>
 
           <div class="filter-group" id="periodeGroup" style="display: none">
-            <label for="tanggalAwal">Tanggal Awal</label>
+            <label for="tanggalAwal">Dari Tanggal</label>
             <input
               type="date"
               id="tanggalAwal"
@@ -144,7 +147,7 @@
           </div>
 
           <div class="filter-group" id="periodeGroup2" style="display: none">
-            <label for="tanggalAkhir">Tanggal Akhir</label>
+            <label for="tanggalAkhir">Sampai Tanggal</label>
             <input type="date" id="tanggalAkhir" class="filter-input" />
           </div>
 
